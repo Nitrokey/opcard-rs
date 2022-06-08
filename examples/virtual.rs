@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Nitrokey GmbH
+// SPDX-License-Identifier: CC0-1.0
+
 // To use this, make sure that you have vpcd from vsmartcard installed and configured (e. g.
 // install vsmartcard-vpcd on Debian).  You might have to restart your pcscd, e. g.
 // `systemctl restart pcscd pcscd.socket`.

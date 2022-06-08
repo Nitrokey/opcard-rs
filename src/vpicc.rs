@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Nitrokey GmbH
+// SPDX-License-Identifier: LGPL-3.0-only
+
 use iso7816::{command::FromSliceError, Status};
 
 use crate::{backend::Backend, card::Card};
