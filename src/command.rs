@@ -1,6 +1,8 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+mod data;
+
 use iso7816::Status;
 
 use crate::card::{Context, RID};
@@ -34,6 +36,7 @@ impl Command {
     ) -> Result<(), Status> {
         match self {
             Self::Select => select(context),
+            Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
             Self::Verify(mode, password) => verify(context, *mode, *password),
             Self::ChangeReferenceData(password) => change_reference_data(context, *password),
             _ => {
@@ -222,7 +225,7 @@ impl TryFrom<u8> for ResetRetryCounterMode {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GetDataMode {
     Even,
     Odd,
@@ -285,7 +288,7 @@ impl TryFrom<u8> for Instance {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Tag(u16);
 
 impl From<(u8, u8)> for Tag {

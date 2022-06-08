@@ -43,7 +43,6 @@ fn with_vsc<F: Fn() -> R, R>(f: F) -> R {
 }
 
 #[test]
-#[ignore]
 fn gpg_card_status() {
     with_vsc(|| {
         let output = Command::new("gpg")
@@ -60,5 +59,7 @@ fn gpg_card_status() {
         println!("{}", String::from_utf8_lossy(&output.stderr));
 
         assert!(output.status.success(), "{}", output.status);
+
+        // TODO: Add assertions for output
     })
 }
