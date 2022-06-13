@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Nitrokey GmbH
+// SPDX-License-Identifier: LGPL-3.0-only
+
 //! This crate implements the [OpenPGP smart card specification v3.4][spec].
 //!
 //! [spec]: https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.4.pdf

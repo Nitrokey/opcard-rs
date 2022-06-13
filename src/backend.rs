@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Nitrokey GmbH
+// SPDX-License-Identifier: LGPL-3.0-only
+
 //! Backends providing platform-specific low-level functionality.
 //!
 //! As this crate is designed to be usable on any platform, it cannot rely on a specific data
