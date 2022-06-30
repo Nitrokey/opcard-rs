@@ -13,3 +13,6 @@ check:
 fix:
 	cargo fix --all-features
 	cargo fmt
+
+.PHONY: ci
+ci: check
