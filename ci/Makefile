@@ -1,7 +1,7 @@
 # Copyright (C) 2022 Nitrokey GmbH
 # SPDX-License-Identifier: CC0-1.0
 
-TAG := opcard-ci
+TAG := registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build
 
 .PHONY: build
 build:
