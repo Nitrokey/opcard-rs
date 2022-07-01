@@ -14,5 +14,9 @@ fix:
 	cargo fix --all-features
 	cargo fmt
 
+.PHONY: test
+test:
+	cargo test --features backend-software
+
 .PHONY: ci
-ci: check
+ci: check test
