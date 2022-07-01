@@ -3,6 +3,8 @@
 
 #![cfg(feature = "backend-software")]
 
+use std::sync::{Arc, Mutex};
+
 use iso7816::{command::FromSliceError, Command, Status};
 use openpgp_card::{
     CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
@@ -12,20 +14,20 @@ const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
 
 #[derive(Debug)]
-struct Card;
+struct Card(Arc<Mutex<opcard::Card<opcard::backend::SoftwareBackend>>>);
 
 impl Card {
     pub fn new() -> Self {
-        Self
+        let backend = opcard::backend::SoftwareBackend::default();
+        let card = opcard::Card::new(backend, opcard::Options::default());
+        Self(Arc::from(Mutex::from(card)))
     }
 }
 
 impl CardBackend for Card {
     fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync>, Error> {
-        let backend = opcard::backend::SoftwareBackend::new("/tmp/opcard");
-        let card = opcard::Card::new(backend, opcard::Options::default());
         Ok(Box::new(Transaction {
-            card,
+            card: self.0.clone(),
             buffer: heapless::Vec::new(),
         }))
     }
@@ -33,7 +35,7 @@ impl CardBackend for Card {
 
 #[derive(Debug)]
 struct Transaction {
-    card: opcard::Card<opcard::backend::SoftwareBackend>,
+    card: Arc<Mutex<opcard::Card<opcard::backend::SoftwareBackend>>>,
     buffer: heapless::Vec<u8, RESPONSE_LEN>,
 }
 
@@ -47,7 +49,8 @@ impl Transaction {
             FromSliceError::InvalidClass => Status::ClassNotSupported,
             FromSliceError::InvalidFirstBodyByteForExtended => Status::UnspecifiedCheckingError,
         })?;
-        self.card.handle(&command, &mut self.buffer)
+        let mut card = self.card.try_lock().expect("failed to lock card");
+        card.handle(&command, &mut self.buffer)
     }
 }
 

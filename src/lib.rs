@@ -12,8 +12,8 @@
 //! functionality like storing data and performing cryptographic operations.  These functions can
 //! be provided by software or hardware.  `opcard` provides these `Backend` implementations:
 //!
-//! - [`SoftwareBackend`][`backend::SoftwareBackend`] uses the filesystem to store data (requires
-//!   the `backend-software` feature).
+//! - [`SoftwareBackend`][`backend::SoftwareBackend`] uses the filesystem or memory to store data
+//!   (requires the `backend-software` feature).
 //! - [`TrussedBackend`][`backend::TrussedBackend`] uses a [Trussed](https://trussed.dev/) client
 //!   (requires the `backend-trussed` feature).
 //! - [`DummyBackend`][`backend::DummyBackend`] always panics and can be used to compile code
