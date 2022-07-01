@@ -16,7 +16,7 @@ fix:
 
 .PHONY: test
 test:
-	cargo test --features backend-software
+	RUST_LOG=info cargo test --all-features
 
 .PHONY: ci
 ci: check test
