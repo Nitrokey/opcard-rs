@@ -29,7 +29,6 @@ build:
     - docker
   stage: build
   script:
-    - sed --in-place "s#ssh://git@github.com/Nitrokey/vpicc-rs.git#https://${GITHUB_TOKEN}@github.com/Nitrokey/vpicc-rs.git#" Cargo.toml
     - make ci
   after_script:
     - wget $icon_server/checkmark/$CI_COMMIT_REF_NAME/$CI_COMMIT_SHA/$CI_JOB_NAME/$CI_JOB_STATUS/${CI_JOB_URL#*/*/*/}
