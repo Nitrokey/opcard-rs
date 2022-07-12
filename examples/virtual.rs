@@ -30,7 +30,9 @@ fn main() {
 
     let backend = opcard::backend::SoftwareBackend::new("/tmp/opcard");
     let card = opcard::Card::new(backend, opcard::Options::default());
-    let virtual_card = opcard::VirtualCard::new(card);
-    let mut vpicc = vpicc::SmartCard::with_card(virtual_card);
-    vpicc.run();
+    let mut virtual_card = opcard::VirtualCard::new(card);
+    let vpicc = vpicc::connect().expect("failed to connect to vpicc");
+    vpicc
+        .run(&mut virtual_card)
+        .expect("failed to run virtual smartcard");
 }

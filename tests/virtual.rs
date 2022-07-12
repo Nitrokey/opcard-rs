@@ -3,7 +3,7 @@
 
 #![cfg(all(feature = "backend-software", feature = "virtual"))]
 
-use std::process::Command;
+use std::{process::Command, sync::mpsc};
 
 use stoppable_thread::spawn;
 use test_log::test;
@@ -11,24 +11,30 @@ use test_log::test;
 fn with_vsc<F: Fn() -> R, R>(f: F) -> R {
     let backend = opcard::backend::SoftwareBackend::default();
     let card = opcard::Card::new(backend, opcard::Options::default());
-    let virtual_card = opcard::VirtualCard::new(card);
-    let mut vpicc = vpicc::SmartCard::with_card(virtual_card);
+    let mut virtual_card = opcard::VirtualCard::new(card);
+    let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
 
+    let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
-        let mut connection = vpicc.connect();
-        let mut cont = true;
-        while !stopped.get() && cont {
-            cont = connection.poll();
+        let mut result = Ok(());
+        while !stopped.get() && result.is_ok() {
+            result = vpicc.poll(&mut virtual_card);
+            if result.is_ok() {
+                tx.send(()).expect("failed to send message");
+            }
         }
-        connection.shutdown();
+        result
     });
 
-    // TODO: detect first communication instead of hardcoded sleep
-    std::thread::sleep(std::time::Duration::from_millis(250));
+    rx.recv().expect("failed to read message");
 
     let result = f();
 
-    handle.stop().join().expect("failed to join vpicc thread");
+    handle
+        .stop()
+        .join()
+        .expect("failed to join vpicc thread")
+        .expect("failed to run virtual smartcard");
     result
 }
 
