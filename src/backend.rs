@@ -9,6 +9,9 @@
 
 use core::fmt::Debug;
 
+#[cfg(feature = "backend-software")]
+pub mod virtual_platform;
+
 /// The available PIN types.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Pin {
@@ -18,6 +21,8 @@ pub enum Pin {
     AdminPin,
 }
 
+/// Backend that provides data storage and cryptography operations.
+/// Mostly a wrapper around a trussed client
 #[derive(Clone)]
 pub struct Backend<T: trussed::Client> {
     client: T,
@@ -31,10 +36,12 @@ impl<T: trussed::Client> Debug for Backend<T> {
 }
 
 impl<T: trussed::Client> Backend<T> {
+    /// Create new backend from a trussed client
     pub fn new(client: T) -> Self {
         Self { client }
     }
 
+    /// Checks whether the given value matches the pin of the given type.
     pub fn verify_pin(&self, _pin: Pin, _value: &[u8]) -> bool {
         todo!()
     }

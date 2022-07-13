@@ -25,14 +25,13 @@
 
 // TODO: add CLI
 
+use opcard::backend::virtual_platform::VIRTUAL_CARD;
+
 fn main() {
     env_logger::init();
 
-    let backend = opcard::backend::SoftwareBackend::new("/tmp/opcard");
-    let card = opcard::Card::new(backend, opcard::Options::default());
-    let mut virtual_card = opcard::VirtualCard::new(card);
     let vpicc = vpicc::connect().expect("failed to connect to vpicc");
     vpicc
-        .run(&mut virtual_card)
+        .run(&mut *VIRTUAL_CARD.lock().unwrap())
         .expect("failed to run virtual smartcard");
 }
