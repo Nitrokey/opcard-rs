@@ -15,18 +15,17 @@ pub const PIX_RFU: [u8; 2] = [0x00, 0x00];
 /// OpenPGP card implementation.
 ///
 /// This is the main entry point for this crate.  It takes care of the command handling and state
-/// management but requires a [`Backend`] implementation for the low-level data storage and
-/// cryptography functionality.
+/// management.
 #[derive(Clone, Debug)]
-pub struct Card<B: Backend> {
-    backend: B,
+pub struct Card<T: trussed::Client> {
+    backend: Backend<T>,
     options: Options,
     state: State,
 }
 
-impl<B: Backend> Card<B> {
+impl<T: trussed::Client> Card<T> {
     /// Creates a new OpenPGP card with the given backend and options.
-    pub fn new(backend: B, options: Options) -> Self {
+    pub fn new(backend: Backend<T>, options: Options) -> Self {
         Self {
             backend,
             options,
@@ -60,7 +59,7 @@ impl<B: Backend> Card<B> {
     }
 }
 
-impl<B: Backend> iso7816::App for Card<B> {
+impl<T: trussed::Client> iso7816::App for Card<T> {
     fn aid(&self) -> iso7816::Aid {
         // § 4.2.1
         let aid = &[
@@ -78,7 +77,7 @@ impl<B: Backend> iso7816::App for Card<B> {
 }
 
 #[cfg(feature = "apdu-dispatch")]
-impl<B: Backend, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Card<B> {
+impl<T: trussed::Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Card<T> {
     fn select(
         &mut self,
         command: &iso7816::Command<C>,
@@ -132,8 +131,8 @@ impl Default for Options {
 pub struct State {}
 
 #[derive(Debug)]
-pub struct Context<'a, const R: usize> {
-    pub backend: &'a mut dyn Backend,
+pub struct Context<'a, const R: usize, T: trussed::Client> {
+    pub backend: &'a mut Backend<T>,
     pub state: &'a mut State,
     pub data: &'a [u8],
     pub reply: &'a mut heapless::Vec<u8, R>,
