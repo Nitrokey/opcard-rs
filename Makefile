@@ -7,6 +7,7 @@ check:
 	cargo check --no-default-features
 	cargo clippy --all-features --all-targets -- --deny warnings
 	cargo fmt -- --check
+	RUSTDOCFLAGS='-Dwarnings' cargo doc --all-features --package opcard
 	reuse lint
 
 .PHONY: fix
