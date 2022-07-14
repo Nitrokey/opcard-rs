@@ -320,7 +320,10 @@ fn verify<const R: usize, T: trussed::Client>(
                     PasswordMode::Pw1Other => Pin::UserPin,
                     PasswordMode::Pw3 => Pin::AdminPin,
                 };
-                if context.backend.verify_pin(pin, context.data) {
+                if context
+                    .backend
+                    .verify_pin(pin, context.data, &mut context.state.internal)
+                {
                     Ok(())
                 } else {
                     Err(Status::VerificationFailed)

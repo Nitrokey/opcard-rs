@@ -13,9 +13,9 @@ use std::sync::Mutex;
 mod macros_gen {
     use littlefs2::const_ram_storage;
     use trussed::types::{LfsResult, LfsStorage};
-    const_ram_storage!(VolatileStorage, 1024);
-    const_ram_storage!(ExternalStorage, 1024);
-    const_ram_storage!(InternalStorage, 1024);
+    const_ram_storage!(VolatileStorage, 1024 * 10);
+    const_ram_storage!(ExternalStorage, 1024 * 10);
+    const_ram_storage!(InternalStorage, 1024 * 10);
 
     trussed::platform! {VirtualPlatform,
         R: rand_chacha::ChaCha20Rng,

@@ -9,6 +9,8 @@
 
 use core::fmt::Debug;
 
+use crate::card::state;
+
 #[cfg(feature = "backend-software")]
 pub mod virtual_platform;
 
@@ -42,7 +44,10 @@ impl<T: trussed::Client> Backend<T> {
     }
 
     /// Checks whether the given value matches the pin of the given type.
-    pub fn verify_pin(&self, _pin: Pin, _value: &[u8]) -> bool {
-        todo!()
+    pub fn verify_pin(&mut self, pin: Pin, value: &[u8], state: &mut state::Internal) -> bool {
+        match pin {
+            Pin::UserPin => state.verify_user_pin(&mut self.client, value).is_ok(),
+            Pin::AdminPin => state.verify_admin_pin(&mut self.client, value).is_ok(),
+        }
     }
 }

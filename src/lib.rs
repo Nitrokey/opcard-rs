@@ -47,6 +47,7 @@
 pub mod backend;
 mod card;
 mod command;
+mod error;
 #[cfg(feature = "virtual")]
 mod vpicc;
 

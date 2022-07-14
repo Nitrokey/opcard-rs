@@ -96,7 +96,6 @@ fn select() {
 }
 
 #[test]
-#[ignore]
 fn verify() {
     with_tx(|mut tx| {
         assert!(tx.verify_pw1_sign(b"12345678").is_err());

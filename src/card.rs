@@ -5,6 +5,8 @@ use iso7816::Status;
 
 use crate::{backend::Backend, command::Command};
 
+pub(crate) mod state;
+
 // § 4.2.1
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
 pub const PIX_APPLICATION: [u8; 1] = [0x01];
@@ -128,7 +130,9 @@ impl Default for Options {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct State {}
+pub struct State {
+    pub internal: state::Internal,
+}
 
 #[derive(Debug)]
 pub struct Context<'a, const R: usize, T: trussed::Client> {
