@@ -36,7 +36,7 @@
 //! - If the `virtual` feature is enabled, [`VirtualCard`] can be used to emulate a smart card
 //!   using [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) and `vpicc-rs`.
 
-#![cfg_attr(no_std, not(feature = "std"))]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
     missing_copy_implementations,
     missing_debug_implementations,

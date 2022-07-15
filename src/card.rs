@@ -62,18 +62,7 @@ impl<B: Backend> Card<B> {
 
 impl<B: Backend> iso7816::App for Card<B> {
     fn aid(&self) -> iso7816::Aid {
-        // § 4.2.1
-        let aid = &[
-            &RID[..],
-            &PIX_APPLICATION,
-            &self.options.version,
-            &self.options.manufacturer,
-            &self.options.serial,
-            &PIX_RFU,
-        ]
-        .concat();
-        // TODO: check truncation length
-        iso7816::Aid::new_truncatable(aid, RID.len())
+        self.options.aid()
     }
 }
 
@@ -113,6 +102,29 @@ pub struct Options {
     pub serial: [u8; 4],
 }
 
+fn copy_remainder<'b>(buf: &'b mut [u8], data: &[u8]) -> &'b mut [u8] {
+    let (left, right) = buf.split_at_mut(data.len());
+    left.copy_from_slice(data);
+    right
+}
+
+impl Options {
+    fn aid(&self) -> iso7816::Aid {
+        // § 4.2.1
+        let mut aid = [0u8; 16];
+        let rem = &mut aid;
+        let rem = copy_remainder(rem, &RID);
+        let rem = copy_remainder(rem, &PIX_APPLICATION);
+        let rem = copy_remainder(rem, &self.version);
+        let rem = copy_remainder(rem, &self.manufacturer);
+        let rem = copy_remainder(rem, &self.serial);
+        let rem = copy_remainder(rem, &PIX_RFU);
+        assert!(rem.is_empty());
+        // TODO: check truncation length
+        iso7816::Aid::new_truncatable(&aid, RID.len())
+    }
+}
+
 /// Returns an instance with the version number derived from the crate version and all-zero values
 /// otherwise.
 impl Default for Options {
@@ -137,4 +149,38 @@ pub struct Context<'a, const R: usize> {
     pub state: &'a mut State,
     pub data: &'a [u8],
     pub reply: &'a mut heapless::Vec<u8, R>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Testing the concatenation of arrays used in aid
+    #[test]
+    fn aid() {
+        assert_eq!(
+            Options::default().aid(),
+            iso7816::Aid::new_truncatable(
+                &[
+                    0xD2,
+                    0x76,
+                    0x00,
+                    0x01,
+                    0x24,
+                    0x1,
+                    env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap_or_default(),
+                    env!("CARGO_PKG_VERSION_MINOR").parse().unwrap_or_default(),
+                    0x0,
+                    0x0,
+                    0x0,
+                    0x0,
+                    0x0,
+                    0x0,
+                    0x0,
+                    0x0
+                ],
+                5
+            )
+        )
+    }
 }
