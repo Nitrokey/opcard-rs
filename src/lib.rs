@@ -30,7 +30,7 @@
 //!   VirtualCard using a Software trussed client is available at
 //!   [`backend::virtual_platform::VIRTUAL_CARD`][static@backend::virtual_platform::VIRTUAL_CARD]
 
-#![cfg_attr(no_std, not(feature = "std"))]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
     missing_copy_implementations,
     missing_debug_implementations,
