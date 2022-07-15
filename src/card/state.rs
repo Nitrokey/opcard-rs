@@ -96,7 +96,7 @@ impl Internal {
     }
 
     pub fn is_admin_locked(&self) -> bool {
-        self.user_pin_tries >= Self::MAX_RETRIES
+        self.admin_pin_tries >= Self::MAX_RETRIES
     }
 
     pub fn decrement_user_counter<T: trussed::Client>(
