@@ -46,6 +46,9 @@ impl<T: trussed::Client> Card<T> {
         log::trace!("Received APDU {:?}", command);
         let card_command = Command::try_from(command)?;
         log::info!("Executing command {:?}", card_command);
+        self.state
+            .internal
+            .load_if_not_init(self.backend.client_mut());
         let context = Context {
             backend: &mut self.backend,
             state: &mut self.state,

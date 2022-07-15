@@ -43,6 +43,11 @@ impl<T: trussed::Client> Backend<T> {
         Self { client }
     }
 
+    /// Return a mutable reference to the trussed client
+    pub fn client_mut(&mut self) -> &mut T {
+        &mut self.client
+    }
+
     /// Checks whether the given value matches the pin of the given type.
     pub fn verify_pin(&mut self, pin: Pin, value: &[u8], state: &mut state::Internal) -> bool {
         match pin {

@@ -1,6 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use crate::utils::serde_bytes_heapless;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
@@ -18,7 +19,9 @@ pub struct Internal {
     initialized: bool,
     user_pin_tries: u8,
     admin_pin_tries: u8,
+    #[serde(with = "serde_bytes_heapless")]
     user_pin: heapless::Vec<u8, MAX_PIN_LENGTH>,
+    #[serde(with = "serde_bytes_heapless")]
     admin_pin: heapless::Vec<u8, MAX_PIN_LENGTH>,
 }
 
@@ -83,19 +86,39 @@ impl Internal {
         self.initialized = true;
     }
 
+    /// # panics
+    ///
+    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
+    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn remaining_user_tries(&self) -> u8 {
+        assert!(self.initialized);
         Self::MAX_RETRIES.saturating_sub(self.user_pin_tries)
     }
 
+    /// # panics
+    ///
+    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
+    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn remaining_admin_tries(&self) -> u8 {
+        assert!(self.initialized);
         Self::MAX_RETRIES.saturating_sub(self.admin_pin_tries)
     }
 
+    /// # panics
+    ///
+    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
+    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn is_user_locked(&self) -> bool {
+        assert!(self.initialized);
         self.user_pin_tries >= Self::MAX_RETRIES
     }
 
+    /// # panics
+    ///
+    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
+    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn is_admin_locked(&self) -> bool {
+        assert!(self.initialized);
         self.admin_pin_tries >= Self::MAX_RETRIES
     }
 
