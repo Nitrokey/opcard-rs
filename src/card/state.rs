@@ -170,3 +170,19 @@ impl Internal {
         Ok(())
     }
 }
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Runtime {
+    // TODO verification of Pw1Sign can also be verified for multiple commands depending on DO C4
+    other_verified: bool,
+}
+
+impl Runtime {
+    pub fn is_other_verified(&self) -> bool {
+        self.other_verified
+    }
+
+    pub fn verify_other(&mut self) {
+        self.other_verified = true;
+    }
+}

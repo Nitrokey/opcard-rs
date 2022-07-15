@@ -95,16 +95,61 @@ fn select() {
     with_tx(|_| ());
 }
 
+fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
+    match err {
+        Ok(()) => None,
+        Err(openpgp_card::Error::CardStatus(openpgp_card::StatusBytes::PasswordNotChecked(c))) => {
+            Some(c)
+        }
+        Err(e) => panic!("Unexpected error {e}"),
+    }
+}
+
+macro_rules! assert_checks {
+    ($tx:expr, $sign:expr, $user:expr, $admin:expr) => {{
+        assert_eq!(error_to_retries($tx.check_pw1_sign()), $sign);
+        assert_eq!(error_to_retries($tx.check_pw1_user()), $user);
+        assert_eq!(error_to_retries($tx.check_pw3()), $admin);
+    }};
+}
+
 #[test]
 fn verify() {
     with_tx(|mut tx| {
+        assert_checks!(tx, Some(3), Some(3), Some(3));
         assert!(tx.verify_pw1_sign(b"12345678").is_err());
+        assert_checks!(tx, Some(2), Some(2), Some(3));
         assert!(tx.verify_pw1_sign(b"123456").is_ok());
+        assert_checks!(tx, Some(3), Some(3), Some(3));
 
         assert!(tx.verify_pw1_user(b"12345678").is_err());
+        assert_checks!(tx, Some(2), Some(2), Some(3));
         assert!(tx.verify_pw1_user(b"123456").is_ok());
+        assert_checks!(tx, Some(3), None, Some(3));
 
         assert!(tx.verify_pw3(b"123456").is_err());
+        assert_checks!(tx, Some(3), None, Some(2));
         assert!(tx.verify_pw3(b"12345678").is_ok());
+        assert_checks!(tx, Some(3), None, Some(3));
+    });
+    with_tx(|mut tx| {
+        assert!(tx.verify_pw1_sign(b"12345678").is_err());
+        assert!(tx.verify_pw1_sign(b"12345678").is_err());
+        assert!(tx.verify_pw1_sign(b"12345678").is_err());
+        assert_checks!(tx, Some(0), None, Some(3));
+        assert!(tx.verify_pw1_sign(b"12345678").is_err());
+        assert_checks!(tx, Some(0), None, Some(3));
+        assert!(tx.verify_pw1_sign(b"123456").is_err());
+        assert_checks!(tx, Some(0), None, Some(3));
+    });
+    with_tx(|mut tx| {
+        assert!(tx.verify_pw3(b"123456").is_err());
+        assert!(tx.verify_pw3(b"123456").is_err());
+        assert!(tx.verify_pw3(b"123456").is_err());
+        assert_checks!(tx, Some(0), None, Some(0));
+        assert!(tx.verify_pw3(b"123456").is_err());
+        assert_checks!(tx, Some(0), None, Some(0));
+        assert!(tx.verify_pw3(b"12345678").is_err());
+        assert_checks!(tx, Some(0), None, Some(0));
     });
 }

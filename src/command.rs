@@ -166,6 +166,12 @@ pub enum PasswordMode {
     Pw3,
 }
 
+impl PasswordMode {
+    pub fn is_other(&self) -> bool {
+        matches!(self, Self::Pw1Other)
+    }
+}
+
 impl TryFrom<u8> for PasswordMode {
     type Error = Status;
 
@@ -312,7 +318,16 @@ fn verify<const R: usize, T: trussed::Client>(
     match mode {
         VerifyMode::SetOrCheck => {
             if context.data.is_empty() {
-                unimplemented!();
+                if password.is_other() && context.state.runtime.is_other_verified() {
+                    Ok(())
+                } else {
+                    Err(Status::RemainingRetries(match password {
+                        PasswordMode::Pw1Sign | PasswordMode::Pw1Other => {
+                            context.state.internal.remaining_user_tries()
+                        }
+                        PasswordMode::Pw3 => context.state.internal.remaining_admin_tries(),
+                    }))
+                }
             } else {
                 let pin = match password {
                     PasswordMode::Pw1Sign => Pin::UserPin,
@@ -323,6 +338,9 @@ fn verify<const R: usize, T: trussed::Client>(
                     .backend
                     .verify_pin(pin, context.data, &mut context.state.internal)
                 {
+                    if password.is_other() {
+                        context.state.runtime.verify_other();
+                    }
                     Ok(())
                 } else {
                     Err(Status::VerificationFailed)

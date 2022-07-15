@@ -132,6 +132,7 @@ impl Default for Options {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
     pub internal: state::Internal,
+    pub runtime: state::Runtime,
 }
 
 #[derive(Debug)]
