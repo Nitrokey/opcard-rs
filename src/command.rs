@@ -314,7 +314,6 @@ fn verify<const R: usize, T: trussed::Client>(
             if context.data.is_empty() {
                 unimplemented!();
             } else {
-                // TODO: counter
                 let pin = match password {
                     PasswordMode::Pw1Sign => Pin::UserPin,
                     PasswordMode::Pw1Other => Pin::UserPin,
