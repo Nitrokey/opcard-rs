@@ -31,7 +31,10 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn exec<const R: usize>(&self, context: Context<'_, R>) -> Result<(), Status> {
+    pub fn exec<const R: usize, T: trussed::Client>(
+        &self,
+        context: Context<'_, R, T>,
+    ) -> Result<(), Status> {
         match self {
             Self::Select => select(context),
             Self::Verify(mode, password) => verify(context, *mode, *password),
@@ -291,7 +294,7 @@ impl<const C: usize> From<&iso7816::Command<C>> for Tag {
 }
 
 // § 7.2.1
-fn select<const R: usize>(context: Context<'_, R>) -> Result<(), Status> {
+fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
         Ok(())
     } else {
@@ -301,8 +304,8 @@ fn select<const R: usize>(context: Context<'_, R>) -> Result<(), Status> {
 }
 
 // § 7.2.2
-fn verify<const R: usize>(
-    context: Context<'_, R>,
+fn verify<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {

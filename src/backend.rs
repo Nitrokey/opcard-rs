@@ -1,42 +1,16 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-//! Backends providing platform-specific low-level functionality.
+//! Backend providing platform-specific low-level functionality.
 //!
 //! As this crate is designed to be usable on any platform, it cannot rely on a specific data
 //! storage and cryptography implementation.  Instead, a [`Card`][`crate::Card`] has to be provided
-//! with a [`Backend`] implementation that provides these operations.
-
-#[cfg(feature = "backend-software")]
-mod software;
-#[cfg(feature = "backend-trussed")]
-mod trussed;
-
-#[cfg(feature = "backend-trussed")]
-pub use self::trussed::TrussedBackend;
-#[cfg(feature = "backend-software")]
-pub use software::SoftwareBackend;
+//! with a Backend wrapping a [`trussed::Client`][trussed::Client]
 
 use core::fmt::Debug;
 
-/// A backend that provides data storage and cryptography operations.
-pub trait Backend: Debug {
-    /// Checks whether the given value matches the pin of the given type.
-    fn verify_pin(&self, pin: Pin, value: &[u8]) -> bool;
-}
-
-/// Dummy backend.
-///
-/// This backend can be used to compile code without relying on a proper [`Backend`]
-/// implementation.  All calls to its methods panic.
-#[derive(Clone, Copy, Debug)]
-pub struct DummyBackend;
-
-impl Backend for DummyBackend {
-    fn verify_pin(&self, _pin: Pin, _value: &[u8]) -> bool {
-        unreachable!();
-    }
-}
+#[cfg(feature = "backend-software")]
+pub mod virtual_platform;
 
 /// The available PIN types.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -45,4 +19,30 @@ pub enum Pin {
     UserPin,
     /// The admin PIN.
     AdminPin,
+}
+
+/// Backend that provides data storage and cryptography operations.
+/// Mostly a wrapper around a trussed client
+#[derive(Clone)]
+pub struct Backend<T: trussed::Client> {
+    client: T,
+}
+
+impl<T: trussed::Client> Debug for Backend<T> {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let Self { client: _client } = self;
+        fmt.debug_struct("Backend").finish()
+    }
+}
+
+impl<T: trussed::Client> Backend<T> {
+    /// Create new backend from a trussed client
+    pub fn new(client: T) -> Self {
+        Self { client }
+    }
+
+    /// Checks whether the given value matches the pin of the given type.
+    pub fn verify_pin(&self, _pin: Pin, _value: &[u8]) -> bool {
+        todo!()
+    }
 }

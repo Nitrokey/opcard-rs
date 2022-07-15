@@ -18,7 +18,7 @@ fix:
 .PHONY: test
 test:
 	RUST_LOG=info cargo test --all-features
-	RUST_LOG=info cargo test --all-features -- --ignored || true
+	RUST_LOG=info cargo test --all-features --no-fail-fast -- --ignored || true
 
 .PHONY: ci
 ci: check test

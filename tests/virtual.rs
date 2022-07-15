@@ -8,17 +8,17 @@ use std::{process::Command, sync::mpsc};
 use stoppable_thread::spawn;
 use test_log::test;
 
+use opcard::backend::virtual_platform::VIRTUAL_CARD;
+
 fn with_vsc<F: Fn() -> R, R>(f: F) -> R {
-    let backend = opcard::backend::SoftwareBackend::default();
-    let card = opcard::Card::new(backend, opcard::Options::default());
-    let mut virtual_card = opcard::VirtualCard::new(card);
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
 
     let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
+        let mut virtual_card = VIRTUAL_CARD.lock().unwrap();
         let mut result = Ok(());
         while !stopped.get() && result.is_ok() {
-            result = vpicc.poll(&mut virtual_card);
+            result = vpicc.poll(&mut *virtual_card);
             if result.is_ok() {
                 tx.send(()).expect("failed to send message");
             }

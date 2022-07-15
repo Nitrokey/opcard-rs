@@ -7,17 +7,9 @@
 //!
 //! # Backends
 //!
-//! This crate is designed to work on any platform.  Therefore, it requires a
-//! [`Backend`][`backend::Backend`] implementation that provides platform-specific low-level
-//! functionality like storing data and performing cryptographic operations.  These functions can
-//! be provided by software or hardware.  `opcard` provides these `Backend` implementations:
-//!
-//! - [`SoftwareBackend`][`backend::SoftwareBackend`] uses the filesystem or memory to store data
-//!   (requires the `backend-software` feature).
-//! - [`TrussedBackend`][`backend::TrussedBackend`] uses a [Trussed](https://trussed.dev/) client
-//!   (requires the `backend-trussed` feature).
-//! - [`DummyBackend`][`backend::DummyBackend`] always panics and can be used to compile code
-//!   without using a proper `Backend` implementation.
+//! This crate is designed to work on any platform supported by [trussed](https://trussed.dev).
+//! Trussed requires a [Client][trussed::Client] implementation for each platform. A software implementation is
+//! available with [`CARD`][static@backend::virtual_platform::CARD] FOR TESTING
 //!
 //! # Command handling
 //!
@@ -34,7 +26,9 @@
 //! - If the `apdu-dispatch` feature is enabled, [`Card`] implements the `apdu_dispatch::App`
 //!   trait and can be used with `apdu_dispatch`.
 //! - If the `virtual` feature is enabled, [`VirtualCard`] can be used to emulate a smart card
-//!   using [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) and `vpicc-rs`.
+//!   using [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) and `vpicc-rs`. A
+//!   VirtualCard using a Software trussed client is available at
+//!   [`backend::virtual_platform::VIRTUAL_CARD`][static@backend::virtual_platform::VIRTUAL_CARD]
 
 #![cfg_attr(no_std, not(feature = "std"))]
 #![warn(

@@ -3,7 +3,7 @@
 
 use iso7816::{command::FromSliceError, Status};
 
-use crate::{backend::Backend, card::Card};
+use crate::card::Card;
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
@@ -13,14 +13,14 @@ const RESPONSE_LEN: usize = 7609;
 /// This struct provides a virtual OpenPGP smart card implementation that can be used with
 /// `vpicc-rs` and [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) to emulate the card.
 #[derive(Clone, Debug)]
-pub struct VirtualCard<B: Backend> {
+pub struct VirtualCard<T: trussed::Client> {
     buffer: heapless::Vec<u8, RESPONSE_LEN>,
-    card: Card<B>,
+    card: Card<T>,
 }
 
-impl<B: Backend> VirtualCard<B> {
+impl<T: trussed::Client> VirtualCard<T> {
     /// Creates a new virtual smart card from the given card.
-    pub fn new(card: Card<B>) -> Self {
+    pub fn new(card: Card<T>) -> Self {
         Self {
             buffer: heapless::Vec::new(),
             card,
@@ -41,7 +41,7 @@ impl<B: Backend> VirtualCard<B> {
     }
 }
 
-impl<B: Backend> vpicc::VSmartCard for VirtualCard<B> {
+impl<T: trussed::Client> vpicc::VSmartCard for VirtualCard<T> {
     fn power_on(&mut self) {}
 
     fn power_off(&mut self) {
