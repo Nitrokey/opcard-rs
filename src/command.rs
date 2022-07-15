@@ -3,10 +3,7 @@
 
 use iso7816::Status;
 
-use crate::{
-    backend::Pin,
-    card::{Context, RID},
-};
+use crate::card::{Context, RID};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -145,6 +142,15 @@ impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
 pub enum Password {
     Pw1,
     Pw3,
+}
+
+impl From<PasswordMode> for Password {
+    fn from(value: PasswordMode) -> Password {
+        match value {
+            PasswordMode::Pw1Sign | PasswordMode::Pw1Other => Password::Pw1,
+            PasswordMode::Pw3 => Password::Pw3,
+        }
+    }
 }
 
 impl TryFrom<u8> for Password {
@@ -329,11 +335,7 @@ fn verify<const R: usize, T: trussed::Client>(
                     }))
                 }
             } else {
-                let pin = match password {
-                    PasswordMode::Pw1Sign => Pin::UserPin,
-                    PasswordMode::Pw1Other => Pin::UserPin,
-                    PasswordMode::Pw3 => Pin::AdminPin,
-                };
+                let pin = password.into();
                 if context
                     .backend
                     .verify_pin(pin, context.data, &mut context.state.internal)

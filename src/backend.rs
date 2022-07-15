@@ -10,18 +10,10 @@
 use core::fmt::Debug;
 
 use crate::card::state;
+use crate::command::Password;
 
 #[cfg(feature = "backend-software")]
 pub mod virtual_platform;
-
-/// The available PIN types.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Pin {
-    /// The user PIN.
-    UserPin,
-    /// The admin PIN.
-    AdminPin,
-}
 
 /// Backend that provides data storage and cryptography operations.
 /// Mostly a wrapper around a trussed client
@@ -49,10 +41,10 @@ impl<T: trussed::Client> Backend<T> {
     }
 
     /// Checks whether the given value matches the pin of the given type.
-    pub fn verify_pin(&mut self, pin: Pin, value: &[u8], state: &mut state::Internal) -> bool {
+    pub fn verify_pin(&mut self, pin: Password, value: &[u8], state: &mut state::Internal) -> bool {
         match pin {
-            Pin::UserPin => state.verify_user_pin(&mut self.client, value).is_ok(),
-            Pin::AdminPin => state.verify_admin_pin(&mut self.client, value).is_ok(),
+            Password::Pw1 => state.verify_user_pin(&mut self.client, value).is_ok(),
+            Password::Pw3 => state.verify_admin_pin(&mut self.client, value).is_ok(),
         }
     }
 }
