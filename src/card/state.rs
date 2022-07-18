@@ -11,7 +11,13 @@ use trussed::types::{Location, PathBuf};
 use crate::error::Error;
 
 // TODO support more?
-const MAX_PIN_LENGTH: usize = 8;
+/// Maximum supported length for PW1 and PW3
+pub const MAX_PIN_LENGTH: usize = 8;
+
+/// Default value for PW1
+pub const DEFAULT_USER_PIN: &[u8] = b"123456";
+/// Default value for PW3
+pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
@@ -28,9 +34,9 @@ pub struct Internal {
 impl Default for Internal {
     fn default() -> Self {
         #[allow(clippy::unwrap_used)]
-        let admin_pin = heapless::Vec::from_slice(b"12345678".as_slice()).unwrap();
+        let admin_pin = heapless::Vec::from_slice(DEFAULT_ADMIN_PIN).unwrap();
         #[allow(clippy::unwrap_used)]
-        let user_pin = heapless::Vec::from_slice(b"123456".as_slice()).unwrap();
+        let user_pin = heapless::Vec::from_slice(DEFAULT_USER_PIN).unwrap();
         Self {
             initialized: Default::default(),
             user_pin_tries: Default::default(),

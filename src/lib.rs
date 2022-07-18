@@ -54,4 +54,5 @@ mod vpicc;
 
 #[cfg(feature = "virtual")]
 pub use self::vpicc::VirtualCard;
+pub use card::state::{DEFAULT_ADMIN_PIN, DEFAULT_USER_PIN};
 pub use card::{Card, Options};
