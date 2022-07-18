@@ -335,21 +335,21 @@ fn verify<const R: usize, T: trussed::Client>(
             if context.data.is_empty() {
                 match password {
                     PasswordMode::Pw1Sign => {
-                        if context.state.runtime.is_sign_verified() {
+                        if context.state.runtime.sign_verified {
                             Ok(())
                         } else {
                             Err(Status::RemainingRetries(internal.remaining_user_tries()))
                         }
                     }
                     PasswordMode::Pw1Other => {
-                        if context.state.runtime.is_other_verified() {
+                        if context.state.runtime.other_verified {
                             Ok(())
                         } else {
                             Err(Status::RemainingRetries(internal.remaining_user_tries()))
                         }
                     }
                     PasswordMode::Pw3 => {
-                        if context.state.runtime.is_admin_verified() {
+                        if context.state.runtime.admin_verified {
                             Ok(())
                         } else {
                             Err(Status::RemainingRetries(internal.remaining_admin_tries()))
@@ -360,9 +360,9 @@ fn verify<const R: usize, T: trussed::Client>(
                 let pin = password.into();
                 if context.backend.verify_pin(pin, context.data, internal) {
                     match password {
-                        PasswordMode::Pw1Sign => context.state.runtime.verify_sign(),
-                        PasswordMode::Pw1Other => context.state.runtime.verify_other(),
-                        PasswordMode::Pw3 => context.state.runtime.verify_admin(),
+                        PasswordMode::Pw1Sign => context.state.runtime.sign_verified = true,
+                        PasswordMode::Pw1Other => context.state.runtime.other_verified = true,
+                        PasswordMode::Pw3 => context.state.runtime.admin_verified = true,
                     }
                     Ok(())
                 } else {
@@ -372,9 +372,9 @@ fn verify<const R: usize, T: trussed::Client>(
         }
         VerifyMode::Reset => {
             match password {
-                PasswordMode::Pw1Sign => context.state.runtime.reset_sign(),
-                PasswordMode::Pw1Other => context.state.runtime.reset_other(),
-                PasswordMode::Pw3 => context.state.runtime.reset_admin(),
+                PasswordMode::Pw1Sign => context.state.runtime.sign_verified = false,
+                PasswordMode::Pw1Other => context.state.runtime.other_verified = false,
+                PasswordMode::Pw3 => context.state.runtime.admin_verified = false,
             }
             Ok(())
         }

@@ -223,43 +223,7 @@ impl Internal {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Runtime {
-    sign_verified: bool,
-    other_verified: bool,
-    admin_verified: bool,
-}
-
-impl Runtime {
-    pub fn is_sign_verified(&self) -> bool {
-        self.sign_verified
-    }
-
-    pub fn verify_sign(&mut self) {
-        self.sign_verified = true;
-    }
-
-    pub fn reset_sign(&mut self) {
-        self.sign_verified = false;
-    }
-    pub fn is_other_verified(&self) -> bool {
-        self.other_verified
-    }
-
-    pub fn verify_other(&mut self) {
-        self.other_verified = true;
-    }
-
-    pub fn reset_other(&mut self) {
-        self.other_verified = false;
-    }
-    pub fn is_admin_verified(&self) -> bool {
-        self.admin_verified
-    }
-
-    pub fn verify_admin(&mut self) {
-        self.admin_verified = true;
-    }
-
-    pub fn reset_admin(&mut self) {
-        self.admin_verified = false;
-    }
+    pub sign_verified: bool,
+    pub other_verified: bool,
+    pub admin_verified: bool,
 }
