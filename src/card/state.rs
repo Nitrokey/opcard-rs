@@ -5,6 +5,7 @@ use crate::utils::serde_bytes_heapless;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
+use trussed::error::Error as TrussedError;
 use trussed::try_syscall;
 use trussed::types::{Location, PathBuf};
 
@@ -21,8 +22,6 @@ pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
-    #[serde(skip)]
-    initialized: bool,
     user_pin_tries: u8,
     admin_pin_tries: u8,
     #[serde(with = "serde_bytes_heapless")]
@@ -31,36 +30,63 @@ pub struct Internal {
     admin_pin: heapless::Vec<u8, MAX_PIN_LENGTH>,
 }
 
-impl Default for Internal {
+impl Internal {
+    const FILENAME: &'static str = "persistent-state.cbor";
+    // § 4.3
+    const MAX_RETRIES: u8 = 3;
+
     fn default() -> Self {
         #[allow(clippy::unwrap_used)]
         let admin_pin = heapless::Vec::from_slice(DEFAULT_ADMIN_PIN).unwrap();
         #[allow(clippy::unwrap_used)]
         let user_pin = heapless::Vec::from_slice(DEFAULT_USER_PIN).unwrap();
         Self {
-            initialized: Default::default(),
-            user_pin_tries: Default::default(),
-            admin_pin_tries: Default::default(),
+            user_pin_tries: 0,
+            admin_pin_tries: 0,
 
             // § 4.3.1
             admin_pin,
             user_pin,
         }
     }
-}
 
-impl Internal {
-    const FILENAME: &'static [u8] = b"persistent-state.cbor";
-    // § 4.3
-    const MAX_RETRIES: u8 = 3;
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
     }
 
+    fn file_exists<T: trussed::Client>(client: &mut T) -> Result<bool, TrussedError> {
+        let maybe_entry = try_syscall!(client.read_dir_first(
+            Location::Internal,
+            PathBuf::new(),
+            Some(Self::path())
+        ))?
+        .entry;
+        if let Some(entry) = maybe_entry {
+            if entry.file_name() == Self::FILENAME {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
     pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
-        let data = try_syscall!(client.read_file(Location::Internal, Self::path()))
-            .map_err(|_| Error::Loading)?
-            .data;
+        let data = match try_syscall!(client.read_file(Location::Internal, Self::path())) {
+            Ok(r) => r.data,
+            Err(_) => match Self::file_exists(client) {
+                Ok(false) => return Ok(Self::default()),
+                Ok(true) => {
+                    log::error!("File exists but couldn't be read");
+                    return Err(Error::Loading);
+                }
+                Err(err) => {
+                    log::error!("File couldn't be read: {err:?}");
+                    return Err(Error::Loading);
+                }
+            },
+        };
         trussed::cbor_deserialize(&data).map_err(|err| {
             log::error!("failed to deserialize internal state: {err}");
             Error::Loading
@@ -81,50 +107,19 @@ impl Internal {
         Ok(())
     }
 
-    pub fn load_if_not_init<T: trussed::Client>(&mut self, client: &mut T) {
-        if !self.initialized {
-            match Self::load(client) {
-                Ok(state) => *self = state,
-                // Only info since it will happen if the state doesn't already exists
-                Err(err) => log::info!("Failed to load state {err}"),
-            }
-        }
-        self.initialized = true;
-    }
-
-    /// # panics
-    ///
-    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
-    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn remaining_user_tries(&self) -> u8 {
-        assert!(self.initialized);
         Self::MAX_RETRIES.saturating_sub(self.user_pin_tries)
     }
 
-    /// # panics
-    ///
-    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
-    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn remaining_admin_tries(&self) -> u8 {
-        assert!(self.initialized);
         Self::MAX_RETRIES.saturating_sub(self.admin_pin_tries)
     }
 
-    /// # panics
-    ///
-    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
-    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn is_user_locked(&self) -> bool {
-        assert!(self.initialized);
         self.user_pin_tries >= Self::MAX_RETRIES
     }
 
-    /// # panics
-    ///
-    /// Panics if the state hasn't been loaded with [`load`][Self::load] or
-    /// [`load_if_not_init`][Self::load_if_not_init]
     pub fn is_admin_locked(&self) -> bool {
-        assert!(self.initialized);
         self.admin_pin_tries >= Self::MAX_RETRIES
     }
 
@@ -166,7 +161,6 @@ impl Internal {
         client: &mut T,
         value: &[u8],
     ) -> Result<(), Error> {
-        self.load_if_not_init(client);
         if self.is_user_locked() {
             return Err(Error::TooManyTries);
         }
@@ -185,7 +179,6 @@ impl Internal {
         client: &mut T,
         value: &[u8],
     ) -> Result<(), Error> {
-        self.load_if_not_init(client);
         if self.is_admin_locked() {
             return Err(Error::TooManyTries);
         }
@@ -200,12 +193,10 @@ impl Internal {
     }
 
     pub fn user_pin_len(&self) -> usize {
-        assert!(self.initialized);
         self.user_pin.len()
     }
 
     pub fn admin_pin_len(&self) -> usize {
-        assert!(self.initialized);
         self.admin_pin.len()
     }
 

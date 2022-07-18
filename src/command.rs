@@ -3,7 +3,7 @@
 
 use iso7816::Status;
 
-use crate::card::{Context, RID};
+use crate::card::{state, Context, RID};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -300,6 +300,19 @@ impl<const C: usize> From<&iso7816::Command<C>> for Tag {
     }
 }
 
+fn load_internal<'i, 'c, T: trussed::Client>(
+    internal: &'i mut Option<state::Internal>,
+    client: &'c mut T,
+) -> Result<&'i mut state::Internal, Status> {
+    if let Some(state) = internal {
+        return Ok(state);
+    }
+    let to_ret = internal.insert(
+        state::Internal::load(client).map_err(|_| Status::UnspecifiedPersistentExecutionError)?,
+    );
+    Ok(to_ret)
+}
+
 // § 7.2.1
 fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
@@ -316,6 +329,7 @@ fn verify<const R: usize, T: trussed::Client>(
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {
+    let internal = load_internal(&mut context.state.internal, context.backend.client_mut())?;
     match mode {
         VerifyMode::SetOrCheck => {
             if context.data.is_empty() {
@@ -324,36 +338,27 @@ fn verify<const R: usize, T: trussed::Client>(
                         if context.state.runtime.is_sign_verified() {
                             Ok(())
                         } else {
-                            Err(Status::RemainingRetries(
-                                context.state.internal.remaining_user_tries(),
-                            ))
+                            Err(Status::RemainingRetries(internal.remaining_user_tries()))
                         }
                     }
                     PasswordMode::Pw1Other => {
                         if context.state.runtime.is_other_verified() {
                             Ok(())
                         } else {
-                            Err(Status::RemainingRetries(
-                                context.state.internal.remaining_user_tries(),
-                            ))
+                            Err(Status::RemainingRetries(internal.remaining_user_tries()))
                         }
                     }
                     PasswordMode::Pw3 => {
                         if context.state.runtime.is_admin_verified() {
                             Ok(())
                         } else {
-                            Err(Status::RemainingRetries(
-                                context.state.internal.remaining_admin_tries(),
-                            ))
+                            Err(Status::RemainingRetries(internal.remaining_admin_tries()))
                         }
                     }
                 }
             } else {
                 let pin = password.into();
-                if context
-                    .backend
-                    .verify_pin(pin, context.data, &mut context.state.internal)
-                {
+                if context.backend.verify_pin(pin, context.data, internal) {
                     match password {
                         PasswordMode::Pw1Sign => context.state.runtime.verify_sign(),
                         PasswordMode::Pw1Other => context.state.runtime.verify_other(),
@@ -381,11 +386,12 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     context: Context<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
+    let internal = load_internal(&mut context.state.internal, context.backend.client_mut())?;
     const MIN_LENGTH_ADMIN_PIN: usize = 8;
     const MIN_LENGTH_USER_PIN: usize = 6;
     let (current_len, min_len) = match password {
-        Password::Pw1 => (context.state.internal.user_pin_len(), MIN_LENGTH_USER_PIN),
-        Password::Pw3 => (context.state.internal.admin_pin_len(), MIN_LENGTH_ADMIN_PIN),
+        Password::Pw1 => (internal.user_pin_len(), MIN_LENGTH_USER_PIN),
+        Password::Pw3 => (internal.admin_pin_len(), MIN_LENGTH_ADMIN_PIN),
     };
     if current_len + min_len > context.data.len() {
         return Err(Status::WrongLength);
@@ -393,16 +399,12 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     let (old, new) = context.data.split_at(current_len);
     let client_mut = context.backend.client_mut();
     match password {
-        Password::Pw1 => context
-            .state
-            .internal
+        Password::Pw1 => internal
             .verify_user_pin(client_mut, old)
-            .map(|_| context.state.internal.change_user_pin(client_mut, new)),
-        Password::Pw3 => context
-            .state
-            .internal
+            .map(|_| internal.change_user_pin(client_mut, new)),
+        Password::Pw3 => internal
             .verify_admin_pin(client_mut, old)
-            .map(|_| context.state.internal.change_admin_pin(client_mut, new)),
+            .map(|_| internal.change_admin_pin(client_mut, new)),
     }
     .map_err(|_| Status::VerificationFailed)?
     .map_err(|_| Status::VerificationFailed)
