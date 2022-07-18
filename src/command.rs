@@ -172,12 +172,6 @@ pub enum PasswordMode {
     Pw3,
 }
 
-impl PasswordMode {
-    pub fn is_other(&self) -> bool {
-        matches!(self, Self::Pw1Other)
-    }
-}
-
 impl TryFrom<u8> for PasswordMode {
     type Error = Status;
 
