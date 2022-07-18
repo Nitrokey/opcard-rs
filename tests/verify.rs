@@ -4,7 +4,7 @@
 
 mod card;
 
-use card::with_tx;
+use card::{error_to_retries, with_tx};
 
 use opcard::backend::virtual_platform::CARD;
 
@@ -12,17 +12,6 @@ use opcard::backend::virtual_platform::CARD;
 fn select() {
     with_tx(|_| ());
 }
-
-fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
-    match err {
-        Ok(()) => None,
-        Err(openpgp_card::Error::CardStatus(openpgp_card::StatusBytes::PasswordNotChecked(c))) => {
-            Some(c)
-        }
-        Err(e) => panic!("Unexpected error {e}"),
-    }
-}
-
 macro_rules! assert_checks {
     ($tx:expr, $sign:expr, $user:expr, $admin:expr) => {{
         let sign_expected = $sign;

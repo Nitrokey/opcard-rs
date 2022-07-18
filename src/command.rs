@@ -35,6 +35,7 @@ impl Command {
         match self {
             Self::Select => select(context),
             Self::Verify(mode, password) => verify(context, *mode, *password),
+            Self::ChangeReferenceData(password) => change_reference_data(context, *password),
             _ => {
                 log::warn!("Command not yet implemented: {:?}", self);
                 unimplemented!();
@@ -373,4 +374,36 @@ fn verify<const R: usize, T: trussed::Client>(
             Ok(())
         }
     }
+}
+
+// § 7.2.3
+fn change_reference_data<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+    password: Password,
+) -> Result<(), Status> {
+    const MIN_LENGTH_ADMIN_PIN: usize = 8;
+    const MIN_LENGTH_USER_PIN: usize = 6;
+    let (current_len, min_len) = match password {
+        Password::Pw1 => (context.state.internal.user_pin_len(), MIN_LENGTH_USER_PIN),
+        Password::Pw3 => (context.state.internal.admin_pin_len(), MIN_LENGTH_ADMIN_PIN),
+    };
+    if current_len + min_len > context.data.len() {
+        return Err(Status::WrongLength);
+    }
+    let (old, new) = context.data.split_at(current_len);
+    let client_mut = context.backend.client_mut();
+    match password {
+        Password::Pw1 => context
+            .state
+            .internal
+            .verify_user_pin(client_mut, old)
+            .map(|_| context.state.internal.change_user_pin(client_mut, new)),
+        Password::Pw3 => context
+            .state
+            .internal
+            .verify_admin_pin(client_mut, old)
+            .map(|_| context.state.internal.change_admin_pin(client_mut, new)),
+    }
+    .map_err(|_| Status::VerificationFailed)?
+    .map_err(|_| Status::VerificationFailed)
 }

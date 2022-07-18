@@ -7,6 +7,7 @@ pub enum Error {
     Saving,
     InvalidPin,
     TooManyTries,
+    RequestTooLarge,
 }
 
 impl core::fmt::Display for Error {
@@ -16,6 +17,7 @@ impl core::fmt::Display for Error {
             Error::Saving => "Failed to save to filesystem",
             Error::InvalidPin => "Failed PIN authentication",
             Error::TooManyTries => "PIN is locked",
+            Error::RequestTooLarge => "Request data is larger than supported",
         };
         f.write_str(to_write)
     }

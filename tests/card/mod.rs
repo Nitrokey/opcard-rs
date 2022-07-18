@@ -87,3 +87,13 @@ pub fn with_tx<F: Fn(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
     let tx = openpgp.transaction().expect("failed to create transaction");
     f(tx)
 }
+
+pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
+    match err {
+        Ok(()) => None,
+        Err(openpgp_card::Error::CardStatus(openpgp_card::StatusBytes::PasswordNotChecked(c))) => {
+            Some(c)
+        }
+        Err(e) => panic!("Unexpected error {e}"),
+    }
+}

@@ -192,6 +192,36 @@ impl Internal {
         self.reset_admin_counter(client)?;
         Ok(())
     }
+
+    pub fn user_pin_len(&self) -> usize {
+        assert!(self.initialized);
+        self.user_pin.len()
+    }
+
+    pub fn admin_pin_len(&self) -> usize {
+        assert!(self.initialized);
+        self.admin_pin.len()
+    }
+
+    pub fn change_admin_pin<T: trussed::Client>(
+        &mut self,
+        client: &mut T,
+        value: &[u8],
+    ) -> Result<(), Error> {
+        self.admin_pin = heapless::Vec::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
+        self.admin_pin_tries = 0;
+        self.save(client)
+    }
+
+    pub fn change_user_pin<T: trussed::Client>(
+        &mut self,
+        client: &mut T,
+        value: &[u8],
+    ) -> Result<(), Error> {
+        self.user_pin = heapless::Vec::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
+        self.user_pin_tries = 0;
+        self.save(client)
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
