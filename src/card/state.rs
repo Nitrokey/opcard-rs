@@ -28,9 +28,9 @@ pub struct Internal {
 impl Default for Internal {
     fn default() -> Self {
         #[allow(clippy::unwrap_used)]
-        let admin_pin = heapless::Vec::from_slice(b"123456".as_slice()).unwrap();
+        let admin_pin = heapless::Vec::from_slice(b"12345678".as_slice()).unwrap();
         #[allow(clippy::unwrap_used)]
-        let user_pin = heapless::Vec::from_slice(b"12345678".as_slice()).unwrap();
+        let user_pin = heapless::Vec::from_slice(b"123456".as_slice()).unwrap();
         Self {
             initialized: Default::default(),
             user_pin_tries: Default::default(),
@@ -166,7 +166,7 @@ impl Internal {
         }
 
         self.decrement_user_counter(client)?;
-        if value.ct_eq(&self.user_pin).into() {
+        if (!value.ct_eq(&self.user_pin)).into() {
             return Err(Error::InvalidPin);
         }
 
@@ -185,7 +185,7 @@ impl Internal {
         }
 
         self.decrement_admin_counter(client)?;
-        if value.ct_eq(&self.admin_pin).into() {
+        if (!value.ct_eq(&self.admin_pin)).into() {
             return Err(Error::InvalidPin);
         }
 
