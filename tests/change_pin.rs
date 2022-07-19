@@ -19,7 +19,7 @@ fn change() {
         assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
         // new pin too short
         assert!(tx.change_pw1(DEFAULT_USER_PIN, b"").is_err());
-        // Pin validation routine didn't ran
+        // Pin validation routine didn't run
         assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
         // New pin too long
         assert!(tx.change_pw1(DEFAULT_USER_PIN, &[55; 128]).is_err());

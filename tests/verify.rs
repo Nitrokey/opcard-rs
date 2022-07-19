@@ -43,21 +43,25 @@ fn verify() {
     with_tx(|mut tx| {
         assert_checks!(tx, Some(3), Some(3), Some(3));
         assert!(tx.verify_pw1_sign(b"12345678").is_err());
-        assert!(tx.verify_pw1_sign(b"00000").is_err());
+        assert!(tx.verify_pw1_sign(b"123456\x00").is_err());
         assert_checks!(tx, Some(1), Some(1), Some(3));
         assert!(tx.verify_pw1_sign(b"123456").is_ok());
         assert_checks!(tx, None, Some(3), Some(3));
 
-        assert!(tx.verify_pw1_user(b"12345678").is_err());
+        // Empty pwd = checking
+        assert!(tx.verify_pw1_user(&[]).is_err());
+        assert_checks!(tx, None, Some(3), Some(3));
+
+        assert!(tx.verify_pw1_user(&[0]).is_err());
         assert_checks!(tx, None, Some(2), Some(3));
-        assert!(tx.verify_pw1_user(b"00000").is_err());
+        assert!(tx.verify_pw1_user("ハローワールド".as_bytes()).is_err());
         assert_checks!(tx, None, Some(1), Some(3));
         assert!(tx.verify_pw1_user(b"123456").is_ok());
         assert_checks!(tx, None, None, Some(3));
 
         assert!(tx.verify_pw3(b"123456").is_err());
         assert_checks!(tx, None, None, Some(2));
-        assert!(tx.verify_pw3(b"00000000").is_err());
+        assert!(tx.verify_pw3(&[0; 8]).is_err());
         assert_checks!(tx, None, None, Some(1));
         assert!(tx.verify_pw3(b"12345678").is_ok());
         assert_checks!(tx, None, None, None);
