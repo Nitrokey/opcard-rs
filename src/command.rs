@@ -389,16 +389,14 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     let client_mut = context.backend.client_mut();
     // Verify the old pin before returning for wrong length to avoid leaking information about the
     // length of the PIN
-    let verify_result = internal.verify_pin(client_mut, old, password);
+    internal
+        .verify_pin(client_mut, old, password)
+        .map_err(|_| Status::VerificationFailed)?;
 
     if current_len + min_len > context.data.len() {
         return Err(Status::WrongLength);
     }
-    verify_result
-        .map_err(|_| Status::VerificationFailed)
-        .and_then(|()| {
-            internal
-                .change_pin(client_mut, new, password)
-                .map_err(|_| Status::WrongLength)
-        })
+    internal
+        .change_pin(client_mut, new, password)
+        .map_err(|_| Status::WrongLength)
 }
