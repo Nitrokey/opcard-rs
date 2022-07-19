@@ -5,11 +5,11 @@ use heapless_bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use trussed::error::Error as TrussedError;
 use trussed::try_syscall;
 use trussed::types::{Location, PathBuf};
 
 use crate::error::Error;
+use crate::utils::file_exists;
 
 // TODO support more?
 /// Maximum supported length for PW1 and PW3
@@ -59,28 +59,10 @@ impl Internal {
         PathBuf::from(Self::FILENAME)
     }
 
-    fn file_exists<T: trussed::Client>(client: &mut T) -> Result<bool, TrussedError> {
-        let maybe_entry = try_syscall!(client.read_dir_first(
-            Location::Internal,
-            PathBuf::new(),
-            Some(Self::path())
-        ))?
-        .entry;
-        if let Some(entry) = maybe_entry {
-            if entry.file_name() == Self::FILENAME {
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        } else {
-            Ok(false)
-        }
-    }
-
     pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
         let data = match try_syscall!(client.read_file(Location::Internal, Self::path())) {
             Ok(r) => r.data,
-            Err(_) => match Self::file_exists(client) {
+            Err(_) => match file_exists(client, Location::Internal, Self::FILENAME) {
                 Ok(false) => return Ok(Self::default()),
                 Ok(true) => {
                     log::error!("File exists but couldn't be read");
