@@ -401,11 +401,10 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     match password {
         Password::Pw1 => internal
             .verify_user_pin(client_mut, old)
-            .map(|_| internal.change_user_pin(client_mut, new)),
+            .and_then(|_| internal.change_user_pin(client_mut, new)),
         Password::Pw3 => internal
             .verify_admin_pin(client_mut, old)
-            .map(|_| internal.change_admin_pin(client_mut, new)),
+            .and_then(|_| internal.change_admin_pin(client_mut, new)),
     }
-    .map_err(|_| Status::VerificationFailed)?
     .map_err(|_| Status::VerificationFailed)
 }
