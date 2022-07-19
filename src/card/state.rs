@@ -20,6 +20,13 @@ pub const DEFAULT_USER_PIN: &[u8] = b"123456";
 /// Default value for PW3
 pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct State {
+    // Internal state may not be loaded, or may error when loaded
+    pub internal: Option<Internal>,
+    pub runtime: Runtime,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,

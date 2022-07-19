@@ -6,6 +6,7 @@ use iso7816::Status;
 use crate::{backend::Backend, command::Command};
 
 pub(crate) mod state;
+use state::State;
 
 // § 4.2.1
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
@@ -128,13 +129,6 @@ impl Default for Options {
             serial: Default::default(),
         }
     }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct State {
-    // Internal state may not be loaded, or may error when loaded
-    pub internal: Option<state::Internal>,
-    pub runtime: state::Runtime,
 }
 
 #[derive(Debug)]
