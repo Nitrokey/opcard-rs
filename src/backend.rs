@@ -9,9 +9,9 @@
 
 use core::fmt::Debug;
 
-use crate::card::state;
 use crate::command::Password;
 use crate::error::Error;
+use crate::state;
 
 #[cfg(feature = "backend-software")]
 pub mod virtual_platform;

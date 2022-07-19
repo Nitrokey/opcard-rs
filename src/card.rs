@@ -5,8 +5,7 @@ use iso7816::Status;
 
 use crate::{backend::Backend, command::Command};
 
-pub(crate) mod state;
-use state::State;
+use crate::state::State;
 
 // § 4.2.1
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
