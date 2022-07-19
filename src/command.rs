@@ -40,7 +40,7 @@ impl Command {
             Self::Verify(mode, password) => verify(context, *mode, *password),
             Self::ChangeReferenceData(password) => change_reference_data(context, *password),
             _ => {
-                log::warn!("Command not yet implemented: {:?}", self);
+                log::warn!("Command not yet implemented: {:x?}", self);
                 unimplemented!();
             }
         }

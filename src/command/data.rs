@@ -87,7 +87,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         unimplemented!();
     }
     let tag = GetDataTag::try_from(tag)
-        .inspect_err_stable(|err| log::warn!("Unsupported data tag {:?}: {:?}", tag, err))?;
+        .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     log::debug!("Returning data for tag {:?}", tag);
     // TODO: remove unwraps
     match tag {
