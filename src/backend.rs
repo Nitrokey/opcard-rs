@@ -9,17 +9,12 @@
 
 use core::fmt::Debug;
 
+use crate::command::Password;
+use crate::error::Error;
+use crate::state;
+
 #[cfg(feature = "backend-software")]
 pub mod virtual_platform;
-
-/// The available PIN types.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Pin {
-    /// The user PIN.
-    UserPin,
-    /// The admin PIN.
-    AdminPin,
-}
 
 /// Backend that provides data storage and cryptography operations.
 /// Mostly a wrapper around a trussed client
@@ -41,8 +36,25 @@ impl<T: trussed::Client> Backend<T> {
         Self { client }
     }
 
+    /// If the state is already loaded, returns it, otherwise try to load it
+    pub fn load_internal<'s, 'i>(
+        &'s mut self,
+        internal: &'i mut Option<state::Internal>,
+    ) -> Result<&'i mut state::Internal, Error> {
+        if let Some(state) = internal {
+            return Ok(state);
+        }
+        let to_ret = internal.insert(state::Internal::load(&mut self.client)?);
+        Ok(to_ret)
+    }
+
+    /// Return a mutable reference to the trussed client
+    pub fn client_mut(&mut self) -> &mut T {
+        &mut self.client
+    }
+
     /// Checks whether the given value matches the pin of the given type.
-    pub fn verify_pin(&self, _pin: Pin, _value: &[u8]) -> bool {
-        todo!()
+    pub fn verify_pin(&mut self, pin: Password, value: &[u8], state: &mut state::Internal) -> bool {
+        state.verify_pin(&mut self.client, value, pin).is_ok()
     }
 }

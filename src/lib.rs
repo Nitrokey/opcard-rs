@@ -47,9 +47,13 @@
 pub mod backend;
 mod card;
 mod command;
+mod error;
+mod state;
+mod utils;
 #[cfg(feature = "virtual")]
 mod vpicc;
 
 #[cfg(feature = "virtual")]
 pub use self::vpicc::VirtualCard;
 pub use card::{Card, Options};
+pub use state::{DEFAULT_ADMIN_PIN, DEFAULT_USER_PIN};

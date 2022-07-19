@@ -5,6 +5,8 @@ use iso7816::Status;
 
 use crate::{backend::Backend, command::Command};
 
+use crate::state::State;
+
 // § 4.2.1
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
 pub const PIX_APPLICATION: [u8; 1] = [0x01];
@@ -44,6 +46,7 @@ impl<T: trussed::Client> Card<T> {
         log::trace!("Received APDU {:?}", command);
         let card_command = Command::try_from(command)?;
         log::info!("Executing command {:?}", card_command);
+
         let context = Context {
             backend: &mut self.backend,
             state: &mut self.state,
@@ -138,9 +141,6 @@ impl Default for Options {
         }
     }
 }
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct State {}
 
 #[derive(Debug)]
 pub struct Context<'a, const R: usize, T: trussed::Client> {

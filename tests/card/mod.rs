@@ -1,8 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-#![cfg(feature = "backend-software")]
-
 use std::sync::Mutex;
 
 use iso7816::{command::FromSliceError, Command, Status};
@@ -83,29 +81,19 @@ impl<T: trussed::Client + Send + 'static> CardTransaction for Transaction<T> {
     }
 }
 
-fn with_tx<F: Fn(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
+pub fn with_tx<F: Fn(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
     let mut handle = Card(&CARD);
     let mut openpgp = OpenPgp::new(&mut handle);
     let tx = openpgp.transaction().expect("failed to create transaction");
     f(tx)
 }
 
-#[test]
-fn select() {
-    with_tx(|_| ());
-}
-
-#[test]
-#[ignore]
-fn verify() {
-    with_tx(|mut tx| {
-        assert!(tx.verify_pw1_sign(b"12345678").is_err());
-        assert!(tx.verify_pw1_sign(b"123456").is_ok());
-
-        assert!(tx.verify_pw1_user(b"12345678").is_err());
-        assert!(tx.verify_pw1_user(b"123456").is_ok());
-
-        assert!(tx.verify_pw3(b"123456").is_err());
-        assert!(tx.verify_pw3(b"12345678").is_ok());
-    });
+pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
+    match err {
+        Ok(()) => None,
+        Err(openpgp_card::Error::CardStatus(openpgp_card::StatusBytes::PasswordNotChecked(c))) => {
+            Some(c)
+        }
+        Err(e) => panic!("Unexpected error {e}"),
+    }
 }

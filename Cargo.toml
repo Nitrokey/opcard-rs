@@ -18,6 +18,9 @@ required-features = ["backend-software", "virtual"]
 heapless = "0.7"
 iso7816 = "0.1"
 log = "0.4"
+serde = { version = "1.0", default-features = false }
+subtle = { version = "2.4.1", default-features = false }
+heapless-bytes = "0.3"
 
 # optional dependencies
 apdu-dispatch = { version = "0.1", optional = true }

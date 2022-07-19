@@ -3,10 +3,7 @@
 
 use iso7816::Status;
 
-use crate::{
-    backend::Pin,
-    card::{Context, RID},
-};
+use crate::card::{Context, RID};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -38,6 +35,7 @@ impl Command {
         match self {
             Self::Select => select(context),
             Self::Verify(mode, password) => verify(context, *mode, *password),
+            Self::ChangeReferenceData(password) => change_reference_data(context, *password),
             _ => {
                 log::warn!("Command not yet implemented: {:?}", self);
                 unimplemented!();
@@ -145,6 +143,15 @@ impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
 pub enum Password {
     Pw1,
     Pw3,
+}
+
+impl From<PasswordMode> for Password {
+    fn from(value: PasswordMode) -> Password {
+        match value {
+            PasswordMode::Pw1Sign | PasswordMode::Pw1Other => Password::Pw1,
+            PasswordMode::Pw3 => Password::Pw3,
+        }
+    }
 }
 
 impl TryFrom<u8> for Password {
@@ -309,24 +316,87 @@ fn verify<const R: usize, T: trussed::Client>(
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     match mode {
         VerifyMode::SetOrCheck => {
             if context.data.is_empty() {
-                unimplemented!();
-            } else {
-                // TODO: counter
-                let pin = match password {
-                    PasswordMode::Pw1Sign => Pin::UserPin,
-                    PasswordMode::Pw1Other => Pin::UserPin,
-                    PasswordMode::Pw3 => Pin::AdminPin,
+                let already_validated = match password {
+                    PasswordMode::Pw1Sign => context.state.runtime.sign_verified,
+                    PasswordMode::Pw1Other => context.state.runtime.other_verified,
+                    PasswordMode::Pw3 => context.state.runtime.admin_verified,
                 };
-                if context.backend.verify_pin(pin, context.data) {
+                if already_validated {
+                    Ok(())
+                } else {
+                    Err(Status::RemainingRetries(
+                        internal.remaining_tries(password.into()),
+                    ))
+                }
+            } else {
+                let pin = password.into();
+                if context.backend.verify_pin(pin, context.data, internal) {
+                    match password {
+                        PasswordMode::Pw1Sign => context.state.runtime.sign_verified = true,
+                        PasswordMode::Pw1Other => context.state.runtime.other_verified = true,
+                        PasswordMode::Pw3 => context.state.runtime.admin_verified = true,
+                    }
                     Ok(())
                 } else {
                     Err(Status::VerificationFailed)
                 }
             }
         }
-        VerifyMode::Reset => unimplemented!(),
+        VerifyMode::Reset => {
+            match password {
+                PasswordMode::Pw1Sign => context.state.runtime.sign_verified = false,
+                PasswordMode::Pw1Other => context.state.runtime.other_verified = false,
+                PasswordMode::Pw3 => context.state.runtime.admin_verified = false,
+            }
+            Ok(())
+        }
     }
+}
+
+// § 7.2.3
+fn change_reference_data<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+    password: Password,
+) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    const MIN_LENGTH_ADMIN_PIN: usize = 8;
+    const MIN_LENGTH_USER_PIN: usize = 6;
+    let min_len = match password {
+        Password::Pw1 => MIN_LENGTH_USER_PIN,
+        Password::Pw3 => MIN_LENGTH_ADMIN_PIN,
+    };
+
+    if context.data.len() < 2 * min_len {
+        return Err(Status::WrongLength);
+    }
+
+    let current_len = internal.pin_len(password);
+    let (old, new) = if context.data.len() < current_len {
+        (context.data, [].as_slice())
+    } else {
+        context.data.split_at(current_len)
+    };
+    let client_mut = context.backend.client_mut();
+    // Verify the old pin before returning for wrong length to avoid leaking information about the
+    // length of the PIN
+    internal
+        .verify_pin(client_mut, old, password)
+        .map_err(|_| Status::VerificationFailed)?;
+
+    if current_len + min_len > context.data.len() {
+        return Err(Status::WrongLength);
+    }
+    internal
+        .change_pin(client_mut, new, password)
+        .map_err(|_| Status::WrongLength)
 }
