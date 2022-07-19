@@ -1,6 +1,14 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+/// This module provides support for efficient (de)serialization of bytes using heapless. The need
+/// for this is the same as the need for [serde_bytes](https://lib.rs/crates/serde_bytes):
+///
+/// Heapless implements (de)serialization generically over the T type it holds. Since specialization is still not stable, it can't special case for when T = u8, see here and here.
+///
+/// This means that serialization of Vec<u8, N> is inefficient and doesn't use serde's built-in support for byte slices. This means that by default, a Vec::<u8,N>::from[1,2,3] would be serialized as "this is an array of len 3, this is an u8 , 0x01, this is a u8, 0x02, this is a u8, 0x03". By serializing them as bytes, we get: "this is a byte array of len 3, 0x010203".
+///
+/// In CBOR each "this is a u8" tag adds 1 byte, and likely slows down parsing (because for u8 < 25 the value is actually held directly in the tag itself.
 pub mod serde_bytes_heapless {
     use serde::{
         de::{Error, SeqAccess, Visitor},
