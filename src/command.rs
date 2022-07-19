@@ -3,7 +3,7 @@
 
 use iso7816::Status;
 
-use crate::card::{state, Context, RID};
+use crate::card::{Context, RID};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -300,19 +300,6 @@ impl<const C: usize> From<&iso7816::Command<C>> for Tag {
     }
 }
 
-fn load_internal<'i, 'c, T: trussed::Client>(
-    internal: &'i mut Option<state::Internal>,
-    client: &'c mut T,
-) -> Result<&'i mut state::Internal, Status> {
-    if let Some(state) = internal {
-        return Ok(state);
-    }
-    let to_ret = internal.insert(
-        state::Internal::load(client).map_err(|_| Status::UnspecifiedPersistentExecutionError)?,
-    );
-    Ok(to_ret)
-}
-
 // § 7.2.1
 fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
@@ -329,7 +316,10 @@ fn verify<const R: usize, T: trussed::Client>(
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {
-    let internal = load_internal(&mut context.state.internal, context.backend.client_mut())?;
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     match mode {
         VerifyMode::SetOrCheck => {
             if context.data.is_empty() {
@@ -386,7 +376,10 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     context: Context<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
-    let internal = load_internal(&mut context.state.internal, context.backend.client_mut())?;
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     const MIN_LENGTH_ADMIN_PIN: usize = 8;
     const MIN_LENGTH_USER_PIN: usize = 6;
     let (current_len, min_len) = match password {
