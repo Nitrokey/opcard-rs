@@ -323,28 +323,17 @@ fn verify<const R: usize, T: trussed::Client>(
     match mode {
         VerifyMode::SetOrCheck => {
             if context.data.is_empty() {
-                match password {
-                    PasswordMode::Pw1Sign => {
-                        if context.state.runtime.sign_verified {
-                            Ok(())
-                        } else {
-                            Err(Status::RemainingRetries(internal.remaining_user_tries()))
-                        }
-                    }
-                    PasswordMode::Pw1Other => {
-                        if context.state.runtime.other_verified {
-                            Ok(())
-                        } else {
-                            Err(Status::RemainingRetries(internal.remaining_user_tries()))
-                        }
-                    }
-                    PasswordMode::Pw3 => {
-                        if context.state.runtime.admin_verified {
-                            Ok(())
-                        } else {
-                            Err(Status::RemainingRetries(internal.remaining_admin_tries()))
-                        }
-                    }
+                let already_validated = match password {
+                    PasswordMode::Pw1Sign => context.state.runtime.sign_verified,
+                    PasswordMode::Pw1Other => context.state.runtime.other_verified,
+                    PasswordMode::Pw3 => context.state.runtime.admin_verified,
+                };
+                if already_validated {
+                    Ok(())
+                } else {
+                    Err(Status::RemainingRetries(
+                        internal.remaining_tries(password.into()),
+                    ))
                 }
             } else {
                 let pin = password.into();
@@ -382,22 +371,22 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     const MIN_LENGTH_ADMIN_PIN: usize = 8;
     const MIN_LENGTH_USER_PIN: usize = 6;
-    let (current_len, min_len) = match password {
-        Password::Pw1 => (internal.user_pin_len(), MIN_LENGTH_USER_PIN),
-        Password::Pw3 => (internal.admin_pin_len(), MIN_LENGTH_ADMIN_PIN),
+    let min_len = match password {
+        Password::Pw1 => MIN_LENGTH_USER_PIN,
+        Password::Pw3 => MIN_LENGTH_ADMIN_PIN,
     };
+    let current_len = internal.pin_len(password);
     if current_len + min_len > context.data.len() {
         return Err(Status::WrongLength);
     }
     let (old, new) = context.data.split_at(current_len);
     let client_mut = context.backend.client_mut();
-    match password {
-        Password::Pw1 => internal
-            .verify_user_pin(client_mut, old)
-            .and_then(|_| internal.change_user_pin(client_mut, new)),
-        Password::Pw3 => internal
-            .verify_admin_pin(client_mut, old)
-            .and_then(|_| internal.change_admin_pin(client_mut, new)),
-    }
-    .map_err(|_| Status::VerificationFailed)
+    internal
+        .verify_pin(client_mut, old, password)
+        .map_err(|_| Status::VerificationFailed)
+        .and_then(|()| {
+            internal
+                .change_pin(client_mut, new, password)
+                .map_err(|_| Status::WrongLength)
+        })
 }

@@ -55,9 +55,6 @@ impl<T: trussed::Client> Backend<T> {
 
     /// Checks whether the given value matches the pin of the given type.
     pub fn verify_pin(&mut self, pin: Password, value: &[u8], state: &mut state::Internal) -> bool {
-        match pin {
-            Password::Pw1 => state.verify_user_pin(&mut self.client, value).is_ok(),
-            Password::Pw3 => state.verify_admin_pin(&mut self.client, value).is_ok(),
-        }
+        state.verify_pin(&mut self.client, value, pin).is_ok()
     }
 }

@@ -8,6 +8,7 @@ use subtle::ConstantTimeEq;
 use trussed::try_syscall;
 use trussed::types::{Location, PathBuf};
 
+use crate::command::Password;
 use crate::error::Error;
 use crate::utils::file_exists;
 
@@ -94,116 +95,93 @@ impl Internal {
         Ok(())
     }
 
-    pub fn remaining_user_tries(&self) -> u8 {
-        Self::MAX_RETRIES.saturating_sub(self.user_pin_tries)
+    pub fn remaining_tries(&self, password: Password) -> u8 {
+        match password {
+            Password::Pw1 => Self::MAX_RETRIES.saturating_sub(self.user_pin_tries),
+            Password::Pw3 => Self::MAX_RETRIES.saturating_sub(self.admin_pin_tries),
+        }
     }
 
-    pub fn remaining_admin_tries(&self) -> u8 {
-        Self::MAX_RETRIES.saturating_sub(self.admin_pin_tries)
+    pub fn is_locked(&self, password: Password) -> bool {
+        match password {
+            Password::Pw1 => self.user_pin_tries >= Self::MAX_RETRIES,
+            Password::Pw3 => self.admin_pin_tries >= Self::MAX_RETRIES,
+        }
     }
 
-    pub fn is_user_locked(&self) -> bool {
-        self.user_pin_tries >= Self::MAX_RETRIES
-    }
-
-    pub fn is_admin_locked(&self) -> bool {
-        self.admin_pin_tries >= Self::MAX_RETRIES
-    }
-
-    pub fn decrement_user_counter<T: trussed::Client>(
+    pub fn decrement_counter<T: trussed::Client>(
         &mut self,
         client: &mut T,
+        password: Password,
     ) -> Result<(), Error> {
-        if !self.is_user_locked() {
-            self.user_pin_tries += 1;
+        if !self.is_locked(password) {
+            match password {
+                Password::Pw1 => self.user_pin_tries += 1,
+                Password::Pw3 => self.admin_pin_tries += 1,
+            }
             self.save(client)
         } else {
             Ok(())
         }
     }
 
-    pub fn decrement_admin_counter<T: trussed::Client>(
+    pub fn reset_counter<T: trussed::Client>(
         &mut self,
         client: &mut T,
+        password: Password,
     ) -> Result<(), Error> {
-        if !self.is_admin_locked() {
-            self.admin_pin_tries += 1;
-            self.save(client)
-        } else {
-            Ok(())
+        match password {
+            Password::Pw1 => self.user_pin_tries = 0,
+            Password::Pw3 => self.admin_pin_tries = 0,
+        }
+        self.save(client)
+    }
+
+    fn pin(&self, password: Password) -> &[u8] {
+        match password {
+            Password::Pw1 => &self.user_pin,
+            Password::Pw3 => &self.admin_pin,
         }
     }
 
-    pub fn reset_user_counter<T: trussed::Client>(&mut self, client: &mut T) -> Result<(), Error> {
-        self.user_pin_tries = 0;
-        self.save(client)
-    }
-
-    pub fn reset_admin_counter<T: trussed::Client>(&mut self, client: &mut T) -> Result<(), Error> {
-        self.admin_pin_tries = 0;
-        self.save(client)
-    }
-    pub fn verify_user_pin<T: trussed::Client>(
+    pub fn verify_pin<T: trussed::Client>(
         &mut self,
         client: &mut T,
         value: &[u8],
+        password: Password,
     ) -> Result<(), Error> {
-        if self.is_user_locked() {
+        if self.is_locked(password) {
             return Err(Error::TooManyTries);
         }
 
-        self.decrement_user_counter(client)?;
-        if (!value.ct_eq(&self.user_pin)).into() {
+        self.decrement_counter(client, password)?;
+        if (!value.ct_eq(self.pin(password))).into() {
             return Err(Error::InvalidPin);
         }
 
-        self.reset_user_counter(client)?;
+        self.reset_counter(client, password)?;
         Ok(())
     }
 
-    pub fn verify_admin_pin<T: trussed::Client>(
-        &mut self,
-        client: &mut T,
-        value: &[u8],
-    ) -> Result<(), Error> {
-        if self.is_admin_locked() {
-            return Err(Error::TooManyTries);
+    pub fn pin_len(&self, password: Password) -> usize {
+        match password {
+            Password::Pw1 => self.user_pin.len(),
+            Password::Pw3 => self.admin_pin.len(),
         }
-
-        self.decrement_admin_counter(client)?;
-        if (!value.ct_eq(&self.admin_pin)).into() {
-            return Err(Error::InvalidPin);
-        }
-
-        self.reset_admin_counter(client)?;
-        Ok(())
     }
 
-    pub fn user_pin_len(&self) -> usize {
-        self.user_pin.len()
-    }
-
-    pub fn admin_pin_len(&self) -> usize {
-        self.admin_pin.len()
-    }
-
-    pub fn change_admin_pin<T: trussed::Client>(
+    pub fn change_pin<T: trussed::Client>(
         &mut self,
         client: &mut T,
         value: &[u8],
+        password: Password,
     ) -> Result<(), Error> {
-        self.admin_pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
-        self.admin_pin_tries = 0;
-        self.save(client)
-    }
-
-    pub fn change_user_pin<T: trussed::Client>(
-        &mut self,
-        client: &mut T,
-        value: &[u8],
-    ) -> Result<(), Error> {
-        self.user_pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
-        self.user_pin_tries = 0;
+        let (pin, tries) = match password {
+            Password::Pw1 => (&mut self.user_pin, &mut self.user_pin_tries),
+            Password::Pw3 => (&mut self.admin_pin, &mut self.admin_pin_tries),
+        };
+        *pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
+        *tries = 0;
         self.save(client)
     }
 }
