@@ -17,7 +17,19 @@ fn change() {
         assert!(tx.verify_pw1_user(DEFAULT_USER_PIN).is_ok());
         assert!(tx.verify_pw1_sign(b"new pin").is_err());
         assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
-        assert!(tx.change_pw1(DEFAULT_USER_PIN, b"new pin").is_ok());
+        // new pin too short
+        assert!(tx.change_pw1(DEFAULT_USER_PIN, b"").is_err());
+        // Pin validation routine didn't ran
+        assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
+        // New pin too long
+        assert!(tx.change_pw1(DEFAULT_USER_PIN, &[55; 128]).is_err());
+        // The pin validation part still ran
+        assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(3));
+
+        // New pin not utf8
+        assert!(tx.change_pw1(DEFAULT_USER_PIN, &[0; 8]).is_ok());
+        assert!(tx.change_pw1(&[0; 8], &[255; 8]).is_ok());
+        assert!(tx.change_pw1(&[255; 8], b"new pin").is_ok());
         assert!(tx.verify_pw1_user(DEFAULT_USER_PIN).is_err());
         assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
         assert!(tx.verify_pw1_user(b"new pin").is_ok());

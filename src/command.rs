@@ -375,14 +375,26 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
         Password::Pw1 => MIN_LENGTH_USER_PIN,
         Password::Pw3 => MIN_LENGTH_ADMIN_PIN,
     };
+
+    if context.data.len() < 2 * min_len {
+        return Err(Status::WrongLength);
+    }
+
     let current_len = internal.pin_len(password);
+    let (old, new) = if context.data.len() < current_len {
+        (context.data, [].as_slice())
+    } else {
+        context.data.split_at(current_len)
+    };
+    let client_mut = context.backend.client_mut();
+    // Verify the old pin before returning for wrong length to avoid leaking information about the
+    // length of the PIN
+    let verify_result = internal.verify_pin(client_mut, old, password);
+
     if current_len + min_len > context.data.len() {
         return Err(Status::WrongLength);
     }
-    let (old, new) = context.data.split_at(current_len);
-    let client_mut = context.backend.client_mut();
-    internal
-        .verify_pin(client_mut, old, password)
+    verify_result
         .map_err(|_| Status::VerificationFailed)
         .and_then(|()| {
             internal
