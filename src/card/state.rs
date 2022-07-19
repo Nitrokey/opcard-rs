@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use crate::utils::serde_bytes_heapless;
+use heapless_bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
@@ -31,10 +31,8 @@ pub struct State {
 pub struct Internal {
     user_pin_tries: u8,
     admin_pin_tries: u8,
-    #[serde(with = "serde_bytes_heapless")]
-    user_pin: heapless::Vec<u8, MAX_PIN_LENGTH>,
-    #[serde(with = "serde_bytes_heapless")]
-    admin_pin: heapless::Vec<u8, MAX_PIN_LENGTH>,
+    user_pin: Bytes<MAX_PIN_LENGTH>,
+    admin_pin: Bytes<MAX_PIN_LENGTH>,
 }
 
 impl Internal {
@@ -44,9 +42,9 @@ impl Internal {
 
     fn default() -> Self {
         #[allow(clippy::unwrap_used)]
-        let admin_pin = heapless::Vec::from_slice(DEFAULT_ADMIN_PIN).unwrap();
+        let admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
         #[allow(clippy::unwrap_used)]
-        let user_pin = heapless::Vec::from_slice(DEFAULT_USER_PIN).unwrap();
+        let user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
         Self {
             user_pin_tries: 0,
             admin_pin_tries: 0,
@@ -212,7 +210,7 @@ impl Internal {
         client: &mut T,
         value: &[u8],
     ) -> Result<(), Error> {
-        self.admin_pin = heapless::Vec::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
+        self.admin_pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
         self.admin_pin_tries = 0;
         self.save(client)
     }
@@ -222,7 +220,7 @@ impl Internal {
         client: &mut T,
         value: &[u8],
     ) -> Result<(), Error> {
-        self.user_pin = heapless::Vec::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
+        self.user_pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
         self.user_pin_tries = 0;
         self.save(client)
     }
