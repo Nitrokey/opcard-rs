@@ -5,7 +5,7 @@ use iso7816::Status;
 
 use crate::{
     card::Context,
-    command::{GetDataMode, Tag},
+    command::{GetDataMode, Password, Tag},
     utils::InspectErr,
 };
 
@@ -71,6 +71,7 @@ impl TryFrom<u16> for DataObject {
 }
 
 impl DataObject {
+    #[allow(unused)]
     pub fn tag(&self) -> &'static [u8] {
         match self {
             DataObject::ApplicationIdentifier => &[0x4F],
@@ -253,7 +254,7 @@ const HISTORICAL_BYTES: &[u8] = b"0031F573C00160009000";
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    context: Context<'_, R, T>,
     mode: GetDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
@@ -274,7 +275,11 @@ fn get_pure_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
     object: PureDataObject,
 ) -> Result<(), Status> {
+    log::info!("Returning data for tag: {object:?}");
     match object {
+        PureDataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
+        PureDataObject::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
+        PureDataObject::PwStatusBytes => pw_status_bytes(context)?,
         _ => log::error!("Unimplemented DO: {object:?}"),
     }
     Ok(())
@@ -302,46 +307,24 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-// § 7.2.6
-pub fn old_get_data<const R: usize, T: trussed::Client>(
+pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
-    mode: GetDataMode,
-    tag: Tag,
 ) -> Result<(), Status> {
-    // TODO: curDO pointer
-    if mode != GetDataMode::Even {
-        unimplemented!();
-    }
-    let tag = DataObject::try_from(tag)
-        .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
-    log::debug!("Returning data for tag {:?}", tag);
-    // TODO: remove unwraps
-    match tag {
-        DataObject::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
-
-        DataObject::ApplicationRelatedData => {
-            // TODO: extend
-            let aid = context.options.aid();
-            context.extend_reply(&[0x4F])?;
-            context.extend_reply(&[aid.len() as u8])?;
-            context.extend_reply(&aid)?;
-        }
-        DataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
-        DataObject::PwStatusBytes => {
-            // TODO: set correct values
-            let status = PasswordStatus {
-                pw1_valid_multiple: false,
-                max_length_pw1: 32,
-                max_length_rc: 32,
-                max_length_pw3: 32,
-                error_counter_pw1: 3,
-                error_counter_rc: 3,
-                error_counter_pw3: 3,
-            };
-            let status: [u8; 7] = status.into();
-            context.extend_reply(&status)?;
-        }
-        _ => todo!(),
-    }
-    Ok(())
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    let status = PasswordStatus {
+        // TODO support true
+        pw1_valid_multiple: false,
+        max_length_pw1: 8,
+        max_length_rc: 8,
+        max_length_pw3: 8,
+        error_counter_pw1: internal.remaining_tries(Password::Pw1),
+        // TODO when implementing RESET RETRY COUNTER
+        error_counter_rc: 3,
+        error_counter_pw3: internal.remaining_tries(Password::Pw3),
+    };
+    let status: [u8; 7] = status.into();
+    context.extend_reply(&status)
 }
