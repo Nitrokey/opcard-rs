@@ -221,6 +221,28 @@ impl PureGetDataObject {
             PureGetDataObject::LoginData => &[0x5E],
         }
     }
+
+    fn get_pure_data<const R: usize, T: trussed::Client>(
+        self,
+        mut context: Context<'_, R, T>,
+    ) -> Result<(), Status> {
+        match self {
+            PureGetDataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
+            PureGetDataObject::ApplicationIdentifier => {
+                context.extend_reply(&context.options.aid())?
+            }
+            PureGetDataObject::PwStatusBytes => pw_status_bytes(context)?,
+            PureGetDataObject::ExtendedLengthInformation => {
+                context.extend_reply(EXTENDED_LENGTH_INFO)?
+            }
+            _ => {
+                log::error!("Unimplemented DO: {self:?}");
+                return Err(Status::UnspecifiedNonpersistentExecutionError);
+            }
+        }
+        log::info!("Returning data for tag: {self:?}");
+        Ok(())
+    }
 }
 
 struct PasswordStatus {
@@ -272,36 +294,33 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     log::debug!("Returning data for tag {:?}", tag);
     match object.as_pure() {
-        Ok(obj) => get_pure_data(context, obj),
+        Ok(obj) => obj.get_pure_data(context),
         Err(objs) => get_constructed_data(context, objs),
     }
 }
 
-fn get_pure_data<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
-    object: PureGetDataObject,
-) -> Result<(), Status> {
-    match object {
-        PureGetDataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
-        PureGetDataObject::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
-        PureGetDataObject::PwStatusBytes => pw_status_bytes(context)?,
-        PureGetDataObject::ExtendedLengthInformation => {
-            context.extend_reply(EXTENDED_LENGTH_INFO)?
-        }
-        _ => {
-            log::error!("Unimplemented DO: {object:?}");
-            return Err(Status::UnspecifiedNonpersistentExecutionError);
-        }
+fn encode_len<const R: usize>(len: usize, buf: &mut heapless::Vec<u8, R>) -> Result<(), Status> {
+    if len <= 0x7f {
+        buf.extend_from_slice(&[len as u8])
+    } else if len <= 255 {
+        buf.extend_from_slice(&[0x81, len as u8])
+    } else if len <= 65535 {
+        let arr = (len as u16).to_le_bytes();
+        buf.extend_from_slice(&[0x82, arr[0], arr[1]])
+    } else {
+        return Err(Status::UnspecifiedPersistentExecutionError);
     }
-    log::info!("Returning data for tag: {object:?}");
-    Ok(())
+    .map_err(|_| {
+        log::error!("Buffer full");
+        Status::NotEnoughMemory
+    })
 }
 
 fn get_constructed_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
     objects: &'static [PureGetDataObject],
 ) -> Result<(), Status> {
-    let mut buf = heapless::Vec::<u8, 0xff>::new();
+    let mut buf = heapless::Vec::<u8, R>::new();
     for obj in objects {
         buf.clear();
         let tmp_ctx = Context {
@@ -311,9 +330,9 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
             state: context.state,
             data: context.data,
         };
-        get_pure_data(tmp_ctx, *obj)?;
+        obj.get_pure_data(tmp_ctx)?;
         context.extend_reply(obj.tag())?;
-        context.extend_reply(&[buf.len() as u8])?;
+        encode_len(buf.len(), context.reply)?;
         context.extend_reply(&buf)?;
     }
     Ok(())
