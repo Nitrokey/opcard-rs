@@ -50,6 +50,7 @@ macro_rules! enum_u16 {
         }
 
         impl $name {
+            #[allow(unused)]
             $vis fn tag(&self) -> &'static [u8] {
                 match self{
                     $(
@@ -105,6 +106,40 @@ macro_rules! enum_subset {
                         $name::$var => $sup::$var,
                     )*
                 }
+            }
+        }
+
+        impl TryFrom<u16> for $name {
+            type Error = Status;
+            fn try_from(tag: u16) -> ::core::result::Result<Self, Status> {
+                let v: $sup = tag.try_into()?;
+                match v {
+                    $(
+                        $sup::$var => Ok($name::$var),
+                    )*
+                    _ => Err(Status::KeyReferenceNotFound)
+                }
+            }
+        }
+
+        impl TryFrom<Tag> for $name {
+            type Error = Status;
+            fn try_from(tag: Tag) -> ::core::result::Result<Self, Status> {
+                let v: $sup = tag.try_into()?;
+                match v {
+                    $(
+                        $sup::$var => Ok($name::$var),
+                    )*
+                    _ => Err(Status::KeyReferenceNotFound)
+                }
+            }
+        }
+
+        impl $name {
+            #[allow(unused)]
+            $vis fn tag(self) -> &'static [u8] {
+                let raw: $sup = self.into();
+                raw.tag()
             }
         }
     }
@@ -245,12 +280,6 @@ enum GetDataDoType {
 }
 
 impl GetDataObject {
-    #[allow(unused)]
-    pub fn tag(self) -> &'static [u8] {
-        let raw: DataObject = self.into();
-        raw.tag()
-    }
-
     /// Returns the pure version of itself. In case of DOs with children, return the list of
     /// chlidren
     pub fn simple_or_constructed(&self) -> GetDataDoType {
@@ -322,12 +351,6 @@ impl GetDataObject {
 }
 
 impl PureGetDataObject {
-    /// Returns the tag of the data object (1 or 2 bytes)
-    pub fn tag(self) -> &'static [u8] {
-        let raw: DataObject = self.into();
-        raw.tag()
-    }
-
     fn get_pure_data<const R: usize, T: trussed::Client>(
         self,
         mut context: Context<'_, R, T>,
@@ -396,9 +419,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     if mode != GetDataMode::Even {
         unimplemented!();
     }
-    let raw_object = DataObject::try_from(tag)
-        .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
-    let object = GetDataObject::try_from(raw_object)
+    let object = GetDataObject::try_from(tag)
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     log::debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
