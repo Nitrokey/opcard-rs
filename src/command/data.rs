@@ -77,7 +77,7 @@ const HISTORICAL_BYTES: &[u8] = b"0031F573C00160009000";
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    mut context: Context<'_, R, T>,
     mode: GetDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
@@ -91,29 +91,21 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     log::debug!("Returning data for tag {:?}", tag);
     // TODO: remove unwraps
     match tag {
-        GetDataTag::ApplicationIdentifier => {
-            context
-                .reply
-                .extend_from_slice(&context.options.aid())
-                .unwrap();
-        }
+        GetDataTag::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
+
         GetDataTag::ApplicationRelatedData => {
             // TODO: extend
             let aid = context.options.aid();
-            context.reply.extend_from_slice(&[0x4F]).unwrap();
-            context.reply.extend_from_slice(&[aid.len() as u8]).unwrap();
-            context.reply.extend_from_slice(&aid).unwrap();
+            context.extend_reply(&[0x4F])?;
+            context.extend_reply(&[aid.len() as u8])?;
+            context.extend_reply(&aid)?;
         }
+        // TODO: fix
         GetDataTag::ExtendedCapabilities => {
-            // TODO: fix
-            context
-                .reply
-                .extend_from_slice(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-                .unwrap();
+            context.extend_reply(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])?
         }
-        GetDataTag::HistoricalBytes => {
-            context.reply.extend_from_slice(HISTORICAL_BYTES).unwrap();
-        }
+
+        GetDataTag::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
         GetDataTag::PasswordStatusBytes => {
             // TODO: set correct values
             let status = PasswordStatus {
@@ -126,7 +118,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
                 error_counter_pw3: 3,
             };
             let status: [u8; 7] = status.into();
-            context.reply.extend_from_slice(&status).unwrap();
+            context.extend_reply(&status)?;
         }
     }
     Ok(())
