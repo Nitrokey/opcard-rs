@@ -9,64 +9,233 @@ use crate::{
     utils::InspectErr,
 };
 
-/// Public Data objects
-#[derive(Debug, Clone, Copy)]
-enum GetDataObject {
-    ApplicationIdentifier,
-    LoginData,
-    Url,
-    HistoricalBytes,
-    CardholderRelatedData,
-    ApplicationRelatedData,
-    GeneralFeatureManagement,
-    PwStatusBytes,
-    KeyInformation,
-    UifCds,
-    UifDec,
-    UifAut,
-    SecuritSupportTemplate,
-    CardholderCertificate,
-    ExtendedLengthInformation,
-    KdfDo,
-    AlgorithmInformation,
-    SecureMessagingCertificate,
-}
+macro_rules! enum_u16 {
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident {
+            $($var:ident = $num:expr),+
+            $(,)*
+        }
+    ) => {
+        $(#[$outer])*
+        #[repr(u16)]
+        $vis enum $name {
+            $(
+                $var = $num,
+            )*
+        }
 
-impl TryFrom<Tag> for GetDataObject {
-    type Error = Status;
+        impl TryFrom<u16> for $name {
+            type Error = Status;
+            fn try_from(val: u16) -> ::core::result::Result<Self, Status> {
+                match val {
+                    $(
+                        $num => Ok($name::$var),
+                    )*
+                    _ => Err(Status::KeyReferenceNotFound)
+                }
+            }
+        }
 
-    fn try_from(tag: Tag) -> Result<Self, Self::Error> {
-        tag.0.try_into()
+        impl TryFrom<Tag> for $name {
+            type Error = Status;
+            fn try_from(val: Tag) -> ::core::result::Result<Self, Status> {
+                match val.0 {
+                    $(
+                        $num => Ok($name::$var),
+                    )*
+                    _ => Err(Status::KeyReferenceNotFound)
+                }
+            }
+        }
+
+        impl $name {
+            $vis fn tag(&self) -> &'static [u8] {
+                match self{
+                    $(
+                         $name::$var => {
+                            const BYTES: [u8; 2] = ($name::$var as u16).to_be_bytes();
+                            if BYTES[0] == 0 {
+                                &BYTES[1..]
+                            } else {
+                                &BYTES
+                            }
+                         }
+                    )*
+                }
+            }
+        }
     }
 }
 
-impl TryFrom<u16> for GetDataObject {
-    type Error = Status;
-
-    fn try_from(tag: u16) -> Result<Self, Self::Error> {
-        // § 4.4.1
-        match tag {
-            0x004F => Ok(GetDataObject::ApplicationIdentifier),
-            0x005E => Ok(GetDataObject::LoginData),
-            0x5F50 => Ok(GetDataObject::Url),
-            0x5F52 => Ok(GetDataObject::HistoricalBytes),
-            0x0065 => Ok(GetDataObject::CardholderRelatedData),
-            0x006E => Ok(GetDataObject::ApplicationRelatedData),
-            0x7f74 => Ok(GetDataObject::GeneralFeatureManagement),
-            0x00C4 => Ok(GetDataObject::PwStatusBytes),
-            0x00DE => Ok(GetDataObject::KeyInformation),
-            0x00D6 => Ok(GetDataObject::UifCds),
-            0x00D7 => Ok(GetDataObject::UifDec),
-            0x00D8 => Ok(GetDataObject::UifAut),
-            0x007A => Ok(GetDataObject::SecuritSupportTemplate),
-            0x7f21 => Ok(GetDataObject::CardholderCertificate),
-            0x7f66 => Ok(GetDataObject::ExtendedLengthInformation),
-            0x00F9 => Ok(GetDataObject::KdfDo),
-            0x00FA => Ok(GetDataObject::AlgorithmInformation),
-            0x00FB => Ok(GetDataObject::SecureMessagingCertificate),
-
-            _ => Err(Status::KeyReferenceNotFound),
+macro_rules! enum_subset {
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident: $sup:ident {
+            $($var:ident),+
+            $(,)*
         }
+    ) => {
+        $(#[$outer])*
+        #[repr(u16)]
+        $vis enum $name {
+            $(
+                $var,
+            )*
+        }
+
+        impl TryFrom<$sup> for $name
+        {
+            type Error = Status;
+            fn try_from(val: $sup) -> ::core::result::Result<Self, Status> {
+                match val {
+                    $(
+                        $sup::$var => Ok($name::$var),
+                    )*
+                    _ => Err(Status::KeyReferenceNotFound)
+                }
+            }
+        }
+
+        impl From<$name> for $sup
+        {
+            fn from(v: $name) -> $sup {
+                match v {
+                    $(
+                        $name::$var => $sup::$var,
+                    )*
+                }
+            }
+        }
+    }
+}
+
+enum_u16! {
+    /// All data objects
+    #[derive(Debug, Clone, Copy)]
+    enum DataObject {
+        PrivateUse1 = 0x0101,
+        PrivateUse2 = 0x0102,
+        PrivateUse3 = 0x0103,
+        PrivateUse4 = 0x0104,
+        ExtendedHeaderList = 0x004D,
+        ApplicationIdentifier = 0x004F,
+        LoginData = 0x005E,
+        Url = 0x5F50,
+        HistoricalBytes = 0x5F52,
+        CardHolderRelatedData  = 0x0065,
+        CardHolderName = 0x005B,
+        LanguagePreferences = 0x5F2D,
+        CardHolderSex = 0x5F35,
+        ApplicationRelatedData  = 0x006E,
+        GeneralFeatureManagement = 0x7f74,
+        DiscretionaryDataObjects = 0x0073,
+        ExtendedCapabilities = 0x00C0,
+        AlgorithmAttributesSignature = 0x00C1,
+        AlgorithmAttributesDecryption = 0x00C2,
+        AlgorithmAttributesAuthentication = 0x00C3,
+        PwStatusBytes = 0x00C4,
+        Fingerprints = 0x00C5,
+        CAFingerprints = 0x00C6,
+        SignFingerprint = 0x00C7,
+        DecFingerprint = 0x00C8,
+        AuthFingerprint = 0x00C9,
+        CaFingerprint1 = 0x00CA,
+        CaFingerprint2 = 0x00CB,
+        CaFingerprint3 = 0x00CC,
+        KeyGenerationDates = 0x00CD,
+        SignGenerationDate = 0x00CE,
+        DecGenerationDate = 0x00CF,
+        AuthGenerationDate = 0x00D0,
+        KeyInformation = 0x00DE,
+        SMkEnc = 0x00D1,
+        SMkMac = 0x00D2,
+        ResetingCode = 0x00D3,
+        PSOEncDecKey = 0x00D5,
+        SMEncMac = 0x00F4,
+        UifCds = 0x00D6,
+        UifDec = 0x00D7,
+        UifAut = 0x00D8,
+        SecuritSupportTemplate  = 0x007A,
+        DigitalSignatureCounter = 0x0093,
+        CardHolderCertificate = 0x7f21,
+        ExtendedLengthInformation = 0x7f66,
+        KdfDo = 0x00F9,
+        AlgorithmInformation = 0x00FA,
+        SecureMessagingCertificate = 0x00FB,
+    }
+}
+
+enum_subset! {
+    /// Data objects available via GET DATA
+    #[derive(Debug, Clone, Copy)]
+    enum GetDataObject: DataObject {
+        PrivateUse1,
+        PrivateUse2,
+        PrivateUse3,
+        PrivateUse4,
+        ApplicationIdentifier,
+        LoginData,
+        Url,
+        HistoricalBytes,
+        CardHolderRelatedData,
+        ApplicationRelatedData,
+        GeneralFeatureManagement,
+        PwStatusBytes,
+        KeyInformation,
+        UifCds,
+        UifDec,
+        UifAut,
+        SecuritSupportTemplate,
+        CardHolderCertificate,
+        ExtendedLengthInformation,
+        KdfDo,
+        AlgorithmInformation,
+        SecureMessagingCertificate,
+    }
+}
+
+enum_subset! {
+    /// "Pure" data objects that don't have children
+    ///
+    /// Distinct from Simple. All Simple DOs are "pure", but some "pure" represent the data (not
+    /// prepended with tag and length) of a constructed DO.
+    ///
+    /// Some may not be in GetDataObject because they're only available as part of a constructed DO (in
+    /// cursive in 4.4.1)
+    #[derive(Debug, Clone, Copy)]
+    enum PureGetDataObject: DataObject {
+        PrivateUse1,
+        PrivateUse2,
+        PrivateUse3,
+        PrivateUse4,
+        ApplicationIdentifier,
+        LoginData,
+        Url,
+        HistoricalBytes,
+        CardHolderName,
+        LanguagePreferences,
+        CardHolderSex,
+        GeneralFeatureManagement,
+        DiscretionaryDataObjects,
+        ExtendedCapabilities,
+        AlgorithmAttributesSignature,
+        AlgorithmAttributesDecryption,
+        AlgorithmAttributesAuthentication,
+        PwStatusBytes,
+        Fingerprints,
+        CAFingerprints,
+        KeyGenerationDates,
+        KeyInformation,
+        UifCds,
+        UifDec,
+        UifAut,
+        DigitalSignatureCounter,
+        CardHolderCertificate,
+        ExtendedLengthInformation,
+        KdfDo,
+        AlgorithmInformation,
+        SecureMessagingCertificate,
     }
 }
 
@@ -77,33 +246,19 @@ enum GetDataDoType {
 
 impl GetDataObject {
     #[allow(unused)]
-    pub fn tag(&self) -> &'static [u8] {
-        match self {
-            GetDataObject::ApplicationIdentifier => &[0x4F],
-            GetDataObject::LoginData => &[0x5E],
-            GetDataObject::CardholderRelatedData => &[0x65],
-            GetDataObject::ApplicationRelatedData => &[0x6E],
-            GetDataObject::PwStatusBytes => &[0xC4],
-            GetDataObject::KeyInformation => &[0xDE],
-            GetDataObject::UifCds => &[0xD6],
-            GetDataObject::UifDec => &[0xD7],
-            GetDataObject::UifAut => &[0xD8],
-            GetDataObject::SecuritSupportTemplate => &[0x7A],
-            GetDataObject::KdfDo => &[0xF9],
-            GetDataObject::AlgorithmInformation => &[0xFA],
-            GetDataObject::SecureMessagingCertificate => &[0xFB],
-            GetDataObject::Url => &[0x5F, 0x50],
-            GetDataObject::HistoricalBytes => &[0x5F, 0x52],
-            GetDataObject::CardholderCertificate => &[0x7f, 0x21],
-            GetDataObject::ExtendedLengthInformation => &[0x7f, 0x66],
-            GetDataObject::GeneralFeatureManagement => &[0x7f, 0x74],
-        }
+    pub fn tag(self) -> &'static [u8] {
+        let raw: DataObject = self.into();
+        raw.tag()
     }
 
     /// Returns the pure version of itself. In case of DOs with children, return the list of
     /// chlidren
     pub fn simple_or_constructed(&self) -> GetDataDoType {
         match self {
+            GetDataObject::PrivateUse1 => GetDataDoType::Simple(PureGetDataObject::PrivateUse1),
+            GetDataObject::PrivateUse2 => GetDataDoType::Simple(PureGetDataObject::PrivateUse2),
+            GetDataObject::PrivateUse3 => GetDataDoType::Simple(PureGetDataObject::PrivateUse3),
+            GetDataObject::PrivateUse4 => GetDataDoType::Simple(PureGetDataObject::PrivateUse4),
             GetDataObject::ApplicationIdentifier => {
                 GetDataDoType::Simple(PureGetDataObject::ApplicationIdentifier)
             }
@@ -122,8 +277,8 @@ impl GetDataObject {
             GetDataObject::UifCds => GetDataDoType::Simple(PureGetDataObject::UifCds),
             GetDataObject::UifDec => GetDataDoType::Simple(PureGetDataObject::UifDec),
             GetDataObject::UifAut => GetDataDoType::Simple(PureGetDataObject::UifAut),
-            GetDataObject::CardholderCertificate => {
-                GetDataDoType::Constructed(&[PureGetDataObject::CardholderCertificate])
+            GetDataObject::CardHolderCertificate => {
+                GetDataDoType::Constructed(&[PureGetDataObject::CardHolderCertificate])
             }
             GetDataObject::ExtendedLengthInformation => {
                 GetDataDoType::Constructed(&[PureGetDataObject::ExtendedLengthInformation])
@@ -135,10 +290,10 @@ impl GetDataObject {
             GetDataObject::SecureMessagingCertificate => {
                 GetDataDoType::Constructed(&[PureGetDataObject::SecureMessagingCertificate])
             }
-            GetDataObject::CardholderRelatedData => GetDataDoType::Constructed(&[
+            GetDataObject::CardHolderRelatedData => GetDataDoType::Constructed(&[
                 PureGetDataObject::CardHolderName,
                 PureGetDataObject::LanguagePreferences,
-                PureGetDataObject::Sex,
+                PureGetDataObject::CardHolderSex,
             ]),
             GetDataObject::ApplicationRelatedData => GetDataDoType::Constructed(&[
                 PureGetDataObject::ApplicationIdentifier,
@@ -166,76 +321,11 @@ impl GetDataObject {
     }
 }
 
-/// "Pure" data objects that don't have children
-///
-/// Distinct from Simple. All Simple DOs are "pure", but some "pure" represent the data (not
-/// prepended with tag and length) of a constructed DO.
-///
-/// Some may not be in GetDataObject because they're only available as part of a constructed DO (in
-/// cursive in 4.4.1)
-#[derive(Debug, Clone, Copy)]
-enum PureGetDataObject {
-    ApplicationIdentifier,
-    LoginData,
-    Url,
-    HistoricalBytes,
-    CardHolderName,
-    LanguagePreferences,
-    Sex,
-    GeneralFeatureManagement,
-    DiscretionaryDataObjects,
-    ExtendedCapabilities,
-    AlgorithmAttributesSignature,
-    AlgorithmAttributesDecryption,
-    AlgorithmAttributesAuthentication,
-    PwStatusBytes,
-    Fingerprints,
-    CAFingerprints,
-    KeyGenerationDates,
-    KeyInformation,
-    UifCds,
-    UifDec,
-    UifAut,
-    DigitalSignatureCounter,
-    CardholderCertificate,
-    ExtendedLengthInformation,
-    KdfDo,
-    AlgorithmInformation,
-    SecureMessagingCertificate,
-}
-
 impl PureGetDataObject {
     /// Returns the tag of the data object (1 or 2 bytes)
-    pub fn tag(&self) -> &'static [u8] {
-        match self {
-            PureGetDataObject::Url => &[0x5F, 0x50],
-            PureGetDataObject::HistoricalBytes => &[0x5F, 0x52],
-            PureGetDataObject::CardHolderName => &[0x5B],
-            PureGetDataObject::LanguagePreferences => &[0x5F, 0x2D],
-            PureGetDataObject::Sex => &[0x5F, 0x35],
-            PureGetDataObject::GeneralFeatureManagement => &[0x7f, 0x74],
-            PureGetDataObject::CardholderCertificate => &[0x7f, 0x21],
-            PureGetDataObject::ExtendedLengthInformation => &[0x7f, 0x66],
-            PureGetDataObject::DiscretionaryDataObjects => &[0x73],
-            PureGetDataObject::ExtendedCapabilities => &[0xC0],
-            PureGetDataObject::AlgorithmAttributesSignature => &[0xC1],
-            PureGetDataObject::AlgorithmAttributesDecryption => &[0xC2],
-            PureGetDataObject::AlgorithmAttributesAuthentication => &[0xC3],
-            PureGetDataObject::PwStatusBytes => &[0xC4],
-            PureGetDataObject::Fingerprints => &[0xC5],
-            PureGetDataObject::CAFingerprints => &[0xC6],
-            PureGetDataObject::KeyGenerationDates => &[0xCD],
-            PureGetDataObject::KeyInformation => &[0xDE],
-            PureGetDataObject::UifCds => &[0xD6],
-            PureGetDataObject::UifDec => &[0xD7],
-            PureGetDataObject::UifAut => &[0xD8],
-            PureGetDataObject::DigitalSignatureCounter => &[0x93],
-            PureGetDataObject::KdfDo => &[0xF9],
-            PureGetDataObject::AlgorithmInformation => &[0xFA],
-            PureGetDataObject::SecureMessagingCertificate => &[0xFB],
-            PureGetDataObject::ApplicationIdentifier => &[0x4F],
-            PureGetDataObject::LoginData => &[0x5E],
-        }
+    pub fn tag(self) -> &'static [u8] {
+        let raw: DataObject = self.into();
+        raw.tag()
     }
 
     fn get_pure_data<const R: usize, T: trussed::Client>(
@@ -306,7 +396,9 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     if mode != GetDataMode::Even {
         unimplemented!();
     }
-    let object = GetDataObject::try_from(tag)
+    let raw_object = DataObject::try_from(tag)
+        .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
+    let object = GetDataObject::try_from(raw_object)
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     log::debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
@@ -374,4 +466,59 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     };
     let status: [u8; 7] = status.into();
     context.extend_reply(&status)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tags() {
+        // Test that tags didn't change after refactor
+        assert_eq!(PureGetDataObject::Url.tag(), &[0x5F, 0x50]);
+        assert_eq!(PureGetDataObject::HistoricalBytes.tag(), &[0x5F, 0x52]);
+        assert_eq!(PureGetDataObject::CardHolderName.tag(), &[0x5B]);
+        assert_eq!(PureGetDataObject::LanguagePreferences.tag(), &[0x5F, 0x2D]);
+        assert_eq!(PureGetDataObject::CardHolderSex.tag(), &[0x5F, 0x35]);
+        assert_eq!(
+            PureGetDataObject::GeneralFeatureManagement.tag(),
+            &[0x7f, 0x74]
+        );
+        assert_eq!(
+            PureGetDataObject::CardHolderCertificate.tag(),
+            &[0x7f, 0x21]
+        );
+        assert_eq!(
+            PureGetDataObject::ExtendedLengthInformation.tag(),
+            &[0x7f, 0x66]
+        );
+        assert_eq!(PureGetDataObject::DiscretionaryDataObjects.tag(), &[0x73]);
+        assert_eq!(PureGetDataObject::ExtendedCapabilities.tag(), &[0xC0]);
+        assert_eq!(
+            PureGetDataObject::AlgorithmAttributesSignature.tag(),
+            &[0xC1]
+        );
+        assert_eq!(
+            PureGetDataObject::AlgorithmAttributesDecryption.tag(),
+            &[0xC2]
+        );
+        assert_eq!(
+            PureGetDataObject::AlgorithmAttributesAuthentication.tag(),
+            &[0xC3]
+        );
+        assert_eq!(PureGetDataObject::PwStatusBytes.tag(), &[0xC4]);
+        assert_eq!(PureGetDataObject::Fingerprints.tag(), &[0xC5]);
+        assert_eq!(PureGetDataObject::CAFingerprints.tag(), &[0xC6]);
+        assert_eq!(PureGetDataObject::KeyGenerationDates.tag(), &[0xCD]);
+        assert_eq!(PureGetDataObject::KeyInformation.tag(), &[0xDE]);
+        assert_eq!(PureGetDataObject::UifCds.tag(), &[0xD6]);
+        assert_eq!(PureGetDataObject::UifDec.tag(), &[0xD7]);
+        assert_eq!(PureGetDataObject::UifAut.tag(), &[0xD8]);
+        assert_eq!(PureGetDataObject::DigitalSignatureCounter.tag(), &[0x93]);
+        assert_eq!(PureGetDataObject::KdfDo.tag(), &[0xF9]);
+        assert_eq!(PureGetDataObject::AlgorithmInformation.tag(), &[0xFA]);
+        assert_eq!(PureGetDataObject::SecureMessagingCertificate.tag(), &[0xFB]);
+        assert_eq!(PureGetDataObject::ApplicationIdentifier.tag(), &[0x4F]);
+        assert_eq!(PureGetDataObject::LoginData.tag(), &[0x5E]);
+    }
 }
