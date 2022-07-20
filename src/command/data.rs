@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-enum GetDataTag {
+enum DataObject {
     ApplicationIdentifier,
     ApplicationRelatedData,
     ExtendedCapabilities,
@@ -18,7 +18,7 @@ enum GetDataTag {
     PasswordStatusBytes,
 }
 
-impl TryFrom<Tag> for GetDataTag {
+impl TryFrom<Tag> for DataObject {
     type Error = Status;
 
     fn try_from(tag: Tag) -> Result<Self, Self::Error> {
@@ -26,7 +26,7 @@ impl TryFrom<Tag> for GetDataTag {
     }
 }
 
-impl TryFrom<u16> for GetDataTag {
+impl TryFrom<u16> for DataObject {
     type Error = Status;
 
     fn try_from(tag: u16) -> Result<Self, Self::Error> {
@@ -86,14 +86,14 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     if mode != GetDataMode::Even {
         unimplemented!();
     }
-    let tag = GetDataTag::try_from(tag)
+    let tag = DataObject::try_from(tag)
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     log::debug!("Returning data for tag {:?}", tag);
     // TODO: remove unwraps
     match tag {
-        GetDataTag::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
+        DataObject::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
 
-        GetDataTag::ApplicationRelatedData => {
+        DataObject::ApplicationRelatedData => {
             // TODO: extend
             let aid = context.options.aid();
             context.extend_reply(&[0x4F])?;
@@ -101,12 +101,12 @@ pub fn get_data<const R: usize, T: trussed::Client>(
             context.extend_reply(&aid)?;
         }
         // TODO: fix
-        GetDataTag::ExtendedCapabilities => {
+        DataObject::ExtendedCapabilities => {
             context.extend_reply(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])?
         }
 
-        GetDataTag::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
-        GetDataTag::PasswordStatusBytes => {
+        DataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
+        DataObject::PasswordStatusBytes => {
             // TODO: set correct values
             let status = PasswordStatus {
                 pw1_valid_multiple: false,
