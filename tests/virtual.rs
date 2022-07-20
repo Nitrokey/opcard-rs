@@ -1,29 +1,33 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-#![cfg(all(feature = "backend-software", feature = "virtual"))]
+#![cfg(feature = "virtual")]
 
 use std::{process::Command, sync::mpsc};
 
 use stoppable_thread::spawn;
 use test_log::test;
 
-use opcard::backend::virtual_platform::VIRTUAL_CARD;
-
 fn with_vsc<F: Fn() -> R, R>(f: F) -> R {
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
 
     let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
-        let mut virtual_card = VIRTUAL_CARD.lock().unwrap();
-        let mut result = Ok(());
-        while !stopped.get() && result.is_ok() {
-            result = vpicc.poll(&mut *virtual_card);
-            if result.is_ok() {
-                tx.send(()).expect("failed to send message");
+        trussed::virt::with_ram_client("opcard", |client| {
+            let card = opcard::Card::new(
+                opcard::backend::Backend::new(client),
+                opcard::Options::default(),
+            );
+            let mut virtual_card = opcard::VirtualCard::new(card);
+            let mut result = Ok(());
+            while !stopped.get() && result.is_ok() {
+                result = vpicc.poll(&mut virtual_card);
+                if result.is_ok() {
+                    tx.send(()).expect("failed to send message");
+                }
             }
-        }
-        result
+            result
+        })
     });
 
     rx.recv().expect("failed to read message");

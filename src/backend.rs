@@ -13,9 +13,6 @@ use crate::command::Password;
 use crate::error::Error;
 use crate::state;
 
-#[cfg(feature = "backend-software")]
-pub mod virtual_platform;
-
 /// Backend that provides data storage and cryptography operations.
 /// Mostly a wrapper around a trussed client
 #[derive(Clone)]

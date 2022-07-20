@@ -1,33 +1,56 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::sync::Mutex;
+#![allow(unused)]
+
+use std::sync::{Arc, Mutex};
 
 use iso7816::{command::FromSliceError, Command, Status};
 use openpgp_card::{
     CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
 };
-
-use opcard::backend::virtual_platform::CARD;
+use trussed::{
+    virt::{Client, Platform, RamStore},
+    Service,
+};
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
 
 #[derive(Debug)]
-struct Card<T: trussed::Client + Send + 'static>(&'static Mutex<opcard::Card<T>>);
+pub struct Card<T: trussed::Client + Send + 'static>(Arc<Mutex<opcard::Card<T>>>);
+
+impl<T: trussed::Client + Send + 'static> Card<T> {
+    pub fn new(client: T) -> Self {
+        let backend = opcard::backend::Backend::new(client);
+        let card = opcard::Card::new(backend, Default::default());
+        Self(Arc::from(Mutex::from(card)))
+    }
+
+    pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(&mut self, f: F) -> R {
+        let mut openpgp = OpenPgp::new(self);
+        let tx = openpgp.transaction().expect("failed to create transaction");
+        f(tx)
+    }
+
+    pub fn reset(&self) {
+        self.0.lock().unwrap().reset();
+    }
+}
 
 impl<T: trussed::Client + Send + 'static> CardBackend for Card<T> {
     fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync>, Error> {
+        // TODO: use reference instead of cloning
         Ok(Box::new(Transaction {
-            card: self.0,
+            card: self.0.clone(),
             buffer: heapless::Vec::new(),
         }))
     }
 }
 
 #[derive(Debug)]
-struct Transaction<T: trussed::Client + Send + 'static> {
-    card: &'static Mutex<opcard::Card<T>>,
+pub struct Transaction<T: trussed::Client + Send + 'static> {
+    card: Arc<Mutex<opcard::Card<T>>>,
     buffer: heapless::Vec<u8, RESPONSE_LEN>,
 }
 
@@ -41,7 +64,7 @@ impl<T: trussed::Client + Send + 'static> Transaction<T> {
             FromSliceError::InvalidClass => Status::ClassNotSupported,
             FromSliceError::InvalidFirstBodyByteForExtended => Status::UnspecifiedCheckingError,
         })?;
-        let mut card = self.card.try_lock().expect("failed to lock card");
+        let mut card = self.card.lock().expect("failed to lock card");
         card.handle(&command, &mut self.buffer)
     }
 }
@@ -81,11 +104,12 @@ impl<T: trussed::Client + Send + 'static> CardTransaction for Transaction<T> {
     }
 }
 
-pub fn with_tx<F: Fn(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
-    let mut handle = Card(&CARD);
-    let mut openpgp = OpenPgp::new(&mut handle);
-    let tx = openpgp.transaction().expect("failed to create transaction");
-    f(tx)
+pub fn with_card<F: FnOnce(Card<Client<RamStore>>) -> R, R>(f: F) -> R {
+    trussed::virt::with_ram_client("opcard", |client| f(Card::new(client)))
+}
+
+pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
+    with_card(move |mut card| card.with_tx(f))
 }
 
 pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
