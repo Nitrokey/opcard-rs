@@ -275,13 +275,16 @@ fn get_pure_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
     object: PureDataObject,
 ) -> Result<(), Status> {
-    log::info!("Returning data for tag: {object:?}");
     match object {
         PureDataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
         PureDataObject::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
         PureDataObject::PwStatusBytes => pw_status_bytes(context)?,
-        _ => log::error!("Unimplemented DO: {object:?}"),
+        _ => {
+            log::error!("Unimplemented DO: {object:?}");
+            return Err(Status::UnspecifiedNonpersistentExecutionError);
+        }
     }
+    log::info!("Returning data for tag: {object:?}");
     Ok(())
 }
 

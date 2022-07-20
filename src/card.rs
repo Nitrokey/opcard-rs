@@ -157,9 +157,10 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
     /// Extend the reply and return an error otherwise
     /// The MoreAvailable and GET RESPONSE mechanisms are handled by adpu_dispatch
     pub fn extend_reply(&mut self, data: &[u8]) -> Result<(), Status> {
-        self.reply
-            .extend_from_slice(data)
-            .map_err(|_| Status::NotEnoughMemory)
+        self.reply.extend_from_slice(data).map_err(|_| {
+            log::error!("Buffer full");
+            Status::NotEnoughMemory
+        })
     }
 }
 
