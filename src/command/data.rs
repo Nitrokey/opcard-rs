@@ -255,6 +255,8 @@ impl From<PasswordStatus> for [u8; 7] {
 // https://cardwerk.com/smart-card-standard-iso7816-4-section-8-historical-bytes/
 // TODO: Copied from Nitrokey Pro -- check for NK3
 const HISTORICAL_BYTES: &[u8] = b"0031F573C00160009000";
+// From [apdu_dispatch](https://github.com/solokeys/apdu-dispatch/blob/644336c38beb8896ce99a0fda23551bd65bb8126/src/lib.rs)
+const EXTENDED_LENGTH_INFO: &[u8] = &[0x1D, 0xB9, 0x1D, 0xB9];
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
@@ -283,6 +285,9 @@ fn get_pure_data<const R: usize, T: trussed::Client>(
         PureGetDataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
         PureGetDataObject::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
         PureGetDataObject::PwStatusBytes => pw_status_bytes(context)?,
+        PureGetDataObject::ExtendedLengthInformation => {
+            context.extend_reply(EXTENDED_LENGTH_INFO)?
+        }
         _ => {
             log::error!("Unimplemented DO: {object:?}");
             return Err(Status::UnspecifiedNonpersistentExecutionError);
