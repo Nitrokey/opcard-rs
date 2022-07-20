@@ -70,6 +70,11 @@ impl TryFrom<u16> for GetDataObject {
     }
 }
 
+enum GetDataDoType {
+    Simple(PureGetDataObject),
+    Constructed(&'static [PureGetDataObject]),
+}
+
 impl GetDataObject {
     #[allow(unused)]
     pub fn tag(&self) -> &'static [u8] {
@@ -97,37 +102,45 @@ impl GetDataObject {
 
     /// Returns the pure version of itself. In case of DOs with children, return the list of
     /// chlidren
-    pub fn as_pure(&self) -> Result<PureGetDataObject, &'static [PureGetDataObject]> {
+    pub fn simple_or_constructed(&self) -> GetDataDoType {
         match self {
-            GetDataObject::ApplicationIdentifier => Ok(PureGetDataObject::ApplicationIdentifier),
-            GetDataObject::LoginData => Ok(PureGetDataObject::LoginData),
-            GetDataObject::Url => Ok(PureGetDataObject::Url),
-            GetDataObject::HistoricalBytes => Ok(PureGetDataObject::HistoricalBytes),
-            GetDataObject::GeneralFeatureManagement => {
-                Err(&[PureGetDataObject::GeneralFeatureManagement])
+            GetDataObject::ApplicationIdentifier => {
+                GetDataDoType::Simple(PureGetDataObject::ApplicationIdentifier)
             }
-            GetDataObject::PwStatusBytes => Ok(PureGetDataObject::PwStatusBytes),
-            GetDataObject::KeyInformation => Ok(PureGetDataObject::KeyInformation),
-            GetDataObject::UifCds => Ok(PureGetDataObject::UifCds),
-            GetDataObject::UifDec => Ok(PureGetDataObject::UifDec),
-            GetDataObject::UifAut => Ok(PureGetDataObject::UifAut),
+            GetDataObject::LoginData => GetDataDoType::Simple(PureGetDataObject::LoginData),
+            GetDataObject::Url => GetDataDoType::Simple(PureGetDataObject::Url),
+            GetDataObject::HistoricalBytes => {
+                GetDataDoType::Simple(PureGetDataObject::HistoricalBytes)
+            }
+            GetDataObject::GeneralFeatureManagement => {
+                GetDataDoType::Constructed(&[PureGetDataObject::GeneralFeatureManagement])
+            }
+            GetDataObject::PwStatusBytes => GetDataDoType::Simple(PureGetDataObject::PwStatusBytes),
+            GetDataObject::KeyInformation => {
+                GetDataDoType::Simple(PureGetDataObject::KeyInformation)
+            }
+            GetDataObject::UifCds => GetDataDoType::Simple(PureGetDataObject::UifCds),
+            GetDataObject::UifDec => GetDataDoType::Simple(PureGetDataObject::UifDec),
+            GetDataObject::UifAut => GetDataDoType::Simple(PureGetDataObject::UifAut),
             GetDataObject::CardholderCertificate => {
-                Err(&[PureGetDataObject::CardholderCertificate])
+                GetDataDoType::Constructed(&[PureGetDataObject::CardholderCertificate])
             }
             GetDataObject::ExtendedLengthInformation => {
-                Err(&[PureGetDataObject::ExtendedLengthInformation])
+                GetDataDoType::Constructed(&[PureGetDataObject::ExtendedLengthInformation])
             }
-            GetDataObject::KdfDo => Err(&[PureGetDataObject::KdfDo]),
-            GetDataObject::AlgorithmInformation => Err(&[PureGetDataObject::AlgorithmInformation]),
+            GetDataObject::KdfDo => GetDataDoType::Constructed(&[PureGetDataObject::KdfDo]),
+            GetDataObject::AlgorithmInformation => {
+                GetDataDoType::Constructed(&[PureGetDataObject::AlgorithmInformation])
+            }
             GetDataObject::SecureMessagingCertificate => {
-                Err(&[PureGetDataObject::SecureMessagingCertificate])
+                GetDataDoType::Constructed(&[PureGetDataObject::SecureMessagingCertificate])
             }
-            GetDataObject::CardholderRelatedData => Err(&[
+            GetDataObject::CardholderRelatedData => GetDataDoType::Constructed(&[
                 PureGetDataObject::CardHolderName,
                 PureGetDataObject::LanguagePreferences,
                 PureGetDataObject::Sex,
             ]),
-            GetDataObject::ApplicationRelatedData => Err(&[
+            GetDataObject::ApplicationRelatedData => GetDataDoType::Constructed(&[
                 PureGetDataObject::ApplicationIdentifier,
                 PureGetDataObject::HistoricalBytes,
                 PureGetDataObject::ExtendedLengthInformation,
@@ -147,13 +160,16 @@ impl GetDataObject {
                 PureGetDataObject::UifAut,
             ]),
             GetDataObject::SecuritSupportTemplate => {
-                Err(&[PureGetDataObject::DigitalSignatureCounter])
+                GetDataDoType::Constructed(&[PureGetDataObject::DigitalSignatureCounter])
             }
         }
     }
 }
 
 /// "Pure" data objects that don't have children
+///
+/// Distinct from Simple. All Simple DOs are "pure", but some "pure" represent the data (not
+/// prepended with tag and length) of a constructed DO.
 ///
 /// Some may not be in GetDataObject because they're only available as part of a constructed DO (in
 /// cursive in 4.4.1)
@@ -293,9 +309,9 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     let object = GetDataObject::try_from(tag)
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     log::debug!("Returning data for tag {:?}", tag);
-    match object.as_pure() {
-        Ok(obj) => obj.get_pure_data(context),
-        Err(objs) => get_constructed_data(context, objs),
+    match object.simple_or_constructed() {
+        GetDataDoType::Simple(obj) => obj.get_pure_data(context),
+        GetDataDoType::Constructed(objs) => get_constructed_data(context, objs),
     }
 }
 
