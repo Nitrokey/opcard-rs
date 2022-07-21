@@ -231,15 +231,15 @@ enum_subset! {
 }
 
 enum_subset! {
-    /// "Pure" data objects that don't have children
+    /// "raw" data from fata objects that don't have children
     ///
-    /// Distinct from Simple. All Simple DOs are "pure", but some "pure" represent the data (not
-    /// prepended with tag and length) of a constructed DO.
+    /// This is distinct from Simple DOs. All Simple DOs contain "raw" data, but some "raw" represent the data of a constructed DO
+    /// without the tag and length that is returned with the data
     ///
     /// Some may not be in GetDataObject because they're only available as part of a constructed DO (in
     /// cursive in 4.4.1)
     #[derive(Debug, Clone, Copy)]
-    enum PureGetDataObject: DataObject {
+    enum GetRawData: DataObject {
         PrivateUse1,
         PrivateUse2,
         PrivateUse3,
@@ -275,95 +275,85 @@ enum_subset! {
 }
 
 enum GetDataDoType {
-    Simple(PureGetDataObject),
-    Constructed(&'static [PureGetDataObject]),
+    Simple(GetRawData),
+    Constructed(&'static [GetRawData]),
 }
 
 impl GetDataObject {
-    /// Returns the pure version of itself. In case of DOs with children, return the list of
-    /// chlidren
     pub fn simple_or_constructed(&self) -> GetDataDoType {
         match self {
-            GetDataObject::PrivateUse1 => GetDataDoType::Simple(PureGetDataObject::PrivateUse1),
-            GetDataObject::PrivateUse2 => GetDataDoType::Simple(PureGetDataObject::PrivateUse2),
-            GetDataObject::PrivateUse3 => GetDataDoType::Simple(PureGetDataObject::PrivateUse3),
-            GetDataObject::PrivateUse4 => GetDataDoType::Simple(PureGetDataObject::PrivateUse4),
+            GetDataObject::PrivateUse1 => GetDataDoType::Simple(GetRawData::PrivateUse1),
+            GetDataObject::PrivateUse2 => GetDataDoType::Simple(GetRawData::PrivateUse2),
+            GetDataObject::PrivateUse3 => GetDataDoType::Simple(GetRawData::PrivateUse3),
+            GetDataObject::PrivateUse4 => GetDataDoType::Simple(GetRawData::PrivateUse4),
             GetDataObject::ApplicationIdentifier => {
-                GetDataDoType::Simple(PureGetDataObject::ApplicationIdentifier)
+                GetDataDoType::Simple(GetRawData::ApplicationIdentifier)
             }
-            GetDataObject::LoginData => GetDataDoType::Simple(PureGetDataObject::LoginData),
-            GetDataObject::Url => GetDataDoType::Simple(PureGetDataObject::Url),
-            GetDataObject::HistoricalBytes => {
-                GetDataDoType::Simple(PureGetDataObject::HistoricalBytes)
-            }
+            GetDataObject::LoginData => GetDataDoType::Simple(GetRawData::LoginData),
+            GetDataObject::Url => GetDataDoType::Simple(GetRawData::Url),
+            GetDataObject::HistoricalBytes => GetDataDoType::Simple(GetRawData::HistoricalBytes),
             GetDataObject::GeneralFeatureManagement => {
-                GetDataDoType::Constructed(&[PureGetDataObject::GeneralFeatureManagement])
+                GetDataDoType::Constructed(&[GetRawData::GeneralFeatureManagement])
             }
-            GetDataObject::PwStatusBytes => GetDataDoType::Simple(PureGetDataObject::PwStatusBytes),
-            GetDataObject::KeyInformation => {
-                GetDataDoType::Simple(PureGetDataObject::KeyInformation)
-            }
-            GetDataObject::UifCds => GetDataDoType::Simple(PureGetDataObject::UifCds),
-            GetDataObject::UifDec => GetDataDoType::Simple(PureGetDataObject::UifDec),
-            GetDataObject::UifAut => GetDataDoType::Simple(PureGetDataObject::UifAut),
+            GetDataObject::PwStatusBytes => GetDataDoType::Simple(GetRawData::PwStatusBytes),
+            GetDataObject::KeyInformation => GetDataDoType::Simple(GetRawData::KeyInformation),
+            GetDataObject::UifCds => GetDataDoType::Simple(GetRawData::UifCds),
+            GetDataObject::UifDec => GetDataDoType::Simple(GetRawData::UifDec),
+            GetDataObject::UifAut => GetDataDoType::Simple(GetRawData::UifAut),
             GetDataObject::CardHolderCertificate => {
-                GetDataDoType::Constructed(&[PureGetDataObject::CardHolderCertificate])
+                GetDataDoType::Constructed(&[GetRawData::CardHolderCertificate])
             }
             GetDataObject::ExtendedLengthInformation => {
-                GetDataDoType::Constructed(&[PureGetDataObject::ExtendedLengthInformation])
+                GetDataDoType::Constructed(&[GetRawData::ExtendedLengthInformation])
             }
-            GetDataObject::KdfDo => GetDataDoType::Constructed(&[PureGetDataObject::KdfDo]),
+            GetDataObject::KdfDo => GetDataDoType::Constructed(&[GetRawData::KdfDo]),
             GetDataObject::AlgorithmInformation => {
-                GetDataDoType::Constructed(&[PureGetDataObject::AlgorithmInformation])
+                GetDataDoType::Constructed(&[GetRawData::AlgorithmInformation])
             }
             GetDataObject::SecureMessagingCertificate => {
-                GetDataDoType::Constructed(&[PureGetDataObject::SecureMessagingCertificate])
+                GetDataDoType::Constructed(&[GetRawData::SecureMessagingCertificate])
             }
             GetDataObject::CardHolderRelatedData => GetDataDoType::Constructed(&[
-                PureGetDataObject::CardHolderName,
-                PureGetDataObject::LanguagePreferences,
-                PureGetDataObject::CardHolderSex,
+                GetRawData::CardHolderName,
+                GetRawData::LanguagePreferences,
+                GetRawData::CardHolderSex,
             ]),
             GetDataObject::ApplicationRelatedData => GetDataDoType::Constructed(&[
-                PureGetDataObject::ApplicationIdentifier,
-                PureGetDataObject::HistoricalBytes,
-                PureGetDataObject::ExtendedLengthInformation,
-                PureGetDataObject::GeneralFeatureManagement,
-                PureGetDataObject::DiscretionaryDataObjects,
-                PureGetDataObject::ExtendedCapabilities,
-                PureGetDataObject::AlgorithmAttributesSignature,
-                PureGetDataObject::AlgorithmAttributesDecryption,
-                PureGetDataObject::AlgorithmAttributesAuthentication,
-                PureGetDataObject::PwStatusBytes,
-                PureGetDataObject::Fingerprints,
-                PureGetDataObject::CAFingerprints,
-                PureGetDataObject::KeyGenerationDates,
-                PureGetDataObject::KeyInformation,
-                PureGetDataObject::UifCds,
-                PureGetDataObject::UifDec,
-                PureGetDataObject::UifAut,
+                GetRawData::ApplicationIdentifier,
+                GetRawData::HistoricalBytes,
+                GetRawData::ExtendedLengthInformation,
+                GetRawData::GeneralFeatureManagement,
+                GetRawData::DiscretionaryDataObjects,
+                GetRawData::ExtendedCapabilities,
+                GetRawData::AlgorithmAttributesSignature,
+                GetRawData::AlgorithmAttributesDecryption,
+                GetRawData::AlgorithmAttributesAuthentication,
+                GetRawData::PwStatusBytes,
+                GetRawData::Fingerprints,
+                GetRawData::CAFingerprints,
+                GetRawData::KeyGenerationDates,
+                GetRawData::KeyInformation,
+                GetRawData::UifCds,
+                GetRawData::UifDec,
+                GetRawData::UifAut,
             ]),
             GetDataObject::SecuritSupportTemplate => {
-                GetDataDoType::Constructed(&[PureGetDataObject::DigitalSignatureCounter])
+                GetDataDoType::Constructed(&[GetRawData::DigitalSignatureCounter])
             }
         }
     }
 }
 
-impl PureGetDataObject {
-    fn get_pure_data<const R: usize, T: trussed::Client>(
+impl GetRawData {
+    fn reply<const R: usize, T: trussed::Client>(
         self,
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
-            PureGetDataObject::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
-            PureGetDataObject::ApplicationIdentifier => {
-                context.extend_reply(&context.options.aid())?
-            }
-            PureGetDataObject::PwStatusBytes => pw_status_bytes(context)?,
-            PureGetDataObject::ExtendedLengthInformation => {
-                context.extend_reply(EXTENDED_LENGTH_INFO)?
-            }
+            GetRawData::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
+            GetRawData::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
+            GetRawData::PwStatusBytes => pw_status_bytes(context)?,
+            GetRawData::ExtendedLengthInformation => context.extend_reply(EXTENDED_LENGTH_INFO)?,
             _ => {
                 log::error!("Unimplemented DO: {self:?}");
                 return Err(Status::UnspecifiedNonpersistentExecutionError);
@@ -423,7 +413,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     log::debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
-        GetDataDoType::Simple(obj) => obj.get_pure_data(context),
+        GetDataDoType::Simple(obj) => obj.reply(context),
         GetDataDoType::Constructed(objs) => get_constructed_data(context, objs),
     }
 }
@@ -447,7 +437,7 @@ fn encode_len<const R: usize>(len: usize, buf: &mut heapless::Vec<u8, R>) -> Res
 
 fn get_constructed_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
-    objects: &'static [PureGetDataObject],
+    objects: &'static [GetRawData],
 ) -> Result<(), Status> {
     let mut buf = heapless::Vec::<u8, R>::new();
     for obj in objects {
@@ -459,7 +449,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
             state: context.state,
             data: context.data,
         };
-        obj.get_pure_data(tmp_ctx)?;
+        obj.reply(tmp_ctx)?;
         context.extend_reply(obj.tag())?;
         encode_len(buf.len(), context.reply)?;
         context.extend_reply(&buf)?;
@@ -496,50 +486,32 @@ mod tests {
     #[test]
     fn tags() {
         // Test that tags didn't change after refactor
-        assert_eq!(PureGetDataObject::Url.tag(), &[0x5F, 0x50]);
-        assert_eq!(PureGetDataObject::HistoricalBytes.tag(), &[0x5F, 0x52]);
-        assert_eq!(PureGetDataObject::CardHolderName.tag(), &[0x5B]);
-        assert_eq!(PureGetDataObject::LanguagePreferences.tag(), &[0x5F, 0x2D]);
-        assert_eq!(PureGetDataObject::CardHolderSex.tag(), &[0x5F, 0x35]);
-        assert_eq!(
-            PureGetDataObject::GeneralFeatureManagement.tag(),
-            &[0x7f, 0x74]
-        );
-        assert_eq!(
-            PureGetDataObject::CardHolderCertificate.tag(),
-            &[0x7f, 0x21]
-        );
-        assert_eq!(
-            PureGetDataObject::ExtendedLengthInformation.tag(),
-            &[0x7f, 0x66]
-        );
-        assert_eq!(PureGetDataObject::DiscretionaryDataObjects.tag(), &[0x73]);
-        assert_eq!(PureGetDataObject::ExtendedCapabilities.tag(), &[0xC0]);
-        assert_eq!(
-            PureGetDataObject::AlgorithmAttributesSignature.tag(),
-            &[0xC1]
-        );
-        assert_eq!(
-            PureGetDataObject::AlgorithmAttributesDecryption.tag(),
-            &[0xC2]
-        );
-        assert_eq!(
-            PureGetDataObject::AlgorithmAttributesAuthentication.tag(),
-            &[0xC3]
-        );
-        assert_eq!(PureGetDataObject::PwStatusBytes.tag(), &[0xC4]);
-        assert_eq!(PureGetDataObject::Fingerprints.tag(), &[0xC5]);
-        assert_eq!(PureGetDataObject::CAFingerprints.tag(), &[0xC6]);
-        assert_eq!(PureGetDataObject::KeyGenerationDates.tag(), &[0xCD]);
-        assert_eq!(PureGetDataObject::KeyInformation.tag(), &[0xDE]);
-        assert_eq!(PureGetDataObject::UifCds.tag(), &[0xD6]);
-        assert_eq!(PureGetDataObject::UifDec.tag(), &[0xD7]);
-        assert_eq!(PureGetDataObject::UifAut.tag(), &[0xD8]);
-        assert_eq!(PureGetDataObject::DigitalSignatureCounter.tag(), &[0x93]);
-        assert_eq!(PureGetDataObject::KdfDo.tag(), &[0xF9]);
-        assert_eq!(PureGetDataObject::AlgorithmInformation.tag(), &[0xFA]);
-        assert_eq!(PureGetDataObject::SecureMessagingCertificate.tag(), &[0xFB]);
-        assert_eq!(PureGetDataObject::ApplicationIdentifier.tag(), &[0x4F]);
-        assert_eq!(PureGetDataObject::LoginData.tag(), &[0x5E]);
+        assert_eq!(GetRawData::Url.tag(), &[0x5F, 0x50]);
+        assert_eq!(GetRawData::HistoricalBytes.tag(), &[0x5F, 0x52]);
+        assert_eq!(GetRawData::CardHolderName.tag(), &[0x5B]);
+        assert_eq!(GetRawData::LanguagePreferences.tag(), &[0x5F, 0x2D]);
+        assert_eq!(GetRawData::CardHolderSex.tag(), &[0x5F, 0x35]);
+        assert_eq!(GetRawData::GeneralFeatureManagement.tag(), &[0x7f, 0x74]);
+        assert_eq!(GetRawData::CardHolderCertificate.tag(), &[0x7f, 0x21]);
+        assert_eq!(GetRawData::ExtendedLengthInformation.tag(), &[0x7f, 0x66]);
+        assert_eq!(GetRawData::DiscretionaryDataObjects.tag(), &[0x73]);
+        assert_eq!(GetRawData::ExtendedCapabilities.tag(), &[0xC0]);
+        assert_eq!(GetRawData::AlgorithmAttributesSignature.tag(), &[0xC1]);
+        assert_eq!(GetRawData::AlgorithmAttributesDecryption.tag(), &[0xC2]);
+        assert_eq!(GetRawData::AlgorithmAttributesAuthentication.tag(), &[0xC3]);
+        assert_eq!(GetRawData::PwStatusBytes.tag(), &[0xC4]);
+        assert_eq!(GetRawData::Fingerprints.tag(), &[0xC5]);
+        assert_eq!(GetRawData::CAFingerprints.tag(), &[0xC6]);
+        assert_eq!(GetRawData::KeyGenerationDates.tag(), &[0xCD]);
+        assert_eq!(GetRawData::KeyInformation.tag(), &[0xDE]);
+        assert_eq!(GetRawData::UifCds.tag(), &[0xD6]);
+        assert_eq!(GetRawData::UifDec.tag(), &[0xD7]);
+        assert_eq!(GetRawData::UifAut.tag(), &[0xD8]);
+        assert_eq!(GetRawData::DigitalSignatureCounter.tag(), &[0x93]);
+        assert_eq!(GetRawData::KdfDo.tag(), &[0xF9]);
+        assert_eq!(GetRawData::AlgorithmInformation.tag(), &[0xFA]);
+        assert_eq!(GetRawData::SecureMessagingCertificate.tag(), &[0xFB]);
+        assert_eq!(GetRawData::ApplicationIdentifier.tag(), &[0x4F]);
+        assert_eq!(GetRawData::LoginData.tag(), &[0x5E]);
     }
 }
