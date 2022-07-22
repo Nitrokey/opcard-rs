@@ -354,6 +354,9 @@ impl GetRawData {
             GetRawData::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
             GetRawData::PwStatusBytes => pw_status_bytes(context)?,
             GetRawData::ExtendedLengthInformation => context.extend_reply(EXTENDED_LENGTH_INFO)?,
+            GetRawData::GeneralFeatureManagement => {
+                context.extend_reply(GENERAL_FEATURE_MANAGEMENT)?
+            }
             _ => {
                 log::error!("Unimplemented DO: {self:?}");
                 return Err(Status::UnspecifiedNonpersistentExecutionError);
@@ -398,6 +401,8 @@ impl From<PasswordStatus> for [u8; 7] {
 const HISTORICAL_BYTES: &[u8] = b"0031F573C00160009000";
 // From [apdu_dispatch](https://github.com/solokeys/apdu-dispatch/blob/644336c38beb8896ce99a0fda23551bd65bb8126/src/lib.rs)
 const EXTENDED_LENGTH_INFO: &[u8] = &[0x1D, 0xB9, 0x1D, 0xB9];
+// § 4.1.3.2 We have a button and a LED
+const GENERAL_FEATURE_MANAGEMENT: &[u8] = &[0x81, 0x01, 0b00101000];
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
