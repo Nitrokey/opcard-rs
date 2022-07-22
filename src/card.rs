@@ -106,6 +106,9 @@ pub struct Options {
 
     /// Historical bytes, see  § 6
     pub historical_bytes: heapless::Vec<u8, 15>,
+
+    /// Does the card have a button for user input?
+    pub button_available: bool,
 }
 
 impl Options {
@@ -132,8 +135,7 @@ impl Options {
     }
 }
 
-/// Returns an instance with the version number derived from the crate version and all-zero values
-/// otherwise.
+/// Returns an instance with the version number derived from the crate version
 impl Default for Options {
     fn default() -> Self {
         // TODO: consider setting a default manufacturer
@@ -145,6 +147,7 @@ impl Default for Options {
             serial: Default::default(),
             // TODO: Copied from Nitrokey Pro
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
+            button_available: true,
         }
     }
 }
