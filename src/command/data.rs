@@ -292,7 +292,7 @@ impl GetDataObject {
     /// Returns `true` if it can be obtain via a GET DATA command with its tag and not as children
     /// of a constructed DO.
     fn is_visible(&self) -> bool {
-        if matches!(
+        !matches!(
             self,
             Self::KeyGenerationDates
                 | Self::CAFingerprints
@@ -308,11 +308,7 @@ impl GetDataObject {
                 | Self::CardHolderCertificate
                 | Self::ExtendedLengthInformation
                 | Self::DigitalSignatureCounter
-        ) {
-            false
-        } else {
-            true
-        }
+        )
     }
     fn reply<const R: usize, T: trussed::Client>(
         self,
