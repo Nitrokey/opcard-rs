@@ -418,20 +418,42 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     }
 }
 
-fn encode_len<const R: usize>(len: usize, buf: &mut heapless::Vec<u8, R>) -> Result<(), Status> {
+/// Prepend the length to some data.
+///
+/// Input:
+/// AAAAAAAAAABBBBBBB
+///           ↑  
+///          offset
+///    
+/// Output:
+///
+/// AAAAAAAAAA 7 BBBBBBB
+/// (There are seven Bs, the length is encoded as specified in § 4.4.4)
+fn prepend_len<const R: usize>(
+    buf: &mut heapless::Vec<u8, R>,
+    offset: usize,
+) -> Result<(), Status> {
+    let len = buf.len() - offset;
     if len <= 0x7f {
-        buf.extend_from_slice(&[len as u8])
+        let res = buf.extend_from_slice(&[len as u8]);
+        buf[offset..].rotate_right(1);
+        res
     } else if len <= 255 {
-        buf.extend_from_slice(&[0x81, len as u8])
+        let res = buf.extend_from_slice(&[0x81, len as u8]);
+        buf[offset..].rotate_right(2);
+        res
     } else if len <= 65535 {
-        let arr = (len as u16).to_le_bytes();
-        buf.extend_from_slice(&[0x82, arr[0], arr[1]])
+        let arr = (len as u16).to_be_bytes();
+        let res = buf.extend_from_slice(&[0x82, arr[0], arr[1]]);
+        buf[offset..].rotate_right(3);
+        res
     } else {
-        return Err(Status::UnspecifiedPersistentExecutionError);
+        log::error!("Length too long to be encoded");
+        return Err(Status::UnspecifiedNonpersistentExecutionError);
     }
     .map_err(|_| {
-        log::error!("Buffer full");
-        Status::NotEnoughMemory
+        log::error!("Reply buffer full");
+        Status::UnspecifiedNonpersistentExecutionError
     })
 }
 
@@ -439,20 +461,20 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
     objects: &'static [GetRawData],
 ) -> Result<(), Status> {
-    let mut buf = heapless::Vec::<u8, R>::new();
     for obj in objects {
-        buf.clear();
+        context.extend_reply(obj.tag())?;
+        let offset = context.reply.len();
+        // Copied to avoid moving the context
+        // This works because the life of tmp_ctx are smaller that that of context
         let tmp_ctx = Context {
-            reply: &mut buf,
+            reply: context.reply,
             backend: context.backend,
             options: context.options,
             state: context.state,
             data: context.data,
         };
         obj.reply(tmp_ctx)?;
-        context.extend_reply(obj.tag())?;
-        encode_len(buf.len(), context.reply)?;
-        context.extend_reply(&buf)?;
+        prepend_len(context.reply, offset)?;
     }
     Ok(())
 }
@@ -481,6 +503,7 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
     use super::*;
 
     #[test]
@@ -513,5 +536,42 @@ mod tests {
         assert_eq!(GetRawData::SecureMessagingCertificate.tag(), &[0xFB]);
         assert_eq!(GetRawData::ApplicationIdentifier.tag(), &[0x4F]);
         assert_eq!(GetRawData::LoginData.tag(), &[0x5E]);
+    }
+
+    #[test]
+    fn prep_length() {
+        let mut buf = heapless::Vec::<u8, 1000>::new();
+        let offset = buf.len();
+        buf.extend_from_slice(&[0; 0]).unwrap();
+        prepend_len(&mut buf, offset).unwrap();
+        assert_eq!(&buf[offset..], [0]);
+
+        let offset = buf.len();
+        buf.extend_from_slice(&[0; 20]).unwrap();
+        prepend_len(&mut buf, offset).unwrap();
+        let mut expected = vec![20];
+        expected.extend_from_slice(&[0; 20]);
+        assert_eq!(&buf[offset..], expected,);
+
+        let offset = buf.len();
+        buf.extend_from_slice(&[1; 127]).unwrap();
+        prepend_len(&mut buf, offset).unwrap();
+        let mut expected = vec![127];
+        expected.extend_from_slice(&[1; 127]);
+        assert_eq!(&buf[offset..], expected);
+
+        let offset = buf.len();
+        buf.extend_from_slice(&[2; 128]).unwrap();
+        prepend_len(&mut buf, offset).unwrap();
+        let mut expected = vec![0x81, 128];
+        expected.extend_from_slice(&[2; 128]);
+        assert_eq!(&buf[offset..], expected);
+
+        let offset = buf.len();
+        buf.extend_from_slice(&[3; 256]).unwrap();
+        prepend_len(&mut buf, offset).unwrap();
+        let mut expected = vec![0x82, 0x01, 0x00];
+        expected.extend_from_slice(&[3; 256]);
+        assert_eq!(&buf[offset..], expected);
     }
 }
