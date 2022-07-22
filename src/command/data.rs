@@ -371,7 +371,7 @@ impl From<PasswordStatus> for [u8; 7] {
 // TODO: Copied from Nitrokey Pro -- check for NK3
 const HISTORICAL_BYTES: &[u8] = b"0031F573C00160009000";
 // From [apdu_dispatch](https://github.com/solokeys/apdu-dispatch/blob/644336c38beb8896ce99a0fda23551bd65bb8126/src/lib.rs)
-const EXTENDED_LENGTH_INFO: &[u8] = &[0x1D, 0xB9, 0x1D, 0xB9];
+const EXTENDED_LENGTH_INFO: &[u8] = &[0x02, 0x02, 0x1D, 0xB9, 0x02, 0x02, 0x1D, 0xB9];
 // § 4.1.3.2 We have a button and a LED
 const GENERAL_FEATURE_MANAGEMENT: &[u8] = &[0x81, 0x01, 0b00101000];
 
