@@ -227,138 +227,108 @@ enum_subset! {
         KdfDo,
         AlgorithmInformation,
         SecureMessagingCertificate,
-    }
-}
-
-enum_subset! {
-    /// "raw" data from fata objects that don't have children
-    ///
-    /// This is distinct from Simple DOs. All Simple DOs contain "raw" data, but some "raw" represent the data of a constructed DO
-    /// without the tag and length that is returned with the data
-    ///
-    /// Some may not be in GetDataObject because they're only available as part of a constructed DO (in
-    /// cursive in 4.4.1)
-    #[derive(Debug, Clone, Copy)]
-    enum GetRawData: DataObject {
-        PrivateUse1,
-        PrivateUse2,
-        PrivateUse3,
-        PrivateUse4,
-        ApplicationIdentifier,
-        LoginData,
-        Url,
-        HistoricalBytes,
-        CardHolderName,
-        LanguagePreferences,
-        CardHolderSex,
-        GeneralFeatureManagement,
-        DiscretionaryDataObjects,
-        ExtendedCapabilities,
+        KeyGenerationDates,
+        CAFingerprints,
+        Fingerprints,
         AlgorithmAttributesSignature,
         AlgorithmAttributesDecryption,
         AlgorithmAttributesAuthentication,
-        PwStatusBytes,
-        Fingerprints,
-        CAFingerprints,
-        KeyGenerationDates,
-        KeyInformation,
-        UifCds,
-        UifDec,
-        UifAut,
+        ExtendedCapabilities,
+        DiscretionaryDataObjects,
+        CardHolderSex,
+        LanguagePreferences,
+        CardHolderName,
         DigitalSignatureCounter,
-        CardHolderCertificate,
-        ExtendedLengthInformation,
-        KdfDo,
-        AlgorithmInformation,
-        SecureMessagingCertificate,
     }
 }
 
 enum GetDataDoType {
-    Simple(GetRawData),
-    Constructed(&'static [GetRawData]),
+    Simple(GetDataObject),
+    Constructed(&'static [GetDataObject]),
 }
 
 impl GetDataObject {
     pub fn simple_or_constructed(&self) -> GetDataDoType {
         match self {
-            GetDataObject::PrivateUse1 => GetDataDoType::Simple(GetRawData::PrivateUse1),
-            GetDataObject::PrivateUse2 => GetDataDoType::Simple(GetRawData::PrivateUse2),
-            GetDataObject::PrivateUse3 => GetDataDoType::Simple(GetRawData::PrivateUse3),
-            GetDataObject::PrivateUse4 => GetDataDoType::Simple(GetRawData::PrivateUse4),
-            GetDataObject::ApplicationIdentifier => {
-                GetDataDoType::Simple(GetRawData::ApplicationIdentifier)
-            }
-            GetDataObject::LoginData => GetDataDoType::Simple(GetRawData::LoginData),
-            GetDataObject::Url => GetDataDoType::Simple(GetRawData::Url),
-            GetDataObject::HistoricalBytes => GetDataDoType::Simple(GetRawData::HistoricalBytes),
-            GetDataObject::GeneralFeatureManagement => {
-                GetDataDoType::Constructed(&[GetRawData::GeneralFeatureManagement])
-            }
-            GetDataObject::PwStatusBytes => GetDataDoType::Simple(GetRawData::PwStatusBytes),
-            GetDataObject::KeyInformation => GetDataDoType::Simple(GetRawData::KeyInformation),
-            GetDataObject::UifCds => GetDataDoType::Simple(GetRawData::UifCds),
-            GetDataObject::UifDec => GetDataDoType::Simple(GetRawData::UifDec),
-            GetDataObject::UifAut => GetDataDoType::Simple(GetRawData::UifAut),
-            GetDataObject::CardHolderCertificate => {
-                GetDataDoType::Constructed(&[GetRawData::CardHolderCertificate])
-            }
-            GetDataObject::ExtendedLengthInformation => {
-                GetDataDoType::Constructed(&[GetRawData::ExtendedLengthInformation])
-            }
-            GetDataObject::KdfDo => GetDataDoType::Constructed(&[GetRawData::KdfDo]),
-            GetDataObject::AlgorithmInformation => {
-                GetDataDoType::Constructed(&[GetRawData::AlgorithmInformation])
-            }
-            GetDataObject::SecureMessagingCertificate => {
-                GetDataDoType::Constructed(&[GetRawData::SecureMessagingCertificate])
-            }
             GetDataObject::CardHolderRelatedData => GetDataDoType::Constructed(&[
-                GetRawData::CardHolderName,
-                GetRawData::LanguagePreferences,
-                GetRawData::CardHolderSex,
+                GetDataObject::CardHolderName,
+                GetDataObject::LanguagePreferences,
+                GetDataObject::CardHolderSex,
             ]),
             GetDataObject::ApplicationRelatedData => GetDataDoType::Constructed(&[
-                GetRawData::ApplicationIdentifier,
-                GetRawData::HistoricalBytes,
-                GetRawData::ExtendedLengthInformation,
-                GetRawData::GeneralFeatureManagement,
-                GetRawData::DiscretionaryDataObjects,
-                GetRawData::ExtendedCapabilities,
-                GetRawData::AlgorithmAttributesSignature,
-                GetRawData::AlgorithmAttributesDecryption,
-                GetRawData::AlgorithmAttributesAuthentication,
-                GetRawData::PwStatusBytes,
-                GetRawData::Fingerprints,
-                GetRawData::CAFingerprints,
-                GetRawData::KeyGenerationDates,
-                GetRawData::KeyInformation,
-                GetRawData::UifCds,
-                GetRawData::UifDec,
-                GetRawData::UifAut,
+                GetDataObject::ApplicationIdentifier,
+                GetDataObject::HistoricalBytes,
+                GetDataObject::ExtendedLengthInformation,
+                GetDataObject::GeneralFeatureManagement,
+                GetDataObject::DiscretionaryDataObjects,
             ]),
-            GetDataObject::SecuritSupportTemplate => {
-                GetDataDoType::Constructed(&[GetRawData::DigitalSignatureCounter])
-            }
+            GetDataObject::DiscretionaryDataObjects => GetDataDoType::Constructed(&[
+                GetDataObject::ExtendedCapabilities,
+                GetDataObject::AlgorithmAttributesSignature,
+                GetDataObject::AlgorithmAttributesDecryption,
+                GetDataObject::AlgorithmAttributesAuthentication,
+                GetDataObject::PwStatusBytes,
+                GetDataObject::Fingerprints,
+                GetDataObject::CAFingerprints,
+                GetDataObject::KeyGenerationDates,
+                GetDataObject::KeyInformation,
+                GetDataObject::UifCds,
+                GetDataObject::UifDec,
+                GetDataObject::UifAut,
+            ]),
+            _ => GetDataDoType::Simple(*self),
         }
     }
-}
 
-impl GetRawData {
+    fn into_simple(self) -> Result<Self, Status> {
+        if let GetDataDoType::Simple(o) = self.simple_or_constructed() {
+            Ok(o)
+        } else {
+            log::error!("Expected a simple object");
+            Err(Status::UnspecifiedNonpersistentExecutionError)
+        }
+    }
+
+    /// Returns `true` if it can be obtain via a GET DATA command with its tag and not as children
+    /// of a constructed DO.
+    fn is_visible(&self) -> bool {
+        if matches!(
+            self,
+            Self::KeyGenerationDates
+                | Self::CAFingerprints
+                | Self::Fingerprints
+                | Self::AlgorithmAttributesSignature
+                | Self::AlgorithmAttributesDecryption
+                | Self::AlgorithmAttributesAuthentication
+                | Self::ExtendedCapabilities
+                | Self::DiscretionaryDataObjects
+                | Self::CardHolderSex
+                | Self::LanguagePreferences
+                | Self::CardHolderName
+                | Self::CardHolderCertificate
+                | Self::ExtendedLengthInformation
+                | Self::DigitalSignatureCounter
+        ) {
+            false
+        } else {
+            true
+        }
+    }
     fn reply<const R: usize, T: trussed::Client>(
         self,
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
-            GetRawData::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
-            GetRawData::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
-            GetRawData::PwStatusBytes => pw_status_bytes(context)?,
-            GetRawData::ExtendedLengthInformation => context.extend_reply(EXTENDED_LENGTH_INFO)?,
-            GetRawData::GeneralFeatureManagement => {
-                context.extend_reply(GENERAL_FEATURE_MANAGEMENT)?
-            }
-            GetRawData::DiscretionaryDataObjects => {}
+            Self::HistoricalBytes => context.extend_reply(HISTORICAL_BYTES)?,
+            Self::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
+            Self::PwStatusBytes => pw_status_bytes(context)?,
+            Self::ExtendedLengthInformation => context.extend_reply(EXTENDED_LENGTH_INFO)?,
+            Self::GeneralFeatureManagement => context.extend_reply(GENERAL_FEATURE_MANAGEMENT)?,
             _ => {
+                debug_assert!(
+                    self.into_simple().is_ok(),
+                    "Called `reply` on a constructed DO: {self:?}"
+                );
                 log::error!("Unimplemented DO: {self:?}");
                 return Err(Status::UnspecifiedNonpersistentExecutionError);
             }
@@ -417,6 +387,10 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     }
     let object = GetDataObject::try_from(tag)
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
+    if !object.is_visible() {
+        log::error!("Get data for children object: {object:?}");
+        return Err(Status::IncorrectDataParameter);
+    }
     log::debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
         GetDataDoType::Simple(obj) => obj.reply(context),
@@ -465,7 +439,7 @@ fn prepend_len<const R: usize>(
 
 fn get_constructed_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
-    objects: &'static [GetRawData],
+    objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
     for obj in objects {
         context.extend_reply(obj.tag())?;
@@ -479,7 +453,24 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
             state: context.state,
             data: context.data,
         };
-        obj.reply(tmp_ctx)?;
+        match obj.simple_or_constructed() {
+            GetDataDoType::Simple(simple) => simple.reply(tmp_ctx)?,
+            GetDataDoType::Constructed(children) => {
+                for inner_obj in children {
+                    let inner_offset = tmp_ctx.reply.len();
+                    let inner_tmp_ctx = Context {
+                        reply: tmp_ctx.reply,
+                        backend: tmp_ctx.backend,
+                        options: tmp_ctx.options,
+                        state: tmp_ctx.state,
+                        data: tmp_ctx.data,
+                    };
+                    // We only accept two levels of nesting to avoid recursion
+                    inner_obj.into_simple()?.reply(inner_tmp_ctx)?;
+                    prepend_len(tmp_ctx.reply, inner_offset)?;
+                }
+            }
+        }
         prepend_len(context.reply, offset)?;
     }
     Ok(())
@@ -515,33 +506,39 @@ mod tests {
     #[test]
     fn tags() {
         // Test that tags didn't change after refactor
-        assert_eq!(GetRawData::Url.tag(), &[0x5F, 0x50]);
-        assert_eq!(GetRawData::HistoricalBytes.tag(), &[0x5F, 0x52]);
-        assert_eq!(GetRawData::CardHolderName.tag(), &[0x5B]);
-        assert_eq!(GetRawData::LanguagePreferences.tag(), &[0x5F, 0x2D]);
-        assert_eq!(GetRawData::CardHolderSex.tag(), &[0x5F, 0x35]);
-        assert_eq!(GetRawData::GeneralFeatureManagement.tag(), &[0x7f, 0x74]);
-        assert_eq!(GetRawData::CardHolderCertificate.tag(), &[0x7f, 0x21]);
-        assert_eq!(GetRawData::ExtendedLengthInformation.tag(), &[0x7f, 0x66]);
-        assert_eq!(GetRawData::DiscretionaryDataObjects.tag(), &[0x73]);
-        assert_eq!(GetRawData::ExtendedCapabilities.tag(), &[0xC0]);
-        assert_eq!(GetRawData::AlgorithmAttributesSignature.tag(), &[0xC1]);
-        assert_eq!(GetRawData::AlgorithmAttributesDecryption.tag(), &[0xC2]);
-        assert_eq!(GetRawData::AlgorithmAttributesAuthentication.tag(), &[0xC3]);
-        assert_eq!(GetRawData::PwStatusBytes.tag(), &[0xC4]);
-        assert_eq!(GetRawData::Fingerprints.tag(), &[0xC5]);
-        assert_eq!(GetRawData::CAFingerprints.tag(), &[0xC6]);
-        assert_eq!(GetRawData::KeyGenerationDates.tag(), &[0xCD]);
-        assert_eq!(GetRawData::KeyInformation.tag(), &[0xDE]);
-        assert_eq!(GetRawData::UifCds.tag(), &[0xD6]);
-        assert_eq!(GetRawData::UifDec.tag(), &[0xD7]);
-        assert_eq!(GetRawData::UifAut.tag(), &[0xD8]);
-        assert_eq!(GetRawData::DigitalSignatureCounter.tag(), &[0x93]);
-        assert_eq!(GetRawData::KdfDo.tag(), &[0xF9]);
-        assert_eq!(GetRawData::AlgorithmInformation.tag(), &[0xFA]);
-        assert_eq!(GetRawData::SecureMessagingCertificate.tag(), &[0xFB]);
-        assert_eq!(GetRawData::ApplicationIdentifier.tag(), &[0x4F]);
-        assert_eq!(GetRawData::LoginData.tag(), &[0x5E]);
+        assert_eq!(GetDataObject::Url.tag(), &[0x5F, 0x50]);
+        assert_eq!(GetDataObject::HistoricalBytes.tag(), &[0x5F, 0x52]);
+        assert_eq!(GetDataObject::CardHolderName.tag(), &[0x5B]);
+        assert_eq!(GetDataObject::LanguagePreferences.tag(), &[0x5F, 0x2D]);
+        assert_eq!(GetDataObject::CardHolderSex.tag(), &[0x5F, 0x35]);
+        assert_eq!(GetDataObject::GeneralFeatureManagement.tag(), &[0x7f, 0x74]);
+        assert_eq!(GetDataObject::CardHolderCertificate.tag(), &[0x7f, 0x21]);
+        assert_eq!(
+            GetDataObject::ExtendedLengthInformation.tag(),
+            &[0x7f, 0x66]
+        );
+        assert_eq!(GetDataObject::DiscretionaryDataObjects.tag(), &[0x73]);
+        assert_eq!(GetDataObject::ExtendedCapabilities.tag(), &[0xC0]);
+        assert_eq!(GetDataObject::AlgorithmAttributesSignature.tag(), &[0xC1]);
+        assert_eq!(GetDataObject::AlgorithmAttributesDecryption.tag(), &[0xC2]);
+        assert_eq!(
+            GetDataObject::AlgorithmAttributesAuthentication.tag(),
+            &[0xC3]
+        );
+        assert_eq!(GetDataObject::PwStatusBytes.tag(), &[0xC4]);
+        assert_eq!(GetDataObject::Fingerprints.tag(), &[0xC5]);
+        assert_eq!(GetDataObject::CAFingerprints.tag(), &[0xC6]);
+        assert_eq!(GetDataObject::KeyGenerationDates.tag(), &[0xCD]);
+        assert_eq!(GetDataObject::KeyInformation.tag(), &[0xDE]);
+        assert_eq!(GetDataObject::UifCds.tag(), &[0xD6]);
+        assert_eq!(GetDataObject::UifDec.tag(), &[0xD7]);
+        assert_eq!(GetDataObject::UifAut.tag(), &[0xD8]);
+        assert_eq!(GetDataObject::DigitalSignatureCounter.tag(), &[0x93]);
+        assert_eq!(GetDataObject::KdfDo.tag(), &[0xF9]);
+        assert_eq!(GetDataObject::AlgorithmInformation.tag(), &[0xFA]);
+        assert_eq!(GetDataObject::SecureMessagingCertificate.tag(), &[0xFB]);
+        assert_eq!(GetDataObject::ApplicationIdentifier.tag(), &[0x4F]);
+        assert_eq!(GetDataObject::LoginData.tag(), &[0x5E]);
     }
 
     #[test]
@@ -579,5 +576,34 @@ mod tests {
         let mut expected = vec![0x82, 0x01, 0x00];
         expected.extend_from_slice(&[3; 256]);
         assert_eq!(&buf[offset..], expected);
+    }
+
+    #[test]
+    fn max_nesting() {
+        // Better way to iterate over all possible values of the enum?
+        for i in 0..0xffff {
+            let o = if let Ok(o) = GetDataObject::try_from(i) {
+                o
+            } else {
+                continue;
+            };
+            match o.simple_or_constructed() {
+                GetDataDoType::Simple(_) => continue,
+                GetDataDoType::Constructed(children) => {
+                    for child in children {
+                        match child.simple_or_constructed() {
+                            GetDataDoType::Simple(_) => continue,
+                            GetDataDoType::Constructed(inner_children) => {
+                                for inner_child in inner_children {
+                                    inner_child
+                                        .into_simple()
+                                        .expect("No more than 2 levels of nested DOs");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
