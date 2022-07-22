@@ -357,6 +357,7 @@ impl GetRawData {
             GetRawData::GeneralFeatureManagement => {
                 context.extend_reply(GENERAL_FEATURE_MANAGEMENT)?
             }
+            GetRawData::DiscretionaryDataObjects => {}
             _ => {
                 log::error!("Unimplemented DO: {self:?}");
                 return Err(Status::UnspecifiedNonpersistentExecutionError);
