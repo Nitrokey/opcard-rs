@@ -7,6 +7,7 @@ use iso7816::Status;
 use crate::{
     card::Context,
     command::{GetDataMode, Password, Tag},
+    state::MAX_PIN_LENGTH,
     utils::InspectErr,
 };
 
@@ -483,9 +484,9 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     let status = PasswordStatus {
         // TODO support true
         pw1_valid_multiple: false,
-        max_length_pw1: 8,
-        max_length_rc: 8,
-        max_length_pw3: 8,
+        max_length_pw1: MAX_PIN_LENGTH as u8,
+        max_length_rc: MAX_PIN_LENGTH as u8,
+        max_length_pw3: MAX_PIN_LENGTH as u8,
         error_counter_pw1: internal.remaining_tries(Password::Pw1),
         // TODO when implementing RESET RETRY COUNTER
         error_counter_rc: 3,

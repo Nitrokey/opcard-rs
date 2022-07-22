@@ -14,7 +14,7 @@ use crate::error::Error;
 
 // TODO support more?
 /// Maximum supported length for PW1 and PW3
-pub const MAX_PIN_LENGTH: usize = 8;
+pub const MAX_PIN_LENGTH: usize = 127;
 
 /// Default value for PW1
 pub const DEFAULT_USER_PIN: &[u8] = b"123456";
