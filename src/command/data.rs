@@ -375,7 +375,7 @@ impl From<PasswordStatus> for [u8; 7] {
 }
 
 // From [apdu_dispatch](https://github.com/solokeys/apdu-dispatch/blob/644336c38beb8896ce99a0fda23551bd65bb8126/src/lib.rs)
-const EXTENDED_LENGTH_INFO: &[u8] = &[0x02, 0x02, 0x1D, 0xB9, 0x02, 0x02, 0x1D, 0xB9];
+const EXTENDED_LENGTH_INFO: &[u8] = &hex!("02 02 1DB9 02 02 1DB9");
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
