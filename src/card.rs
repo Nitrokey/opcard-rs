@@ -1,11 +1,11 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use hex_literal::hex;
 use iso7816::Status;
 
-use crate::{backend::Backend, command::Command};
-
 use crate::state::State;
+use crate::{backend::Backend, command::Command};
 
 // § 4.2.1
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
@@ -94,7 +94,7 @@ impl<T: trussed::Client, const C: usize, const R: usize> apdu_dispatch::App<C, R
 }
 
 /// Options for the OpenPGP card.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Options {
     /// The version number returned in the AID, see § 4.2.1 of the spec.
@@ -103,6 +103,9 @@ pub struct Options {
     pub manufacturer: [u8; 2],
     /// The serial number returned in the AID, see § 4.2.1 of the spec.
     pub serial: [u8; 4],
+
+    /// Historical bytes, see  § 6
+    pub historical_bytes: heapless::Vec<u8, 15>,
 }
 
 impl Options {
@@ -140,6 +143,8 @@ impl Default for Options {
             version: [version_major, version_minor],
             manufacturer: Default::default(),
             serial: Default::default(),
+            // TODO: Copied from Nitrokey Pro
+            historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
         }
     }
 }
