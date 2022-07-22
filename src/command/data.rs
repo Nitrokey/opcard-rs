@@ -320,7 +320,8 @@ impl GetDataObject {
             Self::HistoricalBytes => context.extend_reply(&context.options.historical_bytes)?,
             Self::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
             Self::PwStatusBytes => pw_status_bytes(context)?,
-            Self::ExtendedLengthInformation => context.extend_reply(EXTENDED_LENGTH_INFO)?,
+            Self::ExtendedLengthInformation => context.extend_reply(&EXTENDED_LENGTH_INFO)?,
+            Self::ExtendedCapabilities => context.extend_reply(&EXTENDED_CAPABILITIES)?,
             Self::GeneralFeatureManagement => {
                 context.extend_reply(general_feature_management(&context.options))?
             }
@@ -375,7 +376,15 @@ impl From<PasswordStatus> for [u8; 7] {
 }
 
 // From [apdu_dispatch](https://github.com/solokeys/apdu-dispatch/blob/644336c38beb8896ce99a0fda23551bd65bb8126/src/lib.rs)
-const EXTENDED_LENGTH_INFO: &[u8] = &hex!("02 02 1DB9 02 02 1DB9");
+const EXTENDED_LENGTH_INFO: [u8; 8] = hex!("02 02 1DB9 02 02 1DB9");
+const EXTENDED_CAPABILITIES: [u8; 10] = hex!(
+    "
+    1f 00 0000 // Secure messaging not supported
+    1DB9 1DB9 // Generic max length
+    01 // Pin block format 2 supported
+    01 // Manage security environment (MSE) Command supported
+    "
+);
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
