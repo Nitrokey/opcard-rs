@@ -54,6 +54,8 @@ pub struct Internal {
     pub cardholder_name: String<39>,
     pub cardholder_sex: Sex,
     pub language_preferences: String<8>,
+    pub url: String<0x1DB9>,
+    pub login_data: String<0x1DB9>,
 }
 
 impl Internal {
@@ -76,6 +78,8 @@ impl Internal {
             cardholder_name: String::new(),
             cardholder_sex: Sex::default(),
             language_preferences: String::from("en"),
+            url: String::new(),
+            login_data: String::new(),
         }
     }
 

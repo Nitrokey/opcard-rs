@@ -386,6 +386,8 @@ impl GetDataObject {
             Self::CardHolderName => cardholder_name(context)?,
             Self::CardHolderSex => cardholder_sex(context)?,
             Self::LanguagePreferences => language_preferences(context)?,
+            Self::Url => url(context)?,
+            Self::LoginData => login_data(context)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -878,6 +880,30 @@ pub fn language_preferences<const R: usize, T: trussed::Client>(
     context
         .reply
         .extend_from_slice(internal.language_preferences.as_bytes())
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+pub fn url<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    context
+        .reply
+        .extend_from_slice(internal.url.as_bytes())
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+pub fn login_data<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    context
+        .reply
+        .extend_from_slice(internal.login_data.as_bytes())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
