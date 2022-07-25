@@ -240,7 +240,7 @@ enum_u16! {
         UifCds = 0x00D6,
         UifDec = 0x00D7,
         UifAut = 0x00D8,
-        SecuritSupportTemplate  = 0x007A,
+        SecuritySupportTemplate  = 0x007A,
         DigitalSignatureCounter = 0x0093,
         CardHolderCertificate = 0x7f21,
         ExtendedLengthInformation = 0x7f66,
@@ -270,7 +270,7 @@ enum_subset! {
         UifCds,
         UifDec,
         UifAut,
-        SecuritSupportTemplate,
+        SecuritySupportTemplate,
         CardHolderCertificate,
         ExtendedLengthInformation,
         KdfDo,
@@ -325,6 +325,9 @@ impl GetDataObject {
                 GetDataObject::UifDec,
                 GetDataObject::UifAut,
             ]),
+            GetDataObject::SecuritySupportTemplate => {
+                GetDataDoType::Constructed(&[GetDataObject::DigitalSignatureCounter])
+            }
             _ => GetDataDoType::Simple(*self),
         }
     }
@@ -388,6 +391,7 @@ impl GetDataObject {
             Self::LanguagePreferences => language_preferences(context)?,
             Self::Url => url(context)?,
             Self::LoginData => login_data(context)?,
+            Self::DigitalSignatureCounter => signature_counter(context)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -904,6 +908,22 @@ pub fn login_data<const R: usize, T: trussed::Client>(
     context
         .reply
         .extend_from_slice(internal.login_data.as_bytes())
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+pub fn signature_counter<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+
+    // Counter is only on 3 bytes
+    let resp = &internal.sign_count.to_be_bytes()[1..];
+    context
+        .reply
+        .extend_from_slice(resp)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 

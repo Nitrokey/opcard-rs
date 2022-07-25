@@ -56,6 +56,7 @@ pub struct Internal {
     pub language_preferences: String<8>,
     pub url: String<0x1DB9>,
     pub login_data: String<0x1DB9>,
+    pub sign_count: usize,
 }
 
 impl Internal {
@@ -80,6 +81,7 @@ impl Internal {
             language_preferences: String::from("en"),
             url: String::new(),
             login_data: String::new(),
+            sign_count: 0,
         }
     }
 
