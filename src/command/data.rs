@@ -372,6 +372,9 @@ impl GetDataObject {
             Self::GeneralFeatureManagement => {
                 context.extend_reply(general_feature_management(&context.options))?
             }
+            Self::AlgorithmAttributesSignature => alg_attr_sign(context)?,
+            Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
+            Self::AlgorithmAttributesAuthentication => alg_attr_aut(context)?,
             Self::AlgorithmInformation => algo_info(context)?,
             _ => {
                 debug_assert!(
@@ -729,6 +732,30 @@ pub fn algo_info<const R: usize, T: trussed::Client>(
         context.extend_reply(alg.attributes())?;
         prepend_len(context.reply, offset)?;
     }
+    Ok(())
+}
+
+pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO load correct algorithm from state
+    context.extend_reply(SignatureAlgorithms::default().attributes())?;
+    Ok(())
+}
+
+pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO load correct algorithm from state
+    context.extend_reply(DecryptionAlgorithms::default().attributes())?;
+    Ok(())
+}
+
+pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO load correct algorithm from state
+    context.extend_reply(AuthenticationAlgorithms::default().attributes())?;
     Ok(())
 }
 
