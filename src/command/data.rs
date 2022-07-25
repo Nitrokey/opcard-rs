@@ -392,6 +392,11 @@ impl GetDataObject {
             Self::Url => url(context)?,
             Self::LoginData => login_data(context)?,
             Self::DigitalSignatureCounter => signature_counter(context)?,
+            Self::KdfDo => kdf_do(context)?,
+            Self::PrivateUse1 => private_use(context, 1)?,
+            Self::PrivateUse2 => private_use(context, 2)?,
+            Self::PrivateUse3 => private_use(context, 3)?,
+            Self::PrivateUse4 => private_use(context, 4)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -924,6 +929,43 @@ pub fn signature_counter<const R: usize, T: trussed::Client>(
     context
         .reply
         .extend_from_slice(resp)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+pub fn kdf_do<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+
+    context
+        .reply
+        .extend_from_slice(&internal.kdf_do)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+pub fn private_use<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+    id: u8,
+) -> Result<(), Status> {
+    if id == 3 && !context.state.runtime.other_verified {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+
+    if id == 4 && !context.state.runtime.admin_verified {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+
+    context
+        .reply
+        .extend_from_slice(&internal.private_use[id as usize])
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 

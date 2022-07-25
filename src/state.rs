@@ -3,6 +3,7 @@
 
 use heapless::String;
 use heapless_bytes::Bytes;
+use hex_literal::hex;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
@@ -22,6 +23,9 @@ pub const MAX_PIN_LENGTH: usize = 127;
 pub const DEFAULT_USER_PIN: &[u8] = b"123456";
 /// Default value for PW3
 pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
+
+/// Maximum length for generic DOs, based on the max length for the data from apdu_dispatch
+pub const MAX_GENERIC_LENGTH: usize = 0x1DB9;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
@@ -54,9 +58,11 @@ pub struct Internal {
     pub cardholder_name: String<39>,
     pub cardholder_sex: Sex,
     pub language_preferences: String<8>,
-    pub url: String<0x1DB9>,
-    pub login_data: String<0x1DB9>,
+    pub url: String<MAX_GENERIC_LENGTH>,
+    pub login_data: String<MAX_GENERIC_LENGTH>,
     pub sign_count: usize,
+    pub kdf_do: Bytes<MAX_GENERIC_LENGTH>,
+    pub private_use: [Bytes<MAX_GENERIC_LENGTH>; 4],
 }
 
 impl Internal {
@@ -82,6 +88,9 @@ impl Internal {
             url: String::new(),
             login_data: String::new(),
             sign_count: 0,
+            // KDF-DO initialized to NONE
+            kdf_do: Bytes::from_slice(&hex!("81 01 00")).unwrap(),
+            private_use: Default::default(),
         }
     }
 
