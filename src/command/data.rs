@@ -808,6 +808,7 @@ pub fn key_info<const R: usize, T: trussed::Client>(
 pub fn uid_cds<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    // TODO load correct status from state
     if context.options.button_available {
         context.extend_reply(&hex!("00 20"))
     } else {
@@ -818,6 +819,7 @@ pub fn uid_cds<const R: usize, T: trussed::Client>(
 pub fn uid_dec<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    // TODO load correct status from state
     if context.options.button_available {
         context.extend_reply(&hex!("00 20"))
     } else {
@@ -828,6 +830,7 @@ pub fn uid_dec<const R: usize, T: trussed::Client>(
 pub fn uid_aut<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    // TODO load correct status from state
     if context.options.button_available {
         context.extend_reply(&hex!("00 20"))
     } else {
