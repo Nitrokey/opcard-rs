@@ -70,10 +70,9 @@ impl Internal {
     // § 4.3
     const MAX_RETRIES: u8 = 3;
 
+    #[allow(clippy::unwrap_used)]
     fn default() -> Self {
-        #[allow(clippy::unwrap_used)]
         let admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
-        #[allow(clippy::unwrap_used)]
         let user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
         Self {
             user_pin_tries: 0,
