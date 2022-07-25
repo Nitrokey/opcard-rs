@@ -51,8 +51,8 @@ macro_rules! enum_u16 {
             }
         }
 
+        #[allow(unused)]
         impl $name {
-            #[allow(unused)]
             $vis fn tag(&self) -> &'static [u8] {
                 match self{
                     $(
@@ -66,6 +66,15 @@ macro_rules! enum_u16 {
                          }
                     )*
                 }
+            }
+
+            /// Returns an iterator over all of the enum's members
+            $vis fn iter_all() -> impl Iterator<Item = Self> {
+                [
+                    $(
+                        $name::$var,
+                    )*
+                ].into_iter()
             }
         }
     }
@@ -137,11 +146,20 @@ macro_rules! enum_subset {
             }
         }
 
+        #[allow(unused)]
         impl $name {
-            #[allow(unused)]
             $vis fn tag(self) -> &'static [u8] {
                 let raw: $sup = self.into();
                 raw.tag()
+            }
+
+            /// Returns an iterator over all of the enum's members
+            $vis fn iter_all() -> impl Iterator<Item = Self> {
+                [
+                    $(
+                        $name::$var,
+                    )*
+                ].into_iter()
             }
         }
     }
@@ -592,12 +610,8 @@ mod tests {
     #[test]
     fn max_nesting() {
         // Better way to iterate over all possible values of the enum?
-        for i in 0..0xffff {
-            let o = if let Ok(o) = GetDataObject::try_from(i) {
-                o
-            } else {
-                continue;
-            };
+
+        for o in GetDataObject::iter_all() {
             match o.simple_or_constructed() {
                 GetDataDoType::Simple(_) => continue,
                 GetDataDoType::Constructed(children) => {
