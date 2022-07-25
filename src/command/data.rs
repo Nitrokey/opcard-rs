@@ -376,6 +376,10 @@ impl GetDataObject {
             Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
             Self::AlgorithmAttributesAuthentication => alg_attr_aut(context)?,
             Self::AlgorithmInformation => algo_info(context)?,
+            Self::Fingerprints => fingerprints(context)?,
+            Self::CAFingerprints => ca_fingerprints(context)?,
+            Self::KeyGenerationDates => keygen_dates(context)?,
+            Self::KeyInformation => key_info(context)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -756,6 +760,45 @@ pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
     context.extend_reply(AuthenticationAlgorithms::default().attributes())?;
+    Ok(())
+}
+
+pub fn fingerprints<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO load from state
+    context.extend_reply(&[0; 60])?;
+    Ok(())
+}
+
+pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO load from state
+    context.extend_reply(&[0; 60])?;
+    Ok(())
+}
+
+pub fn keygen_dates<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO load from state
+    context.extend_reply(&[0; 12])?;
+    Ok(())
+}
+
+pub fn key_info<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO load from state
+    // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
+    context.extend_reply(&hex!(
+        "
+        01 00 // Sign key not present
+        02 00 // Dec key not present
+        03 00 // Aut key not present
+    "
+    ))?;
     Ok(())
 }
 
