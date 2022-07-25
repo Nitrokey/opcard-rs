@@ -588,9 +588,9 @@ impl From<PasswordStatus> for [u8; 7] {
 const EXTENDED_LENGTH_INFO: [u8; 8] = hex!("02 02 1DB9 02 02 1DB9");
 const EXTENDED_CAPABILITIES: [u8; 10] = hex!(
     "
-    1f 00 0000 // Secure messaging not supported
+    3F 00 0000 // Secure messaging not supported
     1DB9 1DB9 // Generic max length
-    01 // Pin block format 2 supported
+    00 // Pin block format 2 supported
     01 // Manage security environment (MSE) Command supported
     "
 );
@@ -608,8 +608,9 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     let object = GetDataObject::try_from(tag)
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     if !object.is_visible() {
-        log::error!("Get data for children object: {object:?}");
-        return Err(Status::IncorrectDataParameter);
+        log::warn!("Get data for children object: {object:?}");
+        // Don't return error because GnuPG asks for them anyway
+        //return Err(Status::IncorrectDataParameter);
     }
     log::debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
