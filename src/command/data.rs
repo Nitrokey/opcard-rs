@@ -370,7 +370,7 @@ impl GetDataObject {
             Self::ExtendedLengthInformation => context.extend_reply(&EXTENDED_LENGTH_INFO)?,
             Self::ExtendedCapabilities => context.extend_reply(&EXTENDED_CAPABILITIES)?,
             Self::GeneralFeatureManagement => {
-                context.extend_reply(general_feature_management(&context.options))?
+                context.extend_reply(general_feature_management(context.options))?
             }
             Self::AlgorithmAttributesSignature => alg_attr_sign(context)?,
             Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
@@ -383,6 +383,9 @@ impl GetDataObject {
             Self::UifCds => uid_cds(context)?,
             Self::UifDec => uid_dec(context)?,
             Self::UifAut => uid_aut(context)?,
+            Self::CardHolderName => cardholder_name(context)?,
+            Self::CardHolderSex => cardholder_sex(context)?,
+            Self::LanguagePreferences => language_preferences(context)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -837,6 +840,45 @@ pub fn uid_aut<const R: usize, T: trussed::Client>(
     } else {
         context.extend_reply(&hex!("00 00"))
     }
+}
+
+pub fn cardholder_name<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    context
+        .reply
+        .extend_from_slice(internal.language_preferences.as_bytes())
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+pub fn cardholder_sex<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    context
+        .reply
+        .extend_from_slice(internal.language_preferences.as_bytes())
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+pub fn language_preferences<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    context
+        .reply
+        .extend_from_slice(internal.language_preferences.as_bytes())
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 #[cfg(test)]

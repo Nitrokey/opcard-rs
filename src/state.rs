@@ -1,8 +1,10 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use heapless::String;
 use heapless_bytes::Bytes;
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
 
 use trussed::api::reply::Metadata;
@@ -28,12 +30,30 @@ pub struct State {
     pub runtime: Runtime,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
+pub enum Sex {
+    NotKnown = 0x30,
+    Male = 0x31,
+    Female = 0x32,
+    NotApplicable = 0x39,
+}
+
+impl Default for Sex {
+    fn default() -> Sex {
+        Sex::NotKnown
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,
     admin_pin_tries: u8,
     user_pin: Bytes<MAX_PIN_LENGTH>,
     admin_pin: Bytes<MAX_PIN_LENGTH>,
+    pub cardholder_name: String<39>,
+    pub cardholder_sex: Sex,
+    pub language_preferences: String<8>,
 }
 
 impl Internal {
@@ -53,6 +73,9 @@ impl Internal {
             // § 4.3.1
             admin_pin,
             user_pin,
+            cardholder_name: String::new(),
+            cardholder_sex: Sex::default(),
+            language_preferences: String::from("en"),
         }
     }
 

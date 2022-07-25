@@ -141,6 +141,7 @@ impl Default for Options {
         // TODO: consider setting a default manufacturer
         let version_major = env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap_or_default();
         let version_minor = env!("CARGO_PKG_VERSION_MINOR").parse().unwrap_or_default();
+        #[allow(clippy::unwrap_used)]
         Self {
             version: [version_major, version_minor],
             manufacturer: Default::default(),
