@@ -380,6 +380,9 @@ impl GetDataObject {
             Self::CAFingerprints => ca_fingerprints(context)?,
             Self::KeyGenerationDates => keygen_dates(context)?,
             Self::KeyInformation => key_info(context)?,
+            Self::UifCds => uid_cds(context)?,
+            Self::UifDec => uid_dec(context)?,
+            Self::UifAut => uid_aut(context)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -800,6 +803,36 @@ pub fn key_info<const R: usize, T: trussed::Client>(
     "
     ))?;
     Ok(())
+}
+
+pub fn uid_cds<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    if context.options.button_available {
+        context.extend_reply(&hex!("00 20"))
+    } else {
+        context.extend_reply(&hex!("00 00"))
+    }
+}
+
+pub fn uid_dec<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    if context.options.button_available {
+        context.extend_reply(&hex!("00 20"))
+    } else {
+        context.extend_reply(&hex!("00 00"))
+    }
+}
+
+pub fn uid_aut<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    if context.options.button_available {
+        context.extend_reply(&hex!("00 20"))
+    } else {
+        context.extend_reply(&hex!("00 00"))
+    }
 }
 
 #[cfg(test)]
