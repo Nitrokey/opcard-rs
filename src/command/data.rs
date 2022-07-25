@@ -11,6 +11,35 @@ use crate::{
     utils::InspectErr,
 };
 
+/// Creates an enum with an `iter_all` associated function giving an iterator over all variants
+macro_rules! iterable_enum {
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident {
+            $($var:ident),+
+            $(,)*
+        }
+    ) => {
+        $(#[$outer])*
+        $vis enum $name {
+            $(
+                $var,
+            )*
+        }
+
+        #[allow(unused)]
+        impl $name {
+            $vis fn iter_all() -> impl Iterator<Item = Self> {
+                [
+                    $(
+                        $name::$var,
+                    )*
+                ].into_iter()
+            }
+        }
+    }
+}
+
 macro_rules! enum_u16 {
     (
         $(#[$outer:meta])*
@@ -343,6 +372,7 @@ impl GetDataObject {
             Self::GeneralFeatureManagement => {
                 context.extend_reply(general_feature_management(&context.options))?
             }
+            Self::AlgorithmInformation => algo_info(context)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -354,6 +384,157 @@ impl GetDataObject {
         }
         log::info!("Returning data for tag: {self:?}");
         Ok(())
+    }
+}
+
+iterable_enum! {
+    enum SignatureAlgorithms {
+        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
+        Ed255,
+        EcDsaP256,
+        Rsa2k,
+        Rsa4k,
+    }
+}
+
+impl Default for SignatureAlgorithms {
+    fn default() -> Self {
+        Self::Rsa2k
+    }
+}
+
+impl SignatureAlgorithms {
+    #[allow(unused)]
+    pub fn id(&self) -> u8 {
+        match self {
+            Self::Ed255 => 0x16,
+            Self::EcDsaP256 => 0x13,
+            Self::Rsa2k | Self::Rsa4k => 0x1,
+        }
+    }
+
+    pub fn attributes(&self) -> &'static [u8] {
+        match self {
+            Self::Ed255 => &hex!("16 2B 06 01 04 01 DA 47 0F 01"),
+            Self::EcDsaP256 => &hex!("13 2A 86 48 CE 3D 03 01 07"),
+            Self::Rsa2k => &hex!("
+                01
+                0800 // Length modulus (in bit): 2048                                                                                                                                        
+                0020 // Length exponent (in bit): 32
+                00   // 0: Acceptable format is: P and Q
+            "),
+            Self::Rsa4k => &hex!("
+                01
+                1000 // Length modulus (in bit): 4096                                                                                                                                        
+                0020 // Length exponent (in bit): 32
+                00   // 0: Acceptable format is: P and Q
+            "),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn oid(&self) -> &'static [u8] {
+        &self.attributes()[1..]
+    }
+}
+
+iterable_enum! {
+    enum DecryptionAlgorithms {
+        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
+        X255,
+        EcDhP256,
+        Rsa2k,
+        Rsa4k,
+    }
+}
+
+impl Default for DecryptionAlgorithms {
+    fn default() -> Self {
+        Self::Rsa2k
+    }
+}
+
+impl DecryptionAlgorithms {
+    #[allow(unused)]
+    pub fn id(&self) -> u8 {
+        match self {
+            Self::X255 | Self::EcDhP256 => 0x12,
+            Self::Rsa2k | Self::Rsa4k => 0x1,
+        }
+    }
+
+    pub fn attributes(&self) -> &'static [u8] {
+        match self {
+            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
+            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
+            Self::Rsa2k => &hex!("
+                01
+                0800 // Length modulus (in bit): 2048                                                                                                                                        
+                0020 // Length exponent (in bit): 32
+                00   // 0: Acceptable format is: P and Q
+            "),
+            Self::Rsa4k => &hex!("
+                01
+                1000 // Length modulus (in bit): 4096                                                                                                                                        
+                0020 // Length exponent (in bit): 32
+                00   // 0: Acceptable format is: P and Q
+            "),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn oid(&self) -> &'static [u8] {
+        &self.attributes()[1..]
+    }
+}
+
+iterable_enum! {
+    enum AuthenticationAlgorithms {
+        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
+        X255,
+        EcDhP256,
+        Rsa2k,
+        Rsa4k,
+    }
+}
+
+impl Default for AuthenticationAlgorithms {
+    fn default() -> Self {
+        Self::Rsa2k
+    }
+}
+
+impl AuthenticationAlgorithms {
+    #[allow(unused)]
+    pub fn id(&self) -> u8 {
+        match self {
+            Self::X255 | Self::EcDhP256 => 0x12,
+            Self::Rsa2k | Self::Rsa4k => 0x1,
+        }
+    }
+
+    pub fn attributes(&self) -> &'static [u8] {
+        match self {
+            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
+            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
+            Self::Rsa2k => &hex!("
+                01
+                0800 // Length modulus (in bit): 2048                                                                                                                                        
+                0020 // Length exponent (in bit): 32
+                00   // 0: Acceptable format is: P and Q
+            "),
+            Self::Rsa4k => &hex!("
+                01
+                1000 // Length modulus (in bit): 4096                                                                                                                                        
+                0020 // Length exponent (in bit): 32
+                00   // 0: Acceptable format is: P and Q
+            "),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn oid(&self) -> &'static [u8] {
+        &self.attributes()[1..]
     }
 }
 
@@ -527,6 +708,30 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     context.extend_reply(&status)
 }
 
+pub fn algo_info<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    for alg in SignatureAlgorithms::iter_all() {
+        context.extend_reply(&[0xC1])?;
+        let offset = context.reply.len();
+        context.extend_reply(alg.attributes())?;
+        prepend_len(context.reply, offset)?;
+    }
+    for alg in DecryptionAlgorithms::iter_all() {
+        context.extend_reply(&[0xC2])?;
+        let offset = context.reply.len();
+        context.extend_reply(alg.attributes())?;
+        prepend_len(context.reply, offset)?;
+    }
+    for alg in AuthenticationAlgorithms::iter_all() {
+        context.extend_reply(&[0xC3])?;
+        let offset = context.reply.len();
+        context.extend_reply(alg.attributes())?;
+        prepend_len(context.reply, offset)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -629,6 +834,21 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn attributes_id() {
+        for alg in SignatureAlgorithms::iter_all() {
+            assert_eq!(alg.id(), alg.attributes()[0]);
+        }
+
+        for alg in DecryptionAlgorithms::iter_all() {
+            assert_eq!(alg.id(), alg.attributes()[0]);
+        }
+
+        for alg in AuthenticationAlgorithms::iter_all() {
+            assert_eq!(alg.id(), alg.attributes()[0]);
         }
     }
 }
