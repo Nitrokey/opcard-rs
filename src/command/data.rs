@@ -859,7 +859,7 @@ pub fn cardholder_name<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     context
         .reply
-        .extend_from_slice(internal.language_preferences.as_bytes())
+        .extend_from_slice(internal.cardholder_name.as_bytes())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -872,7 +872,7 @@ pub fn cardholder_sex<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     context
         .reply
-        .extend_from_slice(internal.language_preferences.as_bytes())
+        .extend_from_slice(&[internal.cardholder_sex as u8])
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
