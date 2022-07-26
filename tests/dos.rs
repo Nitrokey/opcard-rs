@@ -5,9 +5,7 @@
 use hex_literal::hex;
 mod card;
 
-use card::{error_to_retries, with_tx};
-
-use opcard::backend::virtual_platform::CARD;
+use card::with_tx;
 
 use openpgp_card::card_do::{ApplicationIdentifier, HistoricalBytes, Lang, Sex};
 
