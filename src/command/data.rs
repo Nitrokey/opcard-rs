@@ -677,7 +677,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
         let offset = context.reply.len();
         // Copied to avoid moving the context
         // This works because the life of tmp_ctx are smaller that that of context
-        let tmp_ctx = Context {
+        let mut tmp_ctx = Context {
             reply: context.reply,
             backend: context.backend,
             options: context.options,
@@ -688,6 +688,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
             GetDataDoType::Simple(simple) => simple.reply(tmp_ctx)?,
             GetDataDoType::Constructed(children) => {
                 for inner_obj in children {
+                    tmp_ctx.extend_reply(inner_obj.tag())?;
                     let inner_offset = tmp_ctx.reply.len();
                     let inner_tmp_ctx = Context {
                         reply: tmp_ctx.reply,
