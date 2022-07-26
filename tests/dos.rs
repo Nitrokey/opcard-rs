@@ -17,25 +17,7 @@ fn get_data() {
         assert_eq!(
             appdata.application_id().unwrap(),
             ApplicationIdentifier::try_from(
-                [
-                    0xD2,
-                    0x76,
-                    0x00,
-                    0x01,
-                    0x24,
-                    0x1,
-                    env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap_or_default(),
-                    env!("CARGO_PKG_VERSION_MINOR").parse().unwrap_or_default(),
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0
-                ]
-                .as_slice()
+                hex!("D2 76 00 01 24 01 03 04 00 00 00 00 00 00 00 00").as_slice(),
             )
             .unwrap()
         );

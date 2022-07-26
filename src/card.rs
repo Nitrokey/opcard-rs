@@ -139,11 +139,10 @@ impl Options {
 impl Default for Options {
     fn default() -> Self {
         // TODO: consider setting a default manufacturer
-        let version_major = env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap_or_default();
-        let version_minor = env!("CARGO_PKG_VERSION_MINOR").parse().unwrap_or_default();
         #[allow(clippy::unwrap_used)]
         Self {
-            version: [version_major, version_minor],
+            // Version of the spec
+            version: [3, 4],
             manufacturer: Default::default(),
             serial: Default::default(),
             // TODO: Copied from Nitrokey Pro
@@ -182,24 +181,7 @@ mod tests {
     fn aid() {
         assert_eq!(
             Options::default().aid(),
-            [
-                0xD2,
-                0x76,
-                0x00,
-                0x01,
-                0x24,
-                0x1,
-                env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap_or_default(),
-                env!("CARGO_PKG_VERSION_MINOR").parse().unwrap_or_default(),
-                0x0,
-                0x0,
-                0x0,
-                0x0,
-                0x0,
-                0x0,
-                0x0,
-                0x0
-            ],
+            hex!("D2 76 00 01 24 01 03 04 00 00 00 00 00 00 00 00"),
         )
     }
 }
