@@ -430,11 +430,7 @@ impl Default for SignatureAlgorithms {
 impl SignatureAlgorithms {
     #[allow(unused)]
     pub fn id(&self) -> u8 {
-        match self {
-            Self::Ed255 => 0x16,
-            Self::EcDsaP256 => 0x13,
-            Self::Rsa2k | Self::Rsa4k => 0x1,
-        }
+        self.attributes()[0]
     }
 
     pub fn attributes(&self) -> &'static [u8] {
