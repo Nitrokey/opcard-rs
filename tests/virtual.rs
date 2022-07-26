@@ -3,7 +3,7 @@
 
 #![cfg(feature = "virtual")]
 
-use std::{process::Command, sync::mpsc};
+use std::{process::Command, sync::mpsc, thread::sleep, time::Duration};
 
 use stoppable_thread::spawn;
 use test_log::test;
@@ -31,6 +31,8 @@ fn with_vsc<F: Fn() -> R, R>(f: F) -> R {
     });
 
     rx.recv().expect("failed to read message");
+
+    sleep(Duration::from_millis(50));
 
     let result = f();
 
