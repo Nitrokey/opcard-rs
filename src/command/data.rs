@@ -382,7 +382,7 @@ impl GetDataObject {
             Self::CAFingerprints => ca_fingerprints(context)?,
             Self::KeyGenerationDates => keygen_dates(context)?,
             Self::KeyInformation => key_info(context)?,
-            Self::UifCds => uif_cds(context)?,
+            Self::UifCds => uif_sign(context)?,
             Self::UifDec => uif_dec(context)?,
             Self::UifAut => uif_aut(context)?,
             Self::CardHolderName => cardholder_name(context)?,
@@ -823,37 +823,52 @@ pub fn key_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn uif_cds<const R: usize, T: trussed::Client>(
+pub fn uif_sign<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct status from state
-    if context.options.button_available {
-        context.extend_reply(&hex!("00 20"))
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    let button_byte = if context.options.button_available {
+        0x20
     } else {
-        context.extend_reply(&hex!("00 00"))
-    }
+        0x00
+    };
+    let state_byte = internal.uif_sign.as_byte();
+    context.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn uif_dec<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct status from state
-    if context.options.button_available {
-        context.extend_reply(&hex!("00 20"))
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    let button_byte = if context.options.button_available {
+        0x20
     } else {
-        context.extend_reply(&hex!("00 00"))
-    }
+        0x00
+    };
+    let state_byte = internal.uif_dec.as_byte();
+    context.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn uif_aut<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct status from state
-    if context.options.button_available {
-        context.extend_reply(&hex!("00 20"))
+    let internal = context
+        .backend
+        .load_internal(&mut context.state.internal)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+    let button_byte = if context.options.button_available {
+        0x20
     } else {
-        context.extend_reply(&hex!("00 00"))
-    }
+        0x00
+    };
+    let state_byte = internal.uif_aut.as_byte();
+    context.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn cardholder_name<const R: usize, T: trussed::Client>(

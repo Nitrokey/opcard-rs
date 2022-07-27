@@ -51,6 +51,25 @@ impl Default for Sex {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
+pub enum Uif {
+    Disabled = 0,
+    Enable = 1,
+}
+
+impl Default for Uif {
+    fn default() -> Self {
+        Uif::Disabled
+    }
+}
+
+impl Uif {
+    pub fn as_byte(self) -> u8 {
+        self as u8
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,
@@ -61,6 +80,9 @@ pub struct Internal {
     pub cardholder_sex: Sex,
     pub language_preferences: String<8>,
     pub sign_count: usize,
+    pub uif_sign: Uif,
+    pub uif_dec: Uif,
+    pub uif_aut: Uif,
 }
 
 impl Internal {
@@ -70,19 +92,21 @@ impl Internal {
 
     #[allow(clippy::unwrap_used)]
     fn default() -> Self {
+        // § 4.3.1
         let admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
         let user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
         Self {
             user_pin_tries: 0,
             admin_pin_tries: 0,
-
-            // § 4.3.1
             admin_pin,
             user_pin,
             cardholder_name: String::new(),
             cardholder_sex: Sex::default(),
             language_preferences: String::from("en"),
             sign_count: 0,
+            uif_sign: Uif::Disabled,
+            uif_dec: Uif::Disabled,
+            uif_aut: Uif::Disabled,
         }
     }
 
