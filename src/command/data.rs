@@ -7,7 +7,7 @@ use iso7816::Status;
 use crate::{
     card::{Context, Options},
     command::{GetDataMode, Password, Tag},
-    state::{MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
+    state::{ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
     utils::InspectErr,
 };
 
@@ -389,14 +389,14 @@ impl GetDataObject {
             Self::CardHolderName => cardholder_name(context)?,
             Self::CardHolderSex => cardholder_sex(context)?,
             Self::LanguagePreferences => language_preferences(context)?,
-            Self::Url => url(context)?,
-            Self::LoginData => login_data(context)?,
+            Self::Url => arbitrary_do(context, ArbitraryDO::Url)?,
+            Self::LoginData => arbitrary_do(context, ArbitraryDO::LoginData)?,
             Self::DigitalSignatureCounter => signature_counter(context)?,
-            Self::KdfDo => kdf_do(context)?,
-            Self::PrivateUse1 => private_use(context, 1)?,
-            Self::PrivateUse2 => private_use(context, 2)?,
-            Self::PrivateUse3 => private_use(context, 3)?,
-            Self::PrivateUse4 => private_use(context, 4)?,
+            Self::KdfDo => arbitrary_do(context, ArbitraryDO::KdfDo)?,
+            Self::PrivateUse1 => arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
+            Self::PrivateUse2 => arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
+            Self::PrivateUse3 => arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
+            Self::PrivateUse4 => arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
             _ => {
                 debug_assert!(
                     self.into_simple().is_ok(),
@@ -893,30 +893,6 @@ pub fn language_preferences<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-pub fn url<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    context
-        .reply
-        .extend_from_slice(internal.url.as_bytes())
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
-}
-
-pub fn login_data<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
-) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    context
-        .reply
-        .extend_from_slice(internal.login_data.as_bytes())
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
-}
-
 pub fn signature_counter<const R: usize, T: trussed::Client>(
     context: Context<'_, R, T>,
 ) -> Result<(), Status> {
@@ -933,41 +909,24 @@ pub fn signature_counter<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-pub fn kdf_do<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+pub fn arbitrary_do<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+    obj: ArbitraryDO,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-
-    context
-        .reply
-        .extend_from_slice(&internal.kdf_do)
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
-}
-
-pub fn private_use<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
-    id: u8,
-) -> Result<(), Status> {
-    if id == 3 && !context.state.runtime.other_verified {
-        return Err(Status::SecurityStatusNotSatisfied);
+    match obj.read_permission() {
+        PermissionRequirement::User if !context.state.runtime.other_verified => {
+            return Err(Status::SecurityStatusNotSatisfied);
+        }
+        PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
+            return Err(Status::SecurityStatusNotSatisfied);
+        }
+        _ => {}
     }
 
-    if id == 4 && !context.state.runtime.admin_verified {
-        return Err(Status::SecurityStatusNotSatisfied);
-    }
-
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
+    let data = obj
+        .load(context.backend.client_mut())
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-
-    context
-        .reply
-        .extend_from_slice(&internal.private_use[id as usize])
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+    context.extend_reply(&data)
 }
 
 #[cfg(test)]

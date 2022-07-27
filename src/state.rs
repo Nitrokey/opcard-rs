@@ -60,11 +60,7 @@ pub struct Internal {
     pub cardholder_name: String<39>,
     pub cardholder_sex: Sex,
     pub language_preferences: String<8>,
-    pub url: String<MAX_GENERIC_LENGTH>,
-    pub login_data: String<MAX_GENERIC_LENGTH>,
     pub sign_count: usize,
-    pub kdf_do: Bytes<MAX_GENERIC_LENGTH>,
-    pub private_use: [Bytes<MAX_GENERIC_LENGTH>; 4],
 }
 
 impl Internal {
@@ -86,12 +82,7 @@ impl Internal {
             cardholder_name: String::new(),
             cardholder_sex: Sex::default(),
             language_preferences: String::from("en"),
-            url: String::new(),
-            login_data: String::new(),
             sign_count: 0,
-            // KDF-DO initialized to NONE
-            kdf_do: Bytes::from_slice(&hex!("81 01 00")).unwrap(),
-            private_use: Default::default(),
         }
     }
 
@@ -232,4 +223,78 @@ pub struct Runtime {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
+}
+
+/// DOs that can store arbitrary data from the user
+///
+/// They are stored each in their own files and are loaded only
+/// when necessary to prevent the state from getting too big.
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum ArbitraryDO {
+    Url,
+    KdfDo,
+    PrivateUse1,
+    PrivateUse2,
+    PrivateUse3,
+    PrivateUse4,
+    LoginData,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum PermissionRequirement {
+    None,
+    User,
+    Admin,
+}
+
+impl ArbitraryDO {
+    fn path(self) -> PathBuf {
+        PathBuf::from(match self {
+            Self::Url => "url",
+            Self::KdfDo => "kdf_do",
+            Self::PrivateUse1 => "private_use_1",
+            Self::PrivateUse2 => "private_use_2",
+            Self::PrivateUse3 => "private_use_3",
+            Self::PrivateUse4 => "private_use_4",
+            Self::LoginData => "login_data",
+        })
+    }
+
+    fn default(self) -> Bytes<MAX_GENERIC_LENGTH> {
+        match self {
+            // KDF-DO initialized to NONE
+            Self::KdfDo => Bytes::from_slice(&hex!("81 01 00")).unwrap(),
+            _ => Bytes::new(),
+        }
+    }
+
+    pub fn read_permission(self) -> PermissionRequirement {
+        match self {
+            Self::PrivateUse3 => PermissionRequirement::User,
+            Self::PrivateUse4 => PermissionRequirement::Admin,
+            _ => PermissionRequirement::None,
+        }
+    }
+
+    pub fn load(
+        self,
+        client: &mut impl trussed::Client,
+    ) -> Result<Bytes<MAX_GENERIC_LENGTH>, Error> {
+        match try_syscall!(client.read_file(Location::Internal, self.path())) {
+            Ok(r) => Ok(r.data),
+            Err(_) => match try_syscall!(client.entry_metadata(Location::Internal, self.path())) {
+                Ok(Metadata { metadata: None }) => Ok(self.default()),
+                Ok(Metadata {
+                    metadata: Some(metadata),
+                }) => {
+                    log::error!("File exists but couldn't be read: {metadata:?}");
+                    Err(Error::Loading)
+                }
+                Err(err) => {
+                    log::error!("File couldn't be read: {err:?}");
+                    Err(Error::Loading)
+                }
+            },
+        }
+    }
 }
