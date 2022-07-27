@@ -372,7 +372,7 @@ impl GetDataObject {
             Self::ExtendedLengthInformation => context.extend_reply(&EXTENDED_LENGTH_INFO)?,
             Self::ExtendedCapabilities => context.extend_reply(&EXTENDED_CAPABILITIES)?,
             Self::GeneralFeatureManagement => {
-                context.extend_reply(general_feature_management(context.options))?
+                context.extend_reply(&general_feature_management(context.options))?
             }
             Self::AlgorithmAttributesSignature => alg_attr_sign(context)?,
             Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
@@ -559,12 +559,16 @@ impl AuthenticationAlgorithms {
     }
 }
 
-fn general_feature_management(options: &Options) -> &'static [u8] {
+fn general_feature_management_byte(options: &Options) -> u8 {
     if options.button_available {
-        &hex!("81 01 20")
+        0x20
     } else {
-        &hex!("81 01 00")
+        0x00
     }
+}
+
+fn general_feature_management(options: &Options) -> [u8; 3] {
+    [0x81, 0x01, general_feature_management_byte(options)]
 }
 
 struct PasswordStatus {
@@ -830,11 +834,7 @@ pub fn uif_sign<const R: usize, T: trussed::Client>(
         .backend
         .load_internal(&mut context.state.internal)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    let button_byte = if context.options.button_available {
-        0x20
-    } else {
-        0x00
-    };
+    let button_byte = general_feature_management_byte(context.options);
     let state_byte = internal.uif_sign.as_byte();
     context.extend_reply(&[state_byte, button_byte])
 }
@@ -846,11 +846,7 @@ pub fn uif_dec<const R: usize, T: trussed::Client>(
         .backend
         .load_internal(&mut context.state.internal)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    let button_byte = if context.options.button_available {
-        0x20
-    } else {
-        0x00
-    };
+    let button_byte = general_feature_management_byte(context.options);
     let state_byte = internal.uif_dec.as_byte();
     context.extend_reply(&[state_byte, button_byte])
 }
@@ -862,11 +858,7 @@ pub fn uif_aut<const R: usize, T: trussed::Client>(
         .backend
         .load_internal(&mut context.state.internal)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    let button_byte = if context.options.button_available {
-        0x20
-    } else {
-        0x00
-    };
+    let button_byte = general_feature_management_byte(context.options);
     let state_byte = internal.uif_aut.as_byte();
     context.extend_reply(&[state_byte, button_byte])
 }
