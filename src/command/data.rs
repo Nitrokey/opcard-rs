@@ -397,12 +397,14 @@ impl GetDataObject {
             Self::PrivateUse2 => arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
             Self::PrivateUse3 => arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
             Self::PrivateUse4 => arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
-            _ => {
-                debug_assert!(
-                    self.into_simple().is_ok(),
-                    "Called `reply` on a constructed DO: {self:?}"
-                );
-                log::error!("Unimplemented DO: {self:?}");
+            // TODO revisit with support for GET NEXT DAT/ SELECT DATA
+            Self::CardHolderCertificate => arbitrary_do(context, ArbitraryDO::CardHolderCertAut)?,
+            Self::SecureMessagingCertificate => return Err(Status::SecureMessagingNotSupported),
+            Self::CardHolderRelatedData
+            | Self::ApplicationRelatedData
+            | Self::DiscretionaryDataObjects
+            | Self::SecuritySupportTemplate => {
+                log::error!("Called `reply` on a constructed DO: {self:?}");
                 return Err(Status::UnspecifiedNonpersistentExecutionError);
             }
         }

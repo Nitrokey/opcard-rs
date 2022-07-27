@@ -1,6 +1,5 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-
 use hex_literal::hex;
 mod card;
 
@@ -29,5 +28,8 @@ fn get_data() {
         assert_eq!(holderdata.name().unwrap(), b"".as_slice());
         assert_eq!(holderdata.sex().unwrap(), Sex::NotKnown);
         assert_eq!(holderdata.lang().unwrap(), &[Lang::Value(*b"en")]);
+
+        let cardholder_cert = tx.cardholder_certificate().unwrap();
+        assert_eq!(cardholder_cert, &[]);
     });
 }

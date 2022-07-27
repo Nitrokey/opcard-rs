@@ -238,6 +238,11 @@ pub enum ArbitraryDO {
     PrivateUse3,
     PrivateUse4,
     LoginData,
+    CardHolderCertAut,
+    #[allow(unused)]
+    CardHolderCertDec,
+    #[allow(unused)]
+    CardHolderCertSig,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
@@ -257,6 +262,9 @@ impl ArbitraryDO {
             Self::PrivateUse3 => "private_use_3",
             Self::PrivateUse4 => "private_use_4",
             Self::LoginData => "login_data",
+            Self::CardHolderCertAut => "cardholder_cert_aut",
+            Self::CardHolderCertDec => "cardholder_cert_dec",
+            Self::CardHolderCertSig => "cardholder_cert_sig",
         })
     }
 
