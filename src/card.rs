@@ -11,6 +11,8 @@ use crate::{backend::Backend, command::Command};
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
 pub const PIX_APPLICATION: [u8; 1] = [0x01];
 pub const PIX_RFU: [u8; 2] = [0x00, 0x00];
+/// Version of the spec implemented by opcard-rs
+pub const PGP_SMARTCARD_VERSION: [u8; 2] = [3, 4];
 
 // TODO: use generic iso7816 implementation, see https://github.com/ycrypto/iso7816/pull/3
 
@@ -97,8 +99,6 @@ impl<T: trussed::Client, const C: usize, const R: usize> apdu_dispatch::App<C, R
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Options {
-    /// The version number returned in the AID, see § 4.2.1 of the spec.
-    pub version: [u8; 2],
     /// The manufacturer ID returned in the AID, see § 4.2.1 of the spec.
     pub manufacturer: [u8; 2],
     /// The serial number returned in the AID, see § 4.2.1 of the spec.
@@ -121,8 +121,8 @@ impl Options {
             RID[3],
             RID[4],
             PIX_APPLICATION[0],
-            self.version[0],
-            self.version[1],
+            PGP_SMARTCARD_VERSION[0],
+            PGP_SMARTCARD_VERSION[1],
             self.manufacturer[0],
             self.manufacturer[1],
             self.serial[0],
@@ -141,8 +141,6 @@ impl Default for Options {
         // TODO: consider setting a default manufacturer
         #[allow(clippy::unwrap_used)]
         Self {
-            // Version of the spec
-            version: [3, 4],
             manufacturer: Default::default(),
             serial: Default::default(),
             // TODO: Copied from Nitrokey Pro
