@@ -5,12 +5,12 @@ use heapless_bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
+use trussed::api::reply::Metadata;
 use trussed::try_syscall;
 use trussed::types::{Location, PathBuf};
 
 use crate::command::Password;
 use crate::error::Error;
-use crate::utils::file_exists;
 
 // TODO support more?
 /// Maximum supported length for PW1 and PW3
@@ -63,10 +63,12 @@ impl Internal {
     pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
         let data = match try_syscall!(client.read_file(Location::Internal, Self::path())) {
             Ok(r) => r.data,
-            Err(_) => match file_exists(client, Location::Internal, Self::FILENAME) {
-                Ok(false) => return Ok(Self::default()),
-                Ok(true) => {
-                    log::error!("File exists but couldn't be read");
+            Err(_) => match try_syscall!(client.entry_metadata(Location::Internal, Self::path())) {
+                Ok(Metadata { metadata: None }) => return Ok(Self::default()),
+                Ok(Metadata {
+                    metadata: Some(metadata),
+                }) => {
+                    log::error!("File exists but couldn't be read: {metadata:?}");
                     return Err(Error::Loading);
                 }
                 Err(err) => {
