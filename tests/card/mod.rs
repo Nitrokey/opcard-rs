@@ -10,7 +10,7 @@ use openpgp_card::{
     CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
 };
 use trussed::{
-    virt::{Client, Platform, RamStore},
+    virt::{Client, Platform, Ram},
     Service,
 };
 
@@ -104,7 +104,7 @@ impl<T: trussed::Client + Send + 'static> CardTransaction for Transaction<T> {
     }
 }
 
-pub fn with_card<F: FnOnce(Card<Client<RamStore>>) -> R, R>(f: F) -> R {
+pub fn with_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(f: F) -> R {
     trussed::virt::with_ram_client("opcard", |client| f(Card::new(client)))
 }
 
