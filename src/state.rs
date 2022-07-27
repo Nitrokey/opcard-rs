@@ -261,6 +261,7 @@ impl ArbitraryDO {
     }
 
     fn default(self) -> Bytes<MAX_GENERIC_LENGTH> {
+        #[allow(clippy::unwrap_used)]
         match self {
             // KDF-DO initialized to NONE
             Self::KdfDo => Bytes::from_slice(&hex!("81 01 00")).unwrap(),
