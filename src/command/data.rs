@@ -649,16 +649,18 @@ fn prepend_len<const R: usize>(
     offset: usize,
 ) -> Result<(), Status> {
     let len = buf.len() - offset;
-    if len <= 0x7f {
-        let res = buf.extend_from_slice(&[len as u8]);
-        buf[offset..].rotate_right(1);
-        res
-    } else if len <= 255 {
-        let res = buf.extend_from_slice(&[0x81, len as u8]);
-        buf[offset..].rotate_right(2);
-        res
-    } else if len <= 65535 {
-        let arr = (len as u16).to_be_bytes();
+    if let Ok(len) = u8::try_from(len) {
+        if len <= 0x7f {
+            let res = buf.extend_from_slice(&[len]);
+            buf[offset..].rotate_right(1);
+            res
+        } else {
+            let res = buf.extend_from_slice(&[0x81, len]);
+            buf[offset..].rotate_right(2);
+            res
+        }
+    } else if let Ok(len) = u16::try_from(len) {
+        let arr = len.to_be_bytes();
         let res = buf.extend_from_slice(&[0x82, arr[0], arr[1]]);
         buf[offset..].rotate_right(3);
         res
