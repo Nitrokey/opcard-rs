@@ -382,9 +382,9 @@ impl GetDataObject {
             Self::CAFingerprints => ca_fingerprints(context)?,
             Self::KeyGenerationDates => keygen_dates(context)?,
             Self::KeyInformation => key_info(context)?,
-            Self::UifCds => uid_cds(context)?,
-            Self::UifDec => uid_dec(context)?,
-            Self::UifAut => uid_aut(context)?,
+            Self::UifCds => uif_cds(context)?,
+            Self::UifDec => uif_dec(context)?,
+            Self::UifAut => uif_aut(context)?,
             Self::CardHolderName => cardholder_name(context)?,
             Self::CardHolderSex => cardholder_sex(context)?,
             Self::LanguagePreferences => language_preferences(context)?,
@@ -821,7 +821,7 @@ pub fn key_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn uid_cds<const R: usize, T: trussed::Client>(
+pub fn uif_cds<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct status from state
@@ -832,7 +832,7 @@ pub fn uid_cds<const R: usize, T: trussed::Client>(
     }
 }
 
-pub fn uid_dec<const R: usize, T: trussed::Client>(
+pub fn uif_dec<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct status from state
@@ -843,7 +843,7 @@ pub fn uid_dec<const R: usize, T: trussed::Client>(
     }
 }
 
-pub fn uid_aut<const R: usize, T: trussed::Client>(
+pub fn uif_aut<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct status from state
