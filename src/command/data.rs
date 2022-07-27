@@ -7,7 +7,7 @@ use iso7816::Status;
 use crate::{
     card::{Context, Options},
     command::{GetDataMode, Password, Tag},
-    state::MAX_PIN_LENGTH,
+    state::{MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
     utils::InspectErr,
 };
 
@@ -596,14 +596,18 @@ impl From<PasswordStatus> for [u8; 7] {
 
 // From [apdu_dispatch](https://github.com/solokeys/apdu-dispatch/blob/644336c38beb8896ce99a0fda23551bd65bb8126/src/lib.rs)
 const EXTENDED_LENGTH_INFO: [u8; 8] = hex!("02 02 1DB9 02 02 1DB9");
-const EXTENDED_CAPABILITIES: [u8; 10] = hex!(
-    "
-    3F 00 0000 // Secure messaging not supported
-    1DB9 1DB9 // Generic max length
-    00 // Pin block format 2 supported
-    01 // Manage security environment (MSE) Command supported
-    "
-);
+const EXTENDED_CAPABILITIES: [u8; 10] = [
+    0x3F, //
+    0x00, //
+    0x00, //
+    0x00, // Secure messaging not supported
+    MAX_GENERIC_LENGTH_BE[0],
+    MAX_GENERIC_LENGTH_BE[1],
+    MAX_GENERIC_LENGTH_BE[0],
+    MAX_GENERIC_LENGTH_BE[1],
+    0x00, // Pin block format 2 supported
+    0x01, // Manage security environment (MSE) Command supported
+];
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
