@@ -39,7 +39,7 @@ std = []
 virtual = ["std", "vpicc"]
 
 [patch.crates-io]
-trussed = { git = "https://github.com/trussed-dev/trussed" }
+trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "3da56d8e41b9de64b852ed2bdcfd623118b09c3d" }
 
 [package.metadata.docs.rs]
 all-features = true
