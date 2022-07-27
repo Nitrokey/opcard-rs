@@ -652,6 +652,11 @@ fn prepend_len<const R: usize>(
     buf: &mut heapless::Vec<u8, R>,
     offset: usize,
 ) -> Result<(), Status> {
+    if buf.len() < offset {
+        log::error!("`prepend_len` called with offset lower than buffer length");
+        return Err(Status::UnspecifiedNonpersistentExecutionError);
+    }
+
     let len = buf.len() - offset;
     if let Ok(len) = u8::try_from(len) {
         if len <= 0x7f {
