@@ -357,7 +357,6 @@ impl GetDataObject {
                 | Self::CardHolderSex
                 | Self::LanguagePreferences
                 | Self::CardHolderName
-                | Self::CardHolderCertificate
                 | Self::ExtendedLengthInformation
                 | Self::DigitalSignatureCounter
         )
@@ -625,8 +624,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     if !object.is_visible() {
         log::warn!("Get data for children object: {object:?}");
-        // Don't return error because GnuPG asks for them anyway
-        //return Err(Status::IncorrectDataParameter);
+        return Err(Status::IncorrectDataParameter);
     }
     log::debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
