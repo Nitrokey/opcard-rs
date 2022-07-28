@@ -36,6 +36,44 @@ pub struct State {
     pub runtime: Runtime,
 }
 
+impl State {
+    /// Loads the internal state from flash
+    pub fn load<'s, T: trussed::Client>(
+        &'s mut self,
+        client: &mut T,
+    ) -> Result<LoadedState<'s>, Error> {
+        // This would be the correct way but it doesn't compile because of
+        // https://github.com/rust-lang/rust/issues/47680 (I think)
+        //if let Some(internal) = self.internal.as_mut() {
+        //    Ok(LoadedState {
+        //        internal,
+        //        runtime: &mut self.runtime,
+        //    })
+        //} else {
+        //    Ok(LoadedState {
+        //        internal: self.internal.insert(Internal::load(client)?),
+        //        runtime: &mut self.runtime,
+        //    })
+        //}
+
+        if self.internal.is_none() {
+            self.internal = Some(Internal::load(client)?);
+        }
+
+        #[allow(clippy::unwrap_used)]
+        Ok(LoadedState {
+            internal: self.internal.as_mut().unwrap(),
+            runtime: &mut self.runtime,
+        })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct LoadedState<'s> {
+    pub internal: &'s mut Internal,
+    pub runtime: &'s mut Runtime,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
 #[repr(u8)]
 pub enum Sex {

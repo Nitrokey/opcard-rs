@@ -4,7 +4,7 @@
 use hex_literal::hex;
 use iso7816::Status;
 
-use crate::state::State;
+use crate::state::{LoadedState, State};
 use crate::{backend::Backend, command::Command};
 
 // § 4.2.1
@@ -160,6 +160,40 @@ pub struct Context<'a, const R: usize, T: trussed::Client> {
 }
 
 impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
+    /// Extend the reply and return an error otherwise
+    /// The MoreAvailable and GET RESPONSE mechanisms are handled by adpu_dispatch
+    pub fn extend_reply(&mut self, data: &[u8]) -> Result<(), Status> {
+        self.reply.extend_from_slice(data).map_err(|_| {
+            log::error!("Buffer full");
+            Status::NotEnoughMemory
+        })
+    }
+
+    pub fn load_state(self) -> Result<LoadedContext<'a, R, T>, Status> {
+        Ok(LoadedContext {
+            state: self
+                .state
+                .load(self.backend.client_mut())
+                .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?,
+            options: self.options,
+            backend: self.backend,
+            data: self.data,
+            reply: self.reply,
+        })
+    }
+}
+
+#[derive(Debug)]
+/// Context with the internal state loaded from flash
+pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
+    pub backend: &'a mut Backend<T>,
+    pub options: &'a Options,
+    pub state: LoadedState<'a>,
+    pub data: &'a [u8],
+    pub reply: &'a mut heapless::Vec<u8, R>,
+}
+
+impl<'a, const R: usize, T: trussed::Client> LoadedContext<'a, R, T> {
     /// Extend the reply and return an error otherwise
     /// The MoreAvailable and GET RESPONSE mechanisms are handled by adpu_dispatch
     pub fn extend_reply(&mut self, data: &[u8]) -> Result<(), Status> {
