@@ -366,14 +366,14 @@ impl GetDataObject {
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
-            Self::HistoricalBytes => context.extend_reply(&context.options.historical_bytes)?,
-            Self::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
+            Self::HistoricalBytes => context.reply.expand(&context.options.historical_bytes)?,
+            Self::ApplicationIdentifier => context.reply.expand(&context.options.aid())?,
             Self::PwStatusBytes => pw_status_bytes(context.load_state()?)?,
-            Self::ExtendedLengthInformation => context.extend_reply(&EXTENDED_LENGTH_INFO)?,
-            Self::ExtendedCapabilities => context.extend_reply(&EXTENDED_CAPABILITIES)?,
-            Self::GeneralFeatureManagement => {
-                context.extend_reply(&general_feature_management(context.options))?
-            }
+            Self::ExtendedLengthInformation => context.reply.expand(&EXTENDED_LENGTH_INFO)?,
+            Self::ExtendedCapabilities => context.reply.expand(&EXTENDED_CAPABILITIES)?,
+            Self::GeneralFeatureManagement => context
+                .reply
+                .expand(&general_feature_management(context.options))?,
             Self::AlgorithmAttributesSignature => alg_attr_sign(context)?,
             Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
             Self::AlgorithmAttributesAuthentication => alg_attr_aut(context)?,
@@ -688,7 +688,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
     objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
     for obj in objects {
-        context.extend_reply(obj.tag())?;
+        context.reply.expand(obj.tag())?;
         let offset = context.reply.len();
         // Copied to avoid moving the context
         // This works because the life of tmp_ctx are smaller that that of context
@@ -703,7 +703,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
             GetDataDoType::Simple(simple) => simple.reply(tmp_ctx)?,
             GetDataDoType::Constructed(children) => {
                 for inner_obj in children {
-                    tmp_ctx.extend_reply(inner_obj.tag())?;
+                    tmp_ctx.reply.expand(inner_obj.tag())?;
                     let inner_offset = tmp_ctx.reply.len();
                     let inner_tmp_ctx = Context {
                         reply: Reply(tmp_ctx.reply.0),
@@ -738,28 +738,28 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
         error_counter_pw3: ctx.state.internal.remaining_tries(Password::Pw3),
     };
     let status: [u8; 7] = status.into();
-    ctx.extend_reply(&status)
+    ctx.reply.expand(&status)
 }
 
 pub fn algo_info<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     for alg in SignatureAlgorithms::iter_all() {
-        ctx.extend_reply(&[0xC1])?;
+        ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
-        ctx.extend_reply(alg.attributes())?;
+        ctx.reply.expand(alg.attributes())?;
         prepend_len(&mut **ctx.reply, offset)?;
     }
     for alg in DecryptionAlgorithms::iter_all() {
-        ctx.extend_reply(&[0xC2])?;
+        ctx.reply.expand(&[0xC2])?;
         let offset = ctx.reply.len();
-        ctx.extend_reply(alg.attributes())?;
+        ctx.reply.expand(alg.attributes())?;
         prepend_len(&mut **ctx.reply, offset)?;
     }
     for alg in AuthenticationAlgorithms::iter_all() {
-        ctx.extend_reply(&[0xC3])?;
+        ctx.reply.expand(&[0xC3])?;
         let offset = ctx.reply.len();
-        ctx.extend_reply(alg.attributes())?;
+        ctx.reply.expand(alg.attributes())?;
         prepend_len(&mut **ctx.reply, offset)?;
     }
     Ok(())
@@ -769,7 +769,8 @@ pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
-    ctx.extend_reply(SignatureAlgorithms::default().attributes())?;
+    ctx.reply
+        .expand(SignatureAlgorithms::default().attributes())?;
     Ok(())
 }
 
@@ -777,7 +778,8 @@ pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
-    ctx.extend_reply(DecryptionAlgorithms::default().attributes())?;
+    ctx.reply
+        .expand(DecryptionAlgorithms::default().attributes())?;
     Ok(())
 }
 
@@ -785,7 +787,8 @@ pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
-    ctx.extend_reply(AuthenticationAlgorithms::default().attributes())?;
+    ctx.reply
+        .expand(AuthenticationAlgorithms::default().attributes())?;
     Ok(())
 }
 
@@ -793,7 +796,7 @@ pub fn fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load from state
-    ctx.extend_reply(&[0; 60])?;
+    ctx.reply.expand(&[0; 60])?;
     Ok(())
 }
 
@@ -801,7 +804,7 @@ pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load from state
-    ctx.extend_reply(&[0; 60])?;
+    ctx.reply.expand(&[0; 60])?;
     Ok(())
 }
 
@@ -809,7 +812,7 @@ pub fn keygen_dates<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load from state
-    ctx.extend_reply(&[0; 12])?;
+    ctx.reply.expand(&[0; 12])?;
     Ok(())
 }
 
@@ -818,7 +821,7 @@ pub fn key_info<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     // TODO load from state
     // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
-    ctx.extend_reply(&hex!(
+    ctx.reply.expand(&hex!(
         "
         01 00 // Sign key not present
         02 00 // Dec key not present
@@ -833,7 +836,7 @@ pub fn uif_sign<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     let button_byte = general_feature_management_byte(ctx.options);
     let state_byte = ctx.state.internal.uif_sign.as_byte();
-    ctx.extend_reply(&[state_byte, button_byte])
+    ctx.reply.expand(&[state_byte, button_byte])
 }
 
 pub fn uif_dec<const R: usize, T: trussed::Client>(
@@ -841,7 +844,7 @@ pub fn uif_dec<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     let button_byte = general_feature_management_byte(ctx.options);
     let state_byte = ctx.state.internal.uif_dec.as_byte();
-    ctx.extend_reply(&[state_byte, button_byte])
+    ctx.reply.expand(&[state_byte, button_byte])
 }
 
 pub fn uif_aut<const R: usize, T: trussed::Client>(
@@ -849,7 +852,7 @@ pub fn uif_aut<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     let button_byte = general_feature_management_byte(ctx.options);
     let state_byte = ctx.state.internal.uif_aut.as_byte();
-    ctx.extend_reply(&[state_byte, button_byte])
+    ctx.reply.expand(&[state_byte, button_byte])
 }
 
 pub fn cardholder_name<const R: usize, T: trussed::Client>(
@@ -903,7 +906,7 @@ pub fn arbitrary_do<const R: usize, T: trussed::Client>(
     let data = obj
         .load(ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    ctx.extend_reply(&data)
+    ctx.reply.expand(&data)
 }
 
 #[cfg(test)]
