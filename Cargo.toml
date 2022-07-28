@@ -22,6 +22,8 @@ log = "0.4"
 serde = { version = "1.0", default-features = false }
 subtle = { version = "2.4.1", default-features = false }
 trussed = "0.1.0"
+serde_repr = "0.1"
+hex-literal = "0.3.4"
 
 # optional dependencies
 apdu-dispatch = { version = "0.1", optional = true }

@@ -1,9 +1,11 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+mod data;
+
 use iso7816::Status;
 
-use crate::card::{Context, RID};
+use crate::card::{Context, LoadedContext, RID};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -34,10 +36,13 @@ impl Command {
     ) -> Result<(), Status> {
         match self {
             Self::Select => select(context),
-            Self::Verify(mode, password) => verify(context, *mode, *password),
-            Self::ChangeReferenceData(password) => change_reference_data(context, *password),
+            Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
+            Self::Verify(mode, password) => verify(context.load_state()?, *mode, *password),
+            Self::ChangeReferenceData(password) => {
+                change_reference_data(context.load_state()?, *password)
+            }
             _ => {
-                log::warn!("Command not yet implemented: {:?}", self);
+                log::warn!("Command not yet implemented: {:x?}", self);
                 unimplemented!();
             }
         }
@@ -222,7 +227,7 @@ impl TryFrom<u8> for ResetRetryCounterMode {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GetDataMode {
     Even,
     Odd,
@@ -285,7 +290,7 @@ impl TryFrom<u8> for Instance {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Tag(u16);
 
 impl From<(u8, u8)> for Tag {
@@ -312,14 +317,10 @@ fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Res
 
 // § 7.2.2
 fn verify<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    context: LoadedContext<'_, R, T>,
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     match mode {
         VerifyMode::SetOrCheck => {
             if context.data.is_empty() {
@@ -332,12 +333,15 @@ fn verify<const R: usize, T: trussed::Client>(
                     Ok(())
                 } else {
                     Err(Status::RemainingRetries(
-                        internal.remaining_tries(password.into()),
+                        context.state.internal.remaining_tries(password.into()),
                     ))
                 }
             } else {
                 let pin = password.into();
-                if context.backend.verify_pin(pin, context.data, internal) {
+                if context
+                    .backend
+                    .verify_pin(pin, context.data, context.state.internal)
+                {
                     match password {
                         PasswordMode::Pw1Sign => context.state.runtime.sign_verified = true,
                         PasswordMode::Pw1Other => context.state.runtime.other_verified = true,
@@ -362,13 +366,9 @@ fn verify<const R: usize, T: trussed::Client>(
 
 // § 7.2.3
 fn change_reference_data<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    context: LoadedContext<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     const MIN_LENGTH_ADMIN_PIN: usize = 8;
     const MIN_LENGTH_USER_PIN: usize = 6;
     let min_len = match password {
@@ -380,7 +380,7 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
         return Err(Status::WrongLength);
     }
 
-    let current_len = internal.pin_len(password);
+    let current_len = context.state.internal.pin_len(password);
     let (old, new) = if context.data.len() < current_len {
         (context.data, [].as_slice())
     } else {
@@ -389,14 +389,18 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     let client_mut = context.backend.client_mut();
     // Verify the old pin before returning for wrong length to avoid leaking information about the
     // length of the PIN
-    internal
+    context
+        .state
+        .internal
         .verify_pin(client_mut, old, password)
         .map_err(|_| Status::VerificationFailed)?;
 
     if current_len + min_len > context.data.len() {
         return Err(Status::WrongLength);
     }
-    internal
+    context
+        .state
+        .internal
         .change_pin(client_mut, new, password)
         .map_err(|_| Status::WrongLength)
 }

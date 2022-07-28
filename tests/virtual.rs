@@ -3,7 +3,7 @@
 
 #![cfg(feature = "virtual")]
 
-use std::{process::Command, sync::mpsc};
+use std::{process::Command, sync::mpsc, thread::sleep, time::Duration};
 
 use stoppable_thread::spawn;
 use test_log::test;
@@ -32,6 +32,8 @@ fn with_vsc<F: Fn() -> R, R>(f: F) -> R {
 
     rx.recv().expect("failed to read message");
 
+    sleep(Duration::from_millis(100));
+
     let result = f();
 
     handle
@@ -43,7 +45,6 @@ fn with_vsc<F: Fn() -> R, R>(f: F) -> R {
 }
 
 #[test]
-#[ignore]
 fn gpg_card_status() {
     with_vsc(|| {
         let output = Command::new("gpg")
@@ -60,5 +61,7 @@ fn gpg_card_status() {
         println!("{}", String::from_utf8_lossy(&output.stderr));
 
         assert!(output.status.success(), "{}", output.status);
+
+        // TODO: Add assertions for output
     })
 }

@@ -1,16 +1,21 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use hex_literal::hex;
 use iso7816::Status;
 
-use crate::{backend::Backend, command::Command};
+pub(crate) mod reply;
 
-use crate::state::State;
+use crate::state::{LoadedState, State};
+use crate::{backend::Backend, command::Command};
+use reply::Reply;
 
 // § 4.2.1
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
 pub const PIX_APPLICATION: [u8; 1] = [0x01];
 pub const PIX_RFU: [u8; 2] = [0x00, 0x00];
+/// Version of the spec implemented by opcard-rs
+pub const PGP_SMARTCARD_VERSION: [u8; 2] = [3, 4];
 
 // TODO: use generic iso7816 implementation, see https://github.com/ycrypto/iso7816/pull/3
 
@@ -45,13 +50,13 @@ impl<T: trussed::Client> Card<T> {
     ) -> Result<(), Status> {
         log::trace!("Received APDU {:?}", command);
         let card_command = Command::try_from(command)?;
-        log::info!("Executing command {:?}", card_command);
-
+        log::info!("Executing command {:x?}", card_command);
         let context = Context {
             backend: &mut self.backend,
             state: &mut self.state,
+            options: &self.options,
             data: command.data().as_ref(),
-            reply,
+            reply: Reply(reply),
         };
         card_command.exec(context)
     }
@@ -64,7 +69,8 @@ impl<T: trussed::Client> Card<T> {
 
 impl<T: trussed::Client> iso7816::App for Card<T> {
     fn aid(&self) -> iso7816::Aid {
-        self.options.aid()
+        // TODO: check truncation length
+        iso7816::Aid::new_truncatable(&self.options.aid(), RID.len())
     }
 }
 
@@ -93,51 +99,56 @@ impl<T: trussed::Client, const C: usize, const R: usize> apdu_dispatch::App<C, R
 }
 
 /// Options for the OpenPGP card.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Options {
-    /// The version number returned in the AID, see § 4.2.1 of the spec.
-    pub version: [u8; 2],
     /// The manufacturer ID returned in the AID, see § 4.2.1 of the spec.
     pub manufacturer: [u8; 2],
     /// The serial number returned in the AID, see § 4.2.1 of the spec.
     pub serial: [u8; 4],
-}
 
-fn copy_remainder<'b>(buf: &'b mut [u8], data: &[u8]) -> &'b mut [u8] {
-    let (left, right) = buf.split_at_mut(data.len());
-    left.copy_from_slice(data);
-    right
+    /// Historical bytes, see  § 6
+    pub historical_bytes: heapless::Vec<u8, 15>,
+
+    /// Does the card have a button for user input?
+    pub button_available: bool,
 }
 
 impl Options {
-    fn aid(&self) -> iso7816::Aid {
-        // § 4.2.1
-        let mut aid = [0u8; 16];
-        let rem = &mut aid;
-        let rem = copy_remainder(rem, &RID);
-        let rem = copy_remainder(rem, &PIX_APPLICATION);
-        let rem = copy_remainder(rem, &self.version);
-        let rem = copy_remainder(rem, &self.manufacturer);
-        let rem = copy_remainder(rem, &self.serial);
-        let rem = copy_remainder(rem, &PIX_RFU);
-        assert!(rem.is_empty());
-        // TODO: check truncation length
-        iso7816::Aid::new_truncatable(&aid, RID.len())
+    /// Returns the AID based on these options, see § 4.2.1 of the spec.
+    pub fn aid(&self) -> [u8; 16] {
+        [
+            RID[0],
+            RID[1],
+            RID[2],
+            RID[3],
+            RID[4],
+            PIX_APPLICATION[0],
+            PGP_SMARTCARD_VERSION[0],
+            PGP_SMARTCARD_VERSION[1],
+            self.manufacturer[0],
+            self.manufacturer[1],
+            self.serial[0],
+            self.serial[1],
+            self.serial[2],
+            self.serial[3],
+            PIX_RFU[0],
+            PIX_RFU[1],
+        ]
     }
 }
 
-/// Returns an instance with the version number derived from the crate version and all-zero values
-/// otherwise.
+/// Returns an instance with the version number derived from the crate version
 impl Default for Options {
     fn default() -> Self {
         // TODO: consider setting a default manufacturer
-        let version_major = env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap_or_default();
-        let version_minor = env!("CARGO_PKG_VERSION_MINOR").parse().unwrap_or_default();
+        #[allow(clippy::unwrap_used)]
         Self {
-            version: [version_major, version_minor],
             manufacturer: Default::default(),
             serial: Default::default(),
+            // TODO: Copied from Nitrokey Pro
+            historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
+            button_available: true,
         }
     }
 }
@@ -145,9 +156,35 @@ impl Default for Options {
 #[derive(Debug)]
 pub struct Context<'a, const R: usize, T: trussed::Client> {
     pub backend: &'a mut Backend<T>,
+    pub options: &'a Options,
     pub state: &'a mut State,
     pub data: &'a [u8],
-    pub reply: &'a mut heapless::Vec<u8, R>,
+    pub reply: Reply<'a, R>,
+}
+
+impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
+    pub fn load_state(self) -> Result<LoadedContext<'a, R, T>, Status> {
+        Ok(LoadedContext {
+            state: self
+                .state
+                .load(self.backend.client_mut())
+                .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?,
+            options: self.options,
+            backend: self.backend,
+            data: self.data,
+            reply: self.reply,
+        })
+    }
+}
+
+#[derive(Debug)]
+/// Context with the internal state loaded from flash
+pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
+    pub backend: &'a mut Backend<T>,
+    pub options: &'a Options,
+    pub state: LoadedState<'a>,
+    pub data: &'a [u8],
+    pub reply: Reply<'a, R>,
 }
 
 #[cfg(test)]
@@ -159,27 +196,7 @@ mod tests {
     fn aid() {
         assert_eq!(
             Options::default().aid(),
-            iso7816::Aid::new_truncatable(
-                &[
-                    0xD2,
-                    0x76,
-                    0x00,
-                    0x01,
-                    0x24,
-                    0x1,
-                    env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap_or_default(),
-                    env!("CARGO_PKG_VERSION_MINOR").parse().unwrap_or_default(),
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0,
-                    0x0
-                ],
-                5
-            )
+            hex!("D2 76 00 01 24 01 03 04 00 00 00 00 00 00 00 00"),
         )
     }
 }
