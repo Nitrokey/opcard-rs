@@ -15,7 +15,6 @@ use trussed::types::{Location, PathBuf};
 use crate::command::Password;
 use crate::error::Error;
 
-// TODO support more?
 /// Maximum supported length for PW1 and PW3
 pub const MAX_PIN_LENGTH: usize = 127;
 
