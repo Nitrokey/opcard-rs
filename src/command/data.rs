@@ -724,7 +724,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
 }
 
 pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
-    mut context: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let status = PasswordStatus {
         // TODO support true
@@ -732,93 +732,93 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
         max_length_pw1: MAX_PIN_LENGTH as u8,
         max_length_rc: MAX_PIN_LENGTH as u8,
         max_length_pw3: MAX_PIN_LENGTH as u8,
-        error_counter_pw1: context.state.internal.remaining_tries(Password::Pw1),
+        error_counter_pw1: ctx.state.internal.remaining_tries(Password::Pw1),
         // TODO when implementing RESET RETRY COUNTER
         error_counter_rc: 3,
-        error_counter_pw3: context.state.internal.remaining_tries(Password::Pw3),
+        error_counter_pw3: ctx.state.internal.remaining_tries(Password::Pw3),
     };
     let status: [u8; 7] = status.into();
-    context.extend_reply(&status)
+    ctx.extend_reply(&status)
 }
 
 pub fn algo_info<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     for alg in SignatureAlgorithms::iter_all() {
-        context.extend_reply(&[0xC1])?;
-        let offset = context.reply.len();
-        context.extend_reply(alg.attributes())?;
-        prepend_len(context.reply, offset)?;
+        ctx.extend_reply(&[0xC1])?;
+        let offset = ctx.reply.len();
+        ctx.extend_reply(alg.attributes())?;
+        prepend_len(ctx.reply, offset)?;
     }
     for alg in DecryptionAlgorithms::iter_all() {
-        context.extend_reply(&[0xC2])?;
-        let offset = context.reply.len();
-        context.extend_reply(alg.attributes())?;
-        prepend_len(context.reply, offset)?;
+        ctx.extend_reply(&[0xC2])?;
+        let offset = ctx.reply.len();
+        ctx.extend_reply(alg.attributes())?;
+        prepend_len(ctx.reply, offset)?;
     }
     for alg in AuthenticationAlgorithms::iter_all() {
-        context.extend_reply(&[0xC3])?;
-        let offset = context.reply.len();
-        context.extend_reply(alg.attributes())?;
-        prepend_len(context.reply, offset)?;
+        ctx.extend_reply(&[0xC3])?;
+        let offset = ctx.reply.len();
+        ctx.extend_reply(alg.attributes())?;
+        prepend_len(ctx.reply, offset)?;
     }
     Ok(())
 }
 
 pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
-    context.extend_reply(SignatureAlgorithms::default().attributes())?;
+    ctx.extend_reply(SignatureAlgorithms::default().attributes())?;
     Ok(())
 }
 
 pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
-    context.extend_reply(DecryptionAlgorithms::default().attributes())?;
+    ctx.extend_reply(DecryptionAlgorithms::default().attributes())?;
     Ok(())
 }
 
 pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
-    context.extend_reply(AuthenticationAlgorithms::default().attributes())?;
+    ctx.extend_reply(AuthenticationAlgorithms::default().attributes())?;
     Ok(())
 }
 
 pub fn fingerprints<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load from state
-    context.extend_reply(&[0; 60])?;
+    ctx.extend_reply(&[0; 60])?;
     Ok(())
 }
 
 pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load from state
-    context.extend_reply(&[0; 60])?;
+    ctx.extend_reply(&[0; 60])?;
     Ok(())
 }
 
 pub fn keygen_dates<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load from state
-    context.extend_reply(&[0; 12])?;
+    ctx.extend_reply(&[0; 12])?;
     Ok(())
 }
 
 pub fn key_info<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load from state
     // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
-    context.extend_reply(&hex!(
+    ctx.extend_reply(&hex!(
         "
         01 00 // Sign key not present
         02 00 // Dec key not present
@@ -829,85 +829,81 @@ pub fn key_info<const R: usize, T: trussed::Client>(
 }
 
 pub fn uif_sign<const R: usize, T: trussed::Client>(
-    mut context: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let button_byte = general_feature_management_byte(context.options);
-    let state_byte = context.state.internal.uif_sign.as_byte();
-    context.extend_reply(&[state_byte, button_byte])
+    let button_byte = general_feature_management_byte(ctx.options);
+    let state_byte = ctx.state.internal.uif_sign.as_byte();
+    ctx.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn uif_dec<const R: usize, T: trussed::Client>(
-    mut context: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let button_byte = general_feature_management_byte(context.options);
-    let state_byte = context.state.internal.uif_dec.as_byte();
-    context.extend_reply(&[state_byte, button_byte])
+    let button_byte = general_feature_management_byte(ctx.options);
+    let state_byte = ctx.state.internal.uif_dec.as_byte();
+    ctx.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn uif_aut<const R: usize, T: trussed::Client>(
-    mut context: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let button_byte = general_feature_management_byte(context.options);
-    let state_byte = context.state.internal.uif_aut.as_byte();
-    context.extend_reply(&[state_byte, button_byte])
+    let button_byte = general_feature_management_byte(ctx.options);
+    let state_byte = ctx.state.internal.uif_aut.as_byte();
+    ctx.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn cardholder_name<const R: usize, T: trussed::Client>(
-    context: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    context
-        .reply
-        .extend_from_slice(context.state.internal.cardholder_name.as_bytes())
+    ctx.reply
+        .extend_from_slice(ctx.state.internal.cardholder_name.as_bytes())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 pub fn cardholder_sex<const R: usize, T: trussed::Client>(
-    context: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    context
-        .reply
-        .extend_from_slice(&[context.state.internal.cardholder_sex as u8])
+    ctx.reply
+        .extend_from_slice(&[ctx.state.internal.cardholder_sex as u8])
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 pub fn language_preferences<const R: usize, T: trussed::Client>(
-    context: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    context
-        .reply
-        .extend_from_slice(context.state.internal.language_preferences.as_bytes())
+    ctx.reply
+        .extend_from_slice(ctx.state.internal.language_preferences.as_bytes())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 pub fn signature_counter<const R: usize, T: trussed::Client>(
-    context: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
-    let resp = &context.state.internal.sign_count.to_be_bytes()[1..];
-    context
-        .reply
+    let resp = &ctx.state.internal.sign_count.to_be_bytes()[1..];
+    ctx.reply
         .extend_from_slice(resp)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 pub fn arbitrary_do<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     match obj.read_permission() {
-        PermissionRequirement::User if !context.state.runtime.other_verified => {
+        PermissionRequirement::User if !ctx.state.runtime.other_verified => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
-        PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
+        PermissionRequirement::Admin if !ctx.state.runtime.admin_verified => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
         _ => {}
     }
 
     let data = obj
-        .load(context.backend.client_mut())
+        .load(ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    context.extend_reply(&data)
+    ctx.extend_reply(&data)
 }
 
 #[cfg(test)]
