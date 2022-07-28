@@ -4,8 +4,11 @@
 use hex_literal::hex;
 use iso7816::Status;
 
+pub(crate) mod reply;
+
 use crate::state::{LoadedState, State};
 use crate::{backend::Backend, command::Command};
+use reply::Reply;
 
 // § 4.2.1
 pub const RID: [u8; 5] = [0xD2, 0x76, 0x00, 0x01, 0x24];
@@ -53,7 +56,7 @@ impl<T: trussed::Client> Card<T> {
             state: &mut self.state,
             options: &self.options,
             data: command.data().as_ref(),
-            reply,
+            reply: Reply(reply),
         };
         card_command.exec(context)
     }
@@ -156,19 +159,10 @@ pub struct Context<'a, const R: usize, T: trussed::Client> {
     pub options: &'a Options,
     pub state: &'a mut State,
     pub data: &'a [u8],
-    pub reply: &'a mut heapless::Vec<u8, R>,
+    pub reply: Reply<'a, R>,
 }
 
 impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
-    /// Extend the reply and return an error otherwise
-    /// The MoreAvailable and GET RESPONSE mechanisms are handled by adpu_dispatch
-    pub fn extend_reply(&mut self, data: &[u8]) -> Result<(), Status> {
-        self.reply.extend_from_slice(data).map_err(|_| {
-            log::error!("Buffer full");
-            Status::NotEnoughMemory
-        })
-    }
-
     pub fn load_state(self) -> Result<LoadedContext<'a, R, T>, Status> {
         Ok(LoadedContext {
             state: self
@@ -181,6 +175,15 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
             reply: self.reply,
         })
     }
+
+    /// Extend the reply and return an error otherwise
+    /// The MoreAvailable and GET RESPONSE mechanisms are handled by adpu_dispatch
+    pub fn extend_reply(&mut self, data: &[u8]) -> Result<(), Status> {
+        self.reply.extend_from_slice(data).map_err(|_| {
+            log::error!("Buffer full");
+            Status::NotEnoughMemory
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -190,7 +193,7 @@ pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
     pub options: &'a Options,
     pub state: LoadedState<'a>,
     pub data: &'a [u8],
-    pub reply: &'a mut heapless::Vec<u8, R>,
+    pub reply: Reply<'a, R>,
 }
 
 impl<'a, const R: usize, T: trussed::Client> LoadedContext<'a, R, T> {

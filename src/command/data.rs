@@ -5,7 +5,7 @@ use hex_literal::hex;
 use iso7816::Status;
 
 use crate::{
-    card::{Context, LoadedContext, Options},
+    card::{reply::Reply, Context, LoadedContext, Options},
     command::{GetDataMode, Password, Tag},
     state::{ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
     utils::InspectErr,
@@ -693,7 +693,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
         // Copied to avoid moving the context
         // This works because the life of tmp_ctx are smaller that that of context
         let mut tmp_ctx = Context {
-            reply: context.reply,
+            reply: Reply(context.reply.0),
             backend: context.backend,
             options: context.options,
             state: context.state,
@@ -706,7 +706,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
                     tmp_ctx.extend_reply(inner_obj.tag())?;
                     let inner_offset = tmp_ctx.reply.len();
                     let inner_tmp_ctx = Context {
-                        reply: tmp_ctx.reply,
+                        reply: Reply(tmp_ctx.reply.0),
                         backend: tmp_ctx.backend,
                         options: tmp_ctx.options,
                         state: tmp_ctx.state,
@@ -714,11 +714,11 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
                     };
                     // We only accept two levels of nesting to avoid recursion
                     inner_obj.into_simple()?.reply(inner_tmp_ctx)?;
-                    prepend_len(tmp_ctx.reply, inner_offset)?;
+                    prepend_len(&mut **tmp_ctx.reply, inner_offset)?;
                 }
             }
         }
-        prepend_len(context.reply, offset)?;
+        prepend_len(&mut **context.reply, offset)?;
     }
     Ok(())
 }
@@ -748,19 +748,19 @@ pub fn algo_info<const R: usize, T: trussed::Client>(
         ctx.extend_reply(&[0xC1])?;
         let offset = ctx.reply.len();
         ctx.extend_reply(alg.attributes())?;
-        prepend_len(ctx.reply, offset)?;
+        prepend_len(&mut **ctx.reply, offset)?;
     }
     for alg in DecryptionAlgorithms::iter_all() {
         ctx.extend_reply(&[0xC2])?;
         let offset = ctx.reply.len();
         ctx.extend_reply(alg.attributes())?;
-        prepend_len(ctx.reply, offset)?;
+        prepend_len(&mut **ctx.reply, offset)?;
     }
     for alg in AuthenticationAlgorithms::iter_all() {
         ctx.extend_reply(&[0xC3])?;
         let offset = ctx.reply.len();
         ctx.extend_reply(alg.attributes())?;
-        prepend_len(ctx.reply, offset)?;
+        prepend_len(&mut **ctx.reply, offset)?;
     }
     Ok(())
 }
@@ -853,7 +853,7 @@ pub fn uif_aut<const R: usize, T: trussed::Client>(
 }
 
 pub fn cardholder_name<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
         .extend_from_slice(ctx.state.internal.cardholder_name.as_bytes())
@@ -861,7 +861,7 @@ pub fn cardholder_name<const R: usize, T: trussed::Client>(
 }
 
 pub fn cardholder_sex<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
         .extend_from_slice(&[ctx.state.internal.cardholder_sex as u8])
@@ -869,7 +869,7 @@ pub fn cardholder_sex<const R: usize, T: trussed::Client>(
 }
 
 pub fn language_preferences<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
         .extend_from_slice(ctx.state.internal.language_preferences.as_bytes())
@@ -877,7 +877,7 @@ pub fn language_preferences<const R: usize, T: trussed::Client>(
 }
 
 pub fn signature_counter<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
     let resp = &ctx.state.internal.sign_count.to_be_bytes()[1..];
