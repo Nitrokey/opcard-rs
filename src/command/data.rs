@@ -5,7 +5,7 @@ use hex_literal::hex;
 use iso7816::Status;
 
 use crate::{
-    card::{Context, Options},
+    card::{Context, LoadedContext, Options},
     command::{GetDataMode, Password, Tag},
     state::{ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
     utils::InspectErr,
@@ -368,7 +368,7 @@ impl GetDataObject {
         match self {
             Self::HistoricalBytes => context.extend_reply(&context.options.historical_bytes)?,
             Self::ApplicationIdentifier => context.extend_reply(&context.options.aid())?,
-            Self::PwStatusBytes => pw_status_bytes(context)?,
+            Self::PwStatusBytes => pw_status_bytes(context.load_state()?)?,
             Self::ExtendedLengthInformation => context.extend_reply(&EXTENDED_LENGTH_INFO)?,
             Self::ExtendedCapabilities => context.extend_reply(&EXTENDED_CAPABILITIES)?,
             Self::GeneralFeatureManagement => {
@@ -382,15 +382,15 @@ impl GetDataObject {
             Self::CAFingerprints => ca_fingerprints(context)?,
             Self::KeyGenerationDates => keygen_dates(context)?,
             Self::KeyInformation => key_info(context)?,
-            Self::UifCds => uif_sign(context)?,
-            Self::UifDec => uif_dec(context)?,
-            Self::UifAut => uif_aut(context)?,
-            Self::CardHolderName => cardholder_name(context)?,
-            Self::CardHolderSex => cardholder_sex(context)?,
-            Self::LanguagePreferences => language_preferences(context)?,
+            Self::UifCds => uif_sign(context.load_state()?)?,
+            Self::UifDec => uif_dec(context.load_state()?)?,
+            Self::UifAut => uif_aut(context.load_state()?)?,
+            Self::CardHolderName => cardholder_name(context.load_state()?)?,
+            Self::CardHolderSex => cardholder_sex(context.load_state()?)?,
+            Self::LanguagePreferences => language_preferences(context.load_state()?)?,
             Self::Url => arbitrary_do(context, ArbitraryDO::Url)?,
             Self::LoginData => arbitrary_do(context, ArbitraryDO::LoginData)?,
-            Self::DigitalSignatureCounter => signature_counter(context)?,
+            Self::DigitalSignatureCounter => signature_counter(context.load_state()?)?,
             Self::KdfDo => arbitrary_do(context, ArbitraryDO::KdfDo)?,
             Self::PrivateUse1 => arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
             Self::PrivateUse2 => arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
@@ -724,22 +724,18 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
 }
 
 pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     let status = PasswordStatus {
         // TODO support true
         pw1_valid_multiple: false,
         max_length_pw1: MAX_PIN_LENGTH as u8,
         max_length_rc: MAX_PIN_LENGTH as u8,
         max_length_pw3: MAX_PIN_LENGTH as u8,
-        error_counter_pw1: internal.remaining_tries(Password::Pw1),
+        error_counter_pw1: context.state.internal.remaining_tries(Password::Pw1),
         // TODO when implementing RESET RETRY COUNTER
         error_counter_rc: 3,
-        error_counter_pw3: internal.remaining_tries(Password::Pw3),
+        error_counter_pw3: context.state.internal.remaining_tries(Password::Pw3),
     };
     let status: [u8; 7] = status.into();
     context.extend_reply(&status)
@@ -833,90 +829,61 @@ pub fn key_info<const R: usize, T: trussed::Client>(
 }
 
 pub fn uif_sign<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     let button_byte = general_feature_management_byte(context.options);
-    let state_byte = internal.uif_sign.as_byte();
+    let state_byte = context.state.internal.uif_sign.as_byte();
     context.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn uif_dec<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     let button_byte = general_feature_management_byte(context.options);
-    let state_byte = internal.uif_dec.as_byte();
+    let state_byte = context.state.internal.uif_dec.as_byte();
     context.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn uif_aut<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     let button_byte = general_feature_management_byte(context.options);
-    let state_byte = internal.uif_aut.as_byte();
+    let state_byte = context.state.internal.uif_aut.as_byte();
     context.extend_reply(&[state_byte, button_byte])
 }
 
 pub fn cardholder_name<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     context
         .reply
-        .extend_from_slice(internal.cardholder_name.as_bytes())
+        .extend_from_slice(context.state.internal.cardholder_name.as_bytes())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 pub fn cardholder_sex<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     context
         .reply
-        .extend_from_slice(&[internal.cardholder_sex as u8])
+        .extend_from_slice(&[context.state.internal.cardholder_sex as u8])
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 pub fn language_preferences<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     context
         .reply
-        .extend_from_slice(internal.language_preferences.as_bytes())
+        .extend_from_slice(context.state.internal.language_preferences.as_bytes())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 pub fn signature_counter<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    context: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let internal = context
-        .backend
-        .load_internal(&mut context.state.internal)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-
     // Counter is only on 3 bytes
-    let resp = &internal.sign_count.to_be_bytes()[1..];
+    let resp = &context.state.internal.sign_count.to_be_bytes()[1..];
     context
         .reply
         .extend_from_slice(resp)
