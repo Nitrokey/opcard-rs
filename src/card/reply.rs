@@ -71,7 +71,7 @@ impl<'v, const R: usize> Reply<'v, R> {
             return Err(Status::UnspecifiedNonpersistentExecutionError);
         }
         .map_err(|_| {
-            log::error!("Reply selffer full");
+            log::error!("Reply buffer full");
             Status::UnspecifiedNonpersistentExecutionError
         })
     }
