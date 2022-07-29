@@ -42,7 +42,7 @@ impl Command {
                 change_reference_data(context.load_state()?, *password)
             }
             _ => {
-                log::warn!("Command not yet implemented: {:x?}", self);
+                warn!("Command not yet implemented: {:x?}", self);
                 unimplemented!();
             }
         }
@@ -310,7 +310,7 @@ fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Res
     if context.data.starts_with(&RID) {
         Ok(())
     } else {
-        log::info!("Selected application {:x?} not found", context.data);
+        info!("Selected application {:x?} not found", context.data);
         Err(Status::NotFound)
     }
 }

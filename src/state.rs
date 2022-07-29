@@ -155,7 +155,7 @@ impl Internal {
     pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
         if let Some(data) = load_if_exists(client, Location::Internal, &Self::path())? {
             trussed::cbor_deserialize(&data).map_err(|err| {
-                log::error!("failed to deserialize internal state: {err}");
+                error!("failed to deserialize internal state: {err}");
                 Error::Loading
             })
         } else {
@@ -165,12 +165,12 @@ impl Internal {
 
     pub fn save<T: trussed::Client>(&self, client: &mut T) -> Result<(), Error> {
         let msg = trussed::cbor_serialize_bytes(&self).map_err(|err| {
-            log::error!("Failed to serialize: {err}");
+            error!("Failed to serialize: {err}");
             Error::Saving
         })?;
         try_syscall!(client.write_file(Location::Internal, Self::path(), msg, None)).map_err(
             |err| {
-                log::error!("Failed to store data: {err:?}");
+                error!("Failed to store data: {err:?}");
                 Error::Saving
             },
         )?;
@@ -356,11 +356,11 @@ fn load_if_exists(
             Ok(Metadata {
                 metadata: Some(metadata),
             }) => {
-                log::error!("File {path} exists but couldn't be read: {metadata:?}");
+                error!("File {path} exists but couldn't be read: {metadata:?}");
                 Err(Error::Loading)
             }
             Err(err) => {
-                log::error!("File {path} couldn't be read: {err:?}");
+                error!("File {path} couldn't be read: {err:?}");
                 Err(Error::Loading)
             }
         },

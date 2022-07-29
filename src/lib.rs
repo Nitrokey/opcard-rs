@@ -41,6 +41,9 @@
 )]
 #![deny(unsafe_code)]
 
+#[macro_use]
+extern crate log;
+
 pub mod backend;
 mod card;
 mod command;

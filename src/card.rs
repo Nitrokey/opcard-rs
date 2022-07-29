@@ -46,9 +46,9 @@ impl<T: trussed::Client> Card<T> {
         command: &iso7816::Command<C>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
-        log::trace!("Received APDU {:?}", command);
+        trace!("Received APDU {:?}", command);
         let card_command = Command::try_from(command)?;
-        log::info!("Executing command {:x?}", card_command);
+        info!("Executing command {:x?}", card_command);
         let context = Context {
             backend: &mut self.backend,
             state: &mut self.state,

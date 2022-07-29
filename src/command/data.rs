@@ -336,7 +336,7 @@ impl GetDataObject {
         if let GetDataDoType::Simple(o) = self.simple_or_constructed() {
             Ok(o)
         } else {
-            log::error!("Expected a simple object");
+            error!("Expected a simple object");
             Err(Status::UnspecifiedNonpersistentExecutionError)
         }
     }
@@ -403,11 +403,11 @@ impl GetDataObject {
             | Self::ApplicationRelatedData
             | Self::DiscretionaryDataObjects
             | Self::SecuritySupportTemplate => {
-                log::error!("Called `reply` on a constructed DO: {self:?}");
+                error!("Called `reply` on a constructed DO: {self:?}");
                 return Err(Status::UnspecifiedNonpersistentExecutionError);
             }
         }
-        log::info!("Returning data for tag: {self:?}");
+        info!("Returning data for tag: {self:?}");
         Ok(())
     }
 }
@@ -625,12 +625,12 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         unimplemented!();
     }
     let object = GetDataObject::try_from(tag)
-        .inspect_err_stable(|err| log::warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
+        .inspect_err_stable(|err| warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
     if !object.is_visible() {
-        log::warn!("Get data for children object: {object:?}");
+        warn!("Get data for children object: {object:?}");
         return Err(Status::IncorrectDataParameter);
     }
-    log::debug!("Returning data for tag {:?}", tag);
+    debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
         GetDataDoType::Simple(obj) => obj.reply(context),
         GetDataDoType::Constructed(objs) => get_constructed_data(context, objs),
