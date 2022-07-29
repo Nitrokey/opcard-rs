@@ -122,6 +122,7 @@ pub struct Internal {
     sign_alg: SignatureAlgorithms,
     dec_alg: DecryptionAlgorithms,
     aut_alg: AuthenticationAlgorithms,
+    /// sig, dec, aut
     #[serde(with = "serde_bytes")]
     fingerprints: [u8; 60],
     pub cardholder_name: String<39>,
@@ -298,6 +299,15 @@ impl Internal {
 
     pub fn fingerprints(&self) -> &[u8; 60] {
         &self.fingerprints
+    }
+
+    pub fn set_fingerprints(
+        &mut self,
+        client: &mut impl trussed::Client,
+        data: [u8; 60],
+    ) -> Result<(), Error> {
+        self.fingerprints = data;
+        self.save(client)
     }
 }
 

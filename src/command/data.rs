@@ -773,6 +773,9 @@ impl PutDataObject {
             Self::PrivateUse4 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse4)?,
             Self::Url => put_arbitrary_do(ctx, ArbitraryDO::Url)?,
             Self::KdfDo => put_arbitrary_do(ctx, ArbitraryDO::KdfDo)?,
+            Self::SignFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Sign)?,
+            Self::DecFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Confidentiality)?,
+            Self::AuthFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             // TODO support curDo
             Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
             _ => unimplemented!(),
@@ -790,6 +793,26 @@ pub fn put_arbitrary_do<const R: usize, T: trussed::Client>(
     }
     obj.save(ctx.backend.client_mut(), ctx.data)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
+}
+
+pub fn put_fingerprint<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    for_key: KeyType,
+) -> Result<(), Status> {
+    if ctx.data.len() != 20 {
+        return Err(Status::WrongLength);
+    }
+    let offset = match for_key {
+        KeyType::Sign => 0,
+        KeyType::Confidentiality => 20,
+        KeyType::Aut => 40,
+    };
+    let mut fp = *ctx.state.internal.fingerprints();
+    fp[offset..][..20].copy_from_slice(ctx.data);
+    ctx.state
+        .internal
+        .set_fingerprints(ctx.backend.client_mut(), fp)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 #[cfg(test)]
