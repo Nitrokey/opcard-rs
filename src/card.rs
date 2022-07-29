@@ -17,8 +17,6 @@ pub const PIX_RFU: [u8; 2] = [0x00, 0x00];
 /// Version of the spec implemented by opcard-rs
 pub const PGP_SMARTCARD_VERSION: [u8; 2] = [3, 4];
 
-// TODO: use generic iso7816 implementation, see https://github.com/ycrypto/iso7816/pull/3
-
 /// OpenPGP card implementation.
 ///
 /// This is the main entry point for this crate.  It takes care of the command handling and state

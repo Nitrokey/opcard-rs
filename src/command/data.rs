@@ -864,7 +864,6 @@ mod tests {
 
     #[test]
     fn tags() {
-        // Test that tags didn't change after refactor
         assert_eq!(GetDataObject::Url.tag(), &[0x5F, 0x50]);
         assert_eq!(GetDataObject::HistoricalBytes.tag(), &[0x5F, 0x52]);
         assert_eq!(GetDataObject::CardHolderName.tag(), &[0x5B]);
@@ -902,8 +901,6 @@ mod tests {
 
     #[test]
     fn max_nesting() {
-        // Better way to iterate over all possible values of the enum?
-
         for o in GetDataObject::iter_all() {
             match o.simple_or_constructed() {
                 GetDataDoType::Simple(_) => continue,
