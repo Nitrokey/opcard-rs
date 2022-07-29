@@ -5,6 +5,7 @@
 
 use std::{process::Command, sync::mpsc, thread::sleep, time::Duration};
 
+use regex::Regex;
 use stoppable_thread::spawn;
 use test_log::test;
 
@@ -52,16 +53,46 @@ fn gpg_card_status() {
             .output()
             .expect("failed to run gpg --card-status");
 
+        let stdout = String::from_utf8_lossy(&output.stdout);
         println!("=== stdout ===");
-        println!("{}", String::from_utf8_lossy(&output.stdout));
+        println!("{}", stdout);
+        println!("=== end stdout ===");
 
         println!();
 
         println!("=== stderr ===");
         println!("{}", String::from_utf8_lossy(&output.stderr));
+        println!("=== end stderr ===");
 
         assert!(output.status.success(), "{}", output.status);
 
-        // TODO: Add assertions for output
+        let re = Regex::new(
+            "\
+                Reader ...........: Virtual PCD \\d\\d \\d\\d\n\
+                Application ID ...: D2760001240103040000000000000000\n\
+                Application type .: OpenPGP\n\
+                Version ..........: 3.4\n\
+                Manufacturer .....: test card\n\
+                Serial number ....: 00000000\n\
+                Name of cardholder: \\[not set\\]\n\
+                Language prefs ...: en\n\
+                Salutation .......: \n\
+                URL of public key : \\[not set\\]\n\
+                Login data .......: \\[not set\\]\n\
+                Signature PIN ....: forced\n\
+                Key attributes ...: rsa2048 rsa2048 rsa2048\n\
+                Max. PIN lengths .: 127 127 127\n\
+                PIN retry counter : 3 3 3\n\
+                Signature counter : 0\n\
+                KDF setting ......: off\n\
+                Signature key ....: \\[none\\]\n\
+                Encryption key....: \\[none\\]\n\
+                Authentication key: \\[none\\]\n\
+                General key info..: \\[none\\]\n\
+            ",
+        )
+        .expect("failed to compile regex");
+
+        assert!(re.is_match(&stdout), "{}", stdout);
     })
 }
