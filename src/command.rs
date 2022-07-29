@@ -37,6 +37,7 @@ impl Command {
         match self {
             Self::Select => select(context),
             Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
+            Self::PutData(mode, tag) => data::put_data(context, *mode, *tag),
             Self::Verify(mode, password) => verify(context.load_state()?, *mode, *password),
             Self::ChangeReferenceData(password) => {
                 change_reference_data(context.load_state()?, *password)
@@ -233,7 +234,7 @@ pub enum GetDataMode {
     Odd,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum PutDataMode {
     Even,
     Odd,

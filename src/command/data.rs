@@ -6,7 +6,7 @@ use iso7816::Status;
 
 use crate::{
     card::{reply::Reply, Context, LoadedContext, Options},
-    command::{GetDataMode, Password, Tag},
+    command::{GetDataMode, Password, PutDataMode, Tag},
     state::{ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
     types::*,
     utils::InspectErr,
@@ -384,6 +384,51 @@ impl GetDataObject {
     }
 }
 
+enum_subset! {
+    /// Data objects available for PUT DATA
+    #[derive(Debug, Clone, Copy)]
+    enum PutDataObject: DataObject {
+        PrivateUse1,
+        PrivateUse2,
+        PrivateUse3,
+        PrivateUse4,
+        LoginData,
+        Url,
+        HistoricalBytes,
+        CardHolderName,
+        CardHolderSex,
+        LanguagePreferences,
+        AlgorithmAttributesSignature,
+        AlgorithmAttributesDecryption,
+        AlgorithmAttributesAuthentication,
+        PwStatusBytes,
+        CaFingerprint1,
+        CaFingerprint2,
+        CaFingerprint3,
+        SignFingerprint,
+        DecFingerprint,
+        AuthFingerprint,
+        SignGenerationDate,
+        DecGenerationDate,
+        AuthGenerationDate,
+        ResetingCode,
+        PSOEncDecKey,
+        UifCds,
+        UifDec,
+        UifAut,
+        KdfDo,
+    }
+}
+
+impl PutDataObject {
+    fn write_perm(&self) -> PermissionRequirement {
+        match self {
+            Self::PrivateUse2 | Self::PrivateUse4 => PermissionRequirement::User,
+            _ => PermissionRequirement::Admin,
+        }
+    }
+}
+
 fn general_feature_management_byte(options: &Options) -> u8 {
     if options.button_available {
         0x20
@@ -681,6 +726,36 @@ pub fn arbitrary_do<const R: usize, T: trussed::Client>(
         .load(ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     ctx.reply.expand(&data)
+}
+
+// § 7.2.8
+pub fn put_data<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+    mode: PutDataMode,
+    tag: Tag,
+) -> Result<(), Status> {
+    // TODO: curDO pointer
+    if mode != PutDataMode::Even {
+        unimplemented!();
+    }
+    let object = PutDataObject::try_from(tag).inspect_err_stable(|_err| {
+        warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
+    })?;
+
+    match object.write_perm() {
+        PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
+            warn!("Put data for admin authorized object: {object:?}");
+            return Err(Status::SecurityStatusNotSatisfied);
+        }
+        PermissionRequirement::User if !context.state.runtime.other_verified => {
+            warn!("Put data for user authorized object: {object:?}");
+            return Err(Status::SecurityStatusNotSatisfied);
+        }
+        _ => {}
+    }
+
+    debug!("Writing data for tag {:?}", tag);
+    todo!()
 }
 
 #[cfg(test)]
