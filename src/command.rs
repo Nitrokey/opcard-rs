@@ -414,13 +414,14 @@ fn gen_keypair<const R: usize, T: trussed::Client>(
     context: LoadedContext<'_, R, T>,
     mode: GenerateAsymmetricKeyPairMode,
 ) -> Result<(), Status> {
-    if !context.state.runtime.admin_verified {
-        return Err(Status::SecurityStatusNotSatisfied);
-    }
     let key = KeyType::try_from_crt(context.data)?;
 
     if mode == GenerateAsymmetricKeyPairMode::ReadTemplate {
         todo!();
+    }
+
+    if !context.state.runtime.admin_verified {
+        return Err(Status::SecurityStatusNotSatisfied);
     }
 
     match key {
