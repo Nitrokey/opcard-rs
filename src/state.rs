@@ -16,6 +16,7 @@ use trussed::types::{KeyId, Location, PathBuf};
 use crate::command::Password;
 use crate::error::Error;
 use crate::types::*;
+use crate::utils::serde_bytes;
 
 /// Maximum supported length for PW1 and PW3
 pub const MAX_PIN_LENGTH: usize = 127;
@@ -121,6 +122,8 @@ pub struct Internal {
     sign_alg: SignatureAlgorithms,
     dec_alg: DecryptionAlgorithms,
     aut_alg: AuthenticationAlgorithms,
+    #[serde(with = "serde_bytes")]
+    fingerprints: [u8; 60],
     pub cardholder_name: String<39>,
     pub cardholder_sex: Sex,
     pub language_preferences: String<8>,
@@ -155,6 +158,7 @@ impl Internal {
             dec_alg: DecryptionAlgorithms::default(),
             aut_alg: AuthenticationAlgorithms::default(),
             aut_key: None,
+            fingerprints: [0; 60],
             uif_sign: Uif::Disabled,
             uif_dec: Uif::Disabled,
             uif_aut: Uif::Disabled,
@@ -290,6 +294,10 @@ impl Internal {
 
     pub fn aut_alg(&self) -> AuthenticationAlgorithms {
         self.aut_alg
+    }
+
+    pub fn fingerprints(&self) -> &[u8; 60] {
+        &self.fingerprints
     }
 }
 

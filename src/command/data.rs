@@ -353,7 +353,7 @@ impl GetDataObject {
             Self::AlgorithmAttributesDecryption => alg_attr_dec(context.load_state()?)?,
             Self::AlgorithmAttributesAuthentication => alg_attr_aut(context.load_state()?)?,
             Self::AlgorithmInformation => algo_info(context)?,
-            Self::Fingerprints => fingerprints(context)?,
+            Self::Fingerprints => fingerprints(context.load_state()?)?,
             Self::CAFingerprints => ca_fingerprints(context)?,
             Self::KeyGenerationDates => keygen_dates(context)?,
             Self::KeyInformation => key_info(context)?,
@@ -578,10 +578,9 @@ pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
 }
 
 pub fn fingerprints<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load from state
-    ctx.reply.expand(&[0; 60])?;
+    ctx.reply.expand(&*ctx.state.internal.fingerprints())?;
     Ok(())
 }
 
