@@ -367,6 +367,20 @@ impl ArbitraryDO {
         load_if_exists(client, Location::Internal, &self.path())
             .map(|data| data.unwrap_or_else(|| self.default()))
     }
+
+    pub fn save(self, client: &mut impl trussed::Client, bytes: &[u8]) -> Result<(), Error> {
+        let msg = Bytes::from(heapless::Vec::try_from(bytes).map_err(|_| {
+            error!("Buffer full");
+            Error::Saving
+        })?);
+        try_syscall!(client.write_file(Location::Internal, self.path(), msg, None)).map_err(
+            |_err| {
+                error!("Failed to store data: {_err:?}");
+                Error::Saving
+            },
+        )?;
+        Ok(())
+    }
 }
 
 fn load_if_exists(

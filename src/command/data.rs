@@ -7,7 +7,10 @@ use iso7816::Status;
 use crate::{
     card::{reply::Reply, Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
-    state::{ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
+    state::{
+        ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
+        MAX_PIN_LENGTH,
+    },
     types::*,
     utils::InspectErr,
 };
@@ -360,16 +363,18 @@ impl GetDataObject {
             Self::CardHolderName => cardholder_name(context.load_state()?)?,
             Self::CardHolderSex => cardholder_sex(context.load_state()?)?,
             Self::LanguagePreferences => language_preferences(context.load_state()?)?,
-            Self::Url => arbitrary_do(context, ArbitraryDO::Url)?,
-            Self::LoginData => arbitrary_do(context, ArbitraryDO::LoginData)?,
+            Self::Url => get_arbitrary_do(context, ArbitraryDO::Url)?,
+            Self::LoginData => get_arbitrary_do(context, ArbitraryDO::LoginData)?,
             Self::DigitalSignatureCounter => signature_counter(context.load_state()?)?,
-            Self::KdfDo => arbitrary_do(context, ArbitraryDO::KdfDo)?,
-            Self::PrivateUse1 => arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
-            Self::PrivateUse2 => arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
-            Self::PrivateUse3 => arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
-            Self::PrivateUse4 => arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
+            Self::KdfDo => get_arbitrary_do(context, ArbitraryDO::KdfDo)?,
+            Self::PrivateUse1 => get_arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
+            Self::PrivateUse2 => get_arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
+            Self::PrivateUse3 => get_arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
+            Self::PrivateUse4 => get_arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
             // TODO revisit with support for GET NEXT DAT/ SELECT DATA
-            Self::CardHolderCertificate => arbitrary_do(context, ArbitraryDO::CardHolderCertAut)?,
+            Self::CardHolderCertificate => {
+                get_arbitrary_do(context, ArbitraryDO::CardHolderCertAut)?
+            }
             Self::SecureMessagingCertificate => return Err(Status::SecureMessagingNotSupported),
             Self::CardHolderRelatedData
             | Self::ApplicationRelatedData
@@ -381,51 +386,6 @@ impl GetDataObject {
         }
         info!("Returning data for tag: {self:?}");
         Ok(())
-    }
-}
-
-enum_subset! {
-    /// Data objects available for PUT DATA
-    #[derive(Debug, Clone, Copy)]
-    enum PutDataObject: DataObject {
-        PrivateUse1,
-        PrivateUse2,
-        PrivateUse3,
-        PrivateUse4,
-        LoginData,
-        Url,
-        HistoricalBytes,
-        CardHolderName,
-        CardHolderSex,
-        LanguagePreferences,
-        AlgorithmAttributesSignature,
-        AlgorithmAttributesDecryption,
-        AlgorithmAttributesAuthentication,
-        PwStatusBytes,
-        CaFingerprint1,
-        CaFingerprint2,
-        CaFingerprint3,
-        SignFingerprint,
-        DecFingerprint,
-        AuthFingerprint,
-        SignGenerationDate,
-        DecGenerationDate,
-        AuthGenerationDate,
-        ResetingCode,
-        PSOEncDecKey,
-        UifCds,
-        UifDec,
-        UifAut,
-        KdfDo,
-    }
-}
-
-impl PutDataObject {
-    fn write_perm(&self) -> PermissionRequirement {
-        match self {
-            Self::PrivateUse2 | Self::PrivateUse4 => PermissionRequirement::User,
-            _ => PermissionRequirement::Admin,
-        }
     }
 }
 
@@ -708,7 +668,7 @@ pub fn signature_counter<const R: usize, T: trussed::Client>(
     ctx.reply.expand(resp)
 }
 
-pub fn arbitrary_do<const R: usize, T: trussed::Client>(
+pub fn get_arbitrary_do<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
@@ -755,7 +715,82 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     }
 
     debug!("Writing data for tag {:?}", tag);
-    todo!()
+    object.put_data(context)
+}
+
+enum_subset! {
+    /// Data objects available for PUT DATA
+    #[derive(Debug, Clone, Copy)]
+    enum PutDataObject: DataObject {
+        PrivateUse1,
+        PrivateUse2,
+        PrivateUse3,
+        PrivateUse4,
+        LoginData,
+        Url,
+        HistoricalBytes,
+        CardHolderName,
+        CardHolderSex,
+        LanguagePreferences,
+        CardHolderCertificate,
+        AlgorithmAttributesSignature,
+        AlgorithmAttributesDecryption,
+        AlgorithmAttributesAuthentication,
+        PwStatusBytes,
+        CaFingerprint1,
+        CaFingerprint2,
+        CaFingerprint3,
+        SignFingerprint,
+        DecFingerprint,
+        AuthFingerprint,
+        SignGenerationDate,
+        DecGenerationDate,
+        AuthGenerationDate,
+        ResetingCode,
+        PSOEncDecKey,
+        UifCds,
+        UifDec,
+        UifAut,
+        KdfDo,
+    }
+}
+
+impl PutDataObject {
+    fn write_perm(&self) -> PermissionRequirement {
+        match self {
+            Self::PrivateUse2 | Self::PrivateUse4 => PermissionRequirement::User,
+            _ => PermissionRequirement::Admin,
+        }
+    }
+
+    fn put_data<const R: usize, T: trussed::Client>(
+        self,
+        ctx: Context<'_, R, T>,
+    ) -> Result<(), Status> {
+        match self {
+            Self::PrivateUse1 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse1)?,
+            Self::PrivateUse2 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse2)?,
+            Self::PrivateUse3 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse3)?,
+            Self::PrivateUse4 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse4)?,
+            Self::Url => put_arbitrary_do(ctx, ArbitraryDO::Url)?,
+            Self::KdfDo => put_arbitrary_do(ctx, ArbitraryDO::KdfDo)?,
+            // TODO support curDo
+            Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
+            _ => unimplemented!(),
+        }
+        Ok(())
+    }
+}
+
+pub fn put_arbitrary_do<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+    obj: ArbitraryDO,
+) -> Result<(), Status> {
+    if ctx.data.len() > MAX_GENERIC_LENGTH {
+        return Err(Status::WrongLength);
+    }
+    obj.save(ctx.backend.client_mut(), ctx.data)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
 #[cfg(test)]
