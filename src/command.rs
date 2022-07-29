@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 mod data;
+mod gen;
 
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
+use crate::types::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -42,6 +44,7 @@ impl Command {
             Self::ChangeReferenceData(password) => {
                 change_reference_data(context.load_state()?, *password)
             }
+            Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
             _ => {
                 warn!("Command not yet implemented: {:x?}", self);
                 unimplemented!();
@@ -240,7 +243,7 @@ pub enum PutDataMode {
     Odd,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum GenerateAsymmetricKeyPairMode {
     GenerateKey,
     ReadTemplate,
@@ -404,4 +407,25 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
         .internal
         .change_pin(client_mut, new, password)
         .map_err(|_| Status::WrongLength)
+}
+
+// § 7.2.14
+fn gen_keypair<const R: usize, T: trussed::Client>(
+    context: LoadedContext<'_, R, T>,
+    mode: GenerateAsymmetricKeyPairMode,
+) -> Result<(), Status> {
+    if !context.state.runtime.admin_verified {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+    let key = KeyType::try_from_crt(context.data)?;
+
+    if mode == GenerateAsymmetricKeyPairMode::ReadTemplate {
+        todo!();
+    }
+
+    match key {
+        KeyType::Sign => gen::sign(context),
+        KeyType::Dec => gen::dec(context),
+        KeyType::Aut => gen::aut(context),
+    }
 }

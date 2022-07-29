@@ -460,7 +460,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     })?;
     if !object.is_visible() {
         warn!("Get data for children object: {object:?}");
-        return Err(Status::IncorrectDataParameter);
+        //return Err(Status::IncorrectDataParameter);
     }
     debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {

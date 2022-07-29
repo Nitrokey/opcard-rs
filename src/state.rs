@@ -1,4 +1,5 @@
 // Copyright (C) 2022 Nitrokey GmbH
+// let algo = ctx.state.internal.
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use heapless_bytes::Bytes;
@@ -552,6 +553,14 @@ impl Internal {
 
     pub fn sign_count(&self) -> usize {
         self.sign_count
+    }
+
+    pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
+        match ty {
+            KeyType::Sign => self.signing_key,
+            KeyType::Dec => self.confidentiality_key,
+            KeyType::Aut => self.aut_key,
+        }
     }
 }
 
