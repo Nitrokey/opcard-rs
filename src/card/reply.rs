@@ -28,7 +28,7 @@ impl<'v, const R: usize> Reply<'v, R> {
     /// Named expand and not extend to avoid conflicts with Deref
     pub fn expand(&mut self, data: &[u8]) -> Result<(), Status> {
         self.0.extend_from_slice(data).map_err(|_| {
-            log::error!("Buffer full");
+            error!("Buffer full");
             Status::NotEnoughMemory
         })
     }
@@ -46,7 +46,7 @@ impl<'v, const R: usize> Reply<'v, R> {
     /// (There are seven Bs, the length is encoded as specified in § 4.4.4)
     pub fn prepend_len(&mut self, offset: usize) -> Result<(), Status> {
         if self.len() < offset {
-            log::error!("`prepend_len` called with offset lower than buffer length");
+            error!("`prepend_len` called with offset lower than buffer length");
             return Err(Status::UnspecifiedNonpersistentExecutionError);
         }
 
@@ -67,11 +67,11 @@ impl<'v, const R: usize> Reply<'v, R> {
             self[offset..].rotate_right(3);
             res
         } else {
-            log::error!("Length too long to be encoded");
+            error!("Length too long to be encoded");
             return Err(Status::UnspecifiedNonpersistentExecutionError);
         }
         .map_err(|_| {
-            log::error!("Reply buffer full");
+            error!("Reply buffer full");
             Status::UnspecifiedNonpersistentExecutionError
         })
     }

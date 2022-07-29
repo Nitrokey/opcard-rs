@@ -41,6 +41,13 @@
 )]
 #![deny(unsafe_code)]
 
+#[cfg(not(feature = "delog"))]
+#[macro_use]
+extern crate log;
+
+#[cfg(feature = "delog")]
+delog::generate_macros!();
+
 pub mod backend;
 mod card;
 mod command;

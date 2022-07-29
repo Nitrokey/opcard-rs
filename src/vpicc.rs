@@ -53,14 +53,14 @@ impl<T: trussed::Client> vpicc::VSmartCard for VirtualCard<T> {
     }
 
     fn execute(&mut self, request: &[u8]) -> Vec<u8> {
-        log::trace!("Received request {:x?}", request);
+        trace!("Received request {:x?}", request);
         // TODO: consider using apdu_dispatch to combine APDUs
         let status = self.handle(request).err().unwrap_or_default();
         let status: [u8; 2] = status.into();
         let mut response = Vec::new();
         response.extend_from_slice(&self.buffer);
         response.extend_from_slice(&status);
-        log::trace!("Sending response {:x?}", response);
+        trace!("Sending response {:x?}", response);
         response
     }
 }
