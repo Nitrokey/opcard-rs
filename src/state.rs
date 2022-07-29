@@ -9,6 +9,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
 
 use trussed::api::reply::Metadata;
+use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::try_syscall;
 use trussed::types::{Location, PathBuf};
 
@@ -153,26 +154,14 @@ impl Internal {
     }
 
     pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
-        let data = match try_syscall!(client.read_file(Location::Internal, Self::path())) {
-            Ok(r) => r.data,
-            Err(_) => match try_syscall!(client.entry_metadata(Location::Internal, Self::path())) {
-                Ok(Metadata { metadata: None }) => return Ok(Self::default()),
-                Ok(Metadata {
-                    metadata: Some(metadata),
-                }) => {
-                    log::error!("File exists but couldn't be read: {metadata:?}");
-                    return Err(Error::Loading);
-                }
-                Err(err) => {
-                    log::error!("File couldn't be read: {err:?}");
-                    return Err(Error::Loading);
-                }
-            },
-        };
-        trussed::cbor_deserialize(&data).map_err(|err| {
-            log::error!("failed to deserialize internal state: {err}");
-            Error::Loading
-        })
+        if let Some(data) = load_if_exists(client, Location::Internal, &Self::path())? {
+            trussed::cbor_deserialize(&data).map_err(|err| {
+                log::error!("failed to deserialize internal state: {err}");
+                Error::Loading
+            })
+        } else {
+            Ok(Self::default())
+        }
     }
 
     pub fn save<T: trussed::Client>(&self, client: &mut T) -> Result<(), Error> {
@@ -351,21 +340,30 @@ impl ArbitraryDO {
         self,
         client: &mut impl trussed::Client,
     ) -> Result<Bytes<MAX_GENERIC_LENGTH>, Error> {
-        match try_syscall!(client.read_file(Location::Internal, self.path())) {
-            Ok(r) => Ok(r.data),
-            Err(_) => match try_syscall!(client.entry_metadata(Location::Internal, self.path())) {
-                Ok(Metadata { metadata: None }) => Ok(self.default()),
-                Ok(Metadata {
-                    metadata: Some(metadata),
-                }) => {
-                    log::error!("File exists but couldn't be read: {metadata:?}");
-                    Err(Error::Loading)
-                }
-                Err(err) => {
-                    log::error!("File couldn't be read: {err:?}");
-                    Err(Error::Loading)
-                }
-            },
-        }
+        load_if_exists(client, Location::Internal, &self.path())
+            .map(|data| data.unwrap_or_else(|| self.default()))
+    }
+}
+
+fn load_if_exists(
+    client: &mut impl trussed::Client,
+    location: Location,
+    path: &PathBuf,
+) -> Result<Option<Bytes<MAX_MESSAGE_LENGTH>>, Error> {
+    match try_syscall!(client.read_file(location, path.clone())) {
+        Ok(r) => Ok(Some(r.data)),
+        Err(_) => match try_syscall!(client.entry_metadata(location, path.clone())) {
+            Ok(Metadata { metadata: None }) => Ok(None),
+            Ok(Metadata {
+                metadata: Some(metadata),
+            }) => {
+                log::error!("File {path} exists but couldn't be read: {metadata:?}");
+                Err(Error::Loading)
+            }
+            Err(err) => {
+                log::error!("File {path} couldn't be read: {err:?}");
+                Err(Error::Loading)
+            }
+        },
     }
 }
