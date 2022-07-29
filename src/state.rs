@@ -11,10 +11,11 @@ use subtle::ConstantTimeEq;
 use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::try_syscall;
-use trussed::types::{Location, PathBuf};
+use trussed::types::{KeyId, Location, PathBuf};
 
 use crate::command::Password;
 use crate::error::Error;
+use crate::types::*;
 
 /// Maximum supported length for PW1 and PW3
 pub const MAX_PIN_LENGTH: usize = 127;
@@ -114,6 +115,12 @@ pub struct Internal {
     admin_pin_tries: u8,
     user_pin: Bytes<MAX_PIN_LENGTH>,
     admin_pin: Bytes<MAX_PIN_LENGTH>,
+    signing_key: Option<KeyId>,
+    confidentiality_key: Option<KeyId>,
+    aut_key: Option<KeyId>,
+    sign_alg: SignatureAlgorithms,
+    dec_alg: DecryptionAlgorithms,
+    aut_alg: AuthenticationAlgorithms,
     pub cardholder_name: String<39>,
     pub cardholder_sex: Sex,
     pub language_preferences: String<8>,
@@ -142,6 +149,12 @@ impl Internal {
             cardholder_sex: Sex::default(),
             language_preferences: String::from("en"),
             sign_count: 0,
+            signing_key: None,
+            confidentiality_key: None,
+            sign_alg: SignatureAlgorithms::default(),
+            dec_alg: DecryptionAlgorithms::default(),
+            aut_alg: AuthenticationAlgorithms::default(),
+            aut_key: None,
             uif_sign: Uif::Disabled,
             uif_dec: Uif::Disabled,
             uif_aut: Uif::Disabled,
@@ -265,6 +278,18 @@ impl Internal {
         *pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
         *tries = 0;
         self.save(client)
+    }
+
+    pub fn sign_alg(&self) -> SignatureAlgorithms {
+        self.sign_alg
+    }
+
+    pub fn dec_alg(&self) -> DecryptionAlgorithms {
+        self.dec_alg
+    }
+
+    pub fn aut_alg(&self) -> AuthenticationAlgorithms {
+        self.aut_alg
     }
 }
 

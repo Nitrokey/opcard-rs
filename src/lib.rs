@@ -53,6 +53,7 @@ mod card;
 mod command;
 mod error;
 mod state;
+mod types;
 mod utils;
 #[cfg(feature = "virtual")]
 mod vpicc;

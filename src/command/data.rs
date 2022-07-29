@@ -8,37 +8,9 @@ use crate::{
     card::{reply::Reply, Context, LoadedContext, Options},
     command::{GetDataMode, Password, Tag},
     state::{ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
+    types::*,
     utils::InspectErr,
 };
-
-/// Creates an enum with an `iter_all` associated function giving an iterator over all variants
-macro_rules! iterable_enum {
-    (
-        $(#[$outer:meta])*
-        $vis:vis enum $name:ident {
-            $($var:ident),+
-            $(,)*
-        }
-    ) => {
-        $(#[$outer])*
-        $vis enum $name {
-            $(
-                $var,
-            )*
-        }
-
-        #[allow(unused)]
-        impl $name {
-            $vis fn iter_all() -> impl Iterator<Item = Self> {
-                [
-                    $(
-                        $name::$var,
-                    )*
-                ].into_iter()
-            }
-        }
-    }
-}
 
 macro_rules! enum_u16 {
     (
@@ -374,9 +346,9 @@ impl GetDataObject {
             Self::GeneralFeatureManagement => context
                 .reply
                 .expand(&general_feature_management(context.options))?,
-            Self::AlgorithmAttributesSignature => alg_attr_sign(context)?,
-            Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
-            Self::AlgorithmAttributesAuthentication => alg_attr_aut(context)?,
+            Self::AlgorithmAttributesSignature => alg_attr_sign(context.load_state()?)?,
+            Self::AlgorithmAttributesDecryption => alg_attr_dec(context.load_state()?)?,
+            Self::AlgorithmAttributesAuthentication => alg_attr_aut(context.load_state()?)?,
             Self::AlgorithmInformation => algo_info(context)?,
             Self::Fingerprints => fingerprints(context)?,
             Self::CAFingerprints => ca_fingerprints(context)?,
@@ -409,153 +381,6 @@ impl GetDataObject {
         }
         info!("Returning data for tag: {self:?}");
         Ok(())
-    }
-}
-
-iterable_enum! {
-    enum SignatureAlgorithms {
-        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        Ed255,
-        EcDsaP256,
-        Rsa2k,
-        Rsa4k,
-    }
-}
-
-impl Default for SignatureAlgorithms {
-    fn default() -> Self {
-        Self::Rsa2k
-    }
-}
-
-impl SignatureAlgorithms {
-    #[allow(unused)]
-    pub fn id(&self) -> u8 {
-        self.attributes()[0]
-    }
-
-    pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::Ed255 => &hex!("16 2B 06 01 04 01 DA 47 0F 01"),
-            Self::EcDsaP256 => &hex!("13 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-        }
-    }
-
-    #[allow(unused)]
-    pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
-    }
-}
-
-iterable_enum! {
-    enum DecryptionAlgorithms {
-        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        X255,
-        EcDhP256,
-        Rsa2k,
-        Rsa4k,
-    }
-}
-
-impl Default for DecryptionAlgorithms {
-    fn default() -> Self {
-        Self::Rsa2k
-    }
-}
-
-impl DecryptionAlgorithms {
-    #[allow(unused)]
-    pub fn id(&self) -> u8 {
-        match self {
-            Self::X255 | Self::EcDhP256 => 0x12,
-            Self::Rsa2k | Self::Rsa4k => 0x1,
-        }
-    }
-
-    pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
-            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-        }
-    }
-
-    #[allow(unused)]
-    pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
-    }
-}
-
-iterable_enum! {
-    enum AuthenticationAlgorithms {
-        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        X255,
-        EcDhP256,
-        Rsa2k,
-        Rsa4k,
-    }
-}
-
-impl Default for AuthenticationAlgorithms {
-    fn default() -> Self {
-        Self::Rsa2k
-    }
-}
-
-impl AuthenticationAlgorithms {
-    #[allow(unused)]
-    pub fn id(&self) -> u8 {
-        match self {
-            Self::X255 | Self::EcDhP256 => 0x12,
-            Self::Rsa2k | Self::Rsa4k => 0x1,
-        }
-    }
-
-    pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
-            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-        }
-    }
-
-    #[allow(unused)]
-    pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
     }
 }
 
@@ -721,29 +546,29 @@ pub fn algo_info<const R: usize, T: trussed::Client>(
 }
 
 pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
     ctx.reply
-        .expand(SignatureAlgorithms::default().attributes())?;
+        .expand(ctx.state.internal.sign_alg().attributes())?;
     Ok(())
 }
 
 pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
     ctx.reply
-        .expand(DecryptionAlgorithms::default().attributes())?;
+        .expand(ctx.state.internal.dec_alg().attributes())?;
     Ok(())
 }
 
 pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // TODO load correct algorithm from state
     ctx.reply
-        .expand(AuthenticationAlgorithms::default().attributes())?;
+        .expand(ctx.state.internal.aut_alg().attributes())?;
     Ok(())
 }
 
@@ -920,21 +745,6 @@ mod tests {
                     }
                 }
             }
-        }
-    }
-
-    #[test]
-    fn attributes_id() {
-        for alg in SignatureAlgorithms::iter_all() {
-            assert_eq!(alg.id(), alg.attributes()[0]);
-        }
-
-        for alg in DecryptionAlgorithms::iter_all() {
-            assert_eq!(alg.id(), alg.attributes()[0]);
-        }
-
-        for alg in AuthenticationAlgorithms::iter_all() {
-            assert_eq!(alg.id(), alg.attributes()[0]);
         }
     }
 }
