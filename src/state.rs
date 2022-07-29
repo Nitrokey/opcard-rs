@@ -154,8 +154,8 @@ impl Internal {
 
     pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
         if let Some(data) = load_if_exists(client, Location::Internal, &Self::path())? {
-            trussed::cbor_deserialize(&data).map_err(|err| {
-                error!("failed to deserialize internal state: {err}");
+            trussed::cbor_deserialize(&data).map_err(|_err| {
+                error!("failed to deserialize internal state: {_err}");
                 Error::Loading
             })
         } else {
@@ -164,13 +164,13 @@ impl Internal {
     }
 
     pub fn save<T: trussed::Client>(&self, client: &mut T) -> Result<(), Error> {
-        let msg = trussed::cbor_serialize_bytes(&self).map_err(|err| {
-            error!("Failed to serialize: {err}");
+        let msg = trussed::cbor_serialize_bytes(&self).map_err(|_err| {
+            error!("Failed to serialize: {_err}");
             Error::Saving
         })?;
         try_syscall!(client.write_file(Location::Internal, Self::path(), msg, None)).map_err(
-            |err| {
-                error!("Failed to store data: {err:?}");
+            |_err| {
+                error!("Failed to store data: {_err:?}");
                 Error::Saving
             },
         )?;
@@ -354,13 +354,13 @@ fn load_if_exists(
         Err(_) => match try_syscall!(client.entry_metadata(location, path.clone())) {
             Ok(Metadata { metadata: None }) => Ok(None),
             Ok(Metadata {
-                metadata: Some(metadata),
+                metadata: Some(_metadata),
             }) => {
-                error!("File {path} exists but couldn't be read: {metadata:?}");
+                error!("File {path} exists but couldn't be read: {_metadata:?}");
                 Err(Error::Loading)
             }
-            Err(err) => {
-                error!("File {path} couldn't be read: {err:?}");
+            Err(_err) => {
+                error!("File {path} couldn't be read: {_err:?}");
                 Err(Error::Loading)
             }
         },

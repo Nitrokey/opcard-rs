@@ -624,8 +624,9 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     if mode != GetDataMode::Even {
         unimplemented!();
     }
-    let object = GetDataObject::try_from(tag)
-        .inspect_err_stable(|err| warn!("Unsupported data tag {:x?}: {:?}", tag, err))?;
+    let object = GetDataObject::try_from(tag).inspect_err_stable(|_err| {
+        warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
+    })?;
     if !object.is_visible() {
         warn!("Get data for children object: {object:?}");
         return Err(Status::IncorrectDataParameter);
