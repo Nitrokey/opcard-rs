@@ -44,6 +44,9 @@ fn get_data() {
         assert_eq!(uif_aut.touch_policy(), TouchPolicy::Off);
         assert_eq!(format!("{}", uif_aut.features()), "Button");
 
+        let mut pw_status_bytes = appdata.pw_status_bytes().unwrap();
+        assert!(pw_status_bytes.pw1_cds_valid_once());
+
         let holderdata = tx.cardholder_related_data().unwrap();
         assert_eq!(holderdata.name().unwrap(), b"This is a name".as_slice());
         assert_eq!(holderdata.sex().unwrap(), Sex::NotApplicable);
@@ -56,6 +59,9 @@ fn get_data() {
         tx.set_uif_pso_cds(&uif_aut).unwrap();
         tx.set_uif_pso_dec(&uif_aut).unwrap();
         tx.set_uif_pso_aut(&uif_aut).unwrap();
+        pw_status_bytes.set_pw1_cds_valid_once(false);
+        tx.set_pw_status_bytes(&pw_status_bytes, false).unwrap();
+        tx.set_pw_status_bytes(&pw_status_bytes, true).unwrap();
 
         let appdata = tx.application_related_data().unwrap();
         let uif_cds = appdata.uif_pso_cds().unwrap().unwrap();
@@ -69,5 +75,8 @@ fn get_data() {
         let uif_aut = appdata.uif_pso_aut().unwrap().unwrap();
         assert_eq!(uif_aut.touch_policy(), TouchPolicy::On);
         assert_eq!(format!("{}", uif_aut.features()), "Button");
+
+        let pw_status_bytes = appdata.pw_status_bytes().unwrap();
+        assert!(!pw_status_bytes.pw1_cds_valid_once());
     });
 }

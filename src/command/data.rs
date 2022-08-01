@@ -805,7 +805,7 @@ fn put_uif<const R: usize, T: trussed::Client>(
 fn put_status_bytes<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if ctx.data.len() != 4 || ctx.data.len() != 1 {
+    if ctx.data.len() != 4 && ctx.data.len() != 1 {
         warn!("put status bytes with incorrect length");
         return Err(Status::WrongLength);
     }
