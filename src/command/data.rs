@@ -782,22 +782,65 @@ impl PutDataObject {
             Self::AlgorithmAttributesSignature => put_alg_attributes_sign(ctx.load_state()?)?,
             Self::AlgorithmAttributesDecryption => put_alg_attributes_dec(ctx.load_state()?)?,
             Self::AlgorithmAttributesAuthentication => put_alg_attributes_aut(ctx.load_state()?)?,
-            Self::CardHolderName => unimplemented!(),
-            Self::CardHolderSex => unimplemented!(),
-            Self::LanguagePreferences => unimplemented!(),
-            Self::PwStatusBytes => unimplemented!(),
+            Self::CardHolderName => put_cardholder_name(ctx.load_state()?)?,
+            Self::CardHolderSex => put_cardholder_sex(ctx.load_state()?)?,
+            Self::LanguagePreferences => put_language_prefs(ctx.load_state()?)?,
+            Self::PwStatusBytes => put_status_bytes(ctx.load_state()?)?,
             Self::CaFingerprint1 => unimplemented!(),
             Self::CaFingerprint2 => unimplemented!(),
             Self::CaFingerprint3 => unimplemented!(),
             Self::ResetingCode => unimplemented!(),
             Self::PSOEncDecKey => unimplemented!(),
-            Self::UifCds => unimplemented!(),
-            Self::UifDec => unimplemented!(),
-            Self::UifAut => unimplemented!(),
+            Self::UifCds => put_uif_sign(ctx.load_state()?)?,
+            Self::UifDec => put_uif_dec(ctx.load_state()?)?,
+            Self::UifAut => put_uif_aut(ctx.load_state()?)?,
         }
         Ok(())
     }
 }
+
+fn put_uif_aut<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    todo!()
+}
+
+fn put_uif_dec<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    todo!()
+}
+
+fn put_uif_sign<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    todo!()
+}
+
+fn put_status_bytes<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    todo!()
+}
+
+fn put_language_prefs<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    todo!()
+}
+
+fn put_cardholder_sex<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    todo!()
+}
+
+fn put_cardholder_name<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    todo!()
+}
+
 fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
