@@ -623,8 +623,7 @@ pub fn uif<const R: usize, T: trussed::Client>(
 pub fn cardholder_name<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply
-        .expand(ctx.state.internal.cardholder_name().as_bytes())
+    ctx.reply.expand(ctx.state.internal.cardholder_name())
 }
 
 pub fn cardholder_sex<const R: usize, T: trussed::Client>(
@@ -637,8 +636,7 @@ pub fn cardholder_sex<const R: usize, T: trussed::Client>(
 pub fn language_preferences<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply
-        .expand(ctx.state.internal.language_preferences().as_bytes())
+    ctx.reply.expand(ctx.state.internal.language_preferences())
 }
 
 pub fn signature_counter<const R: usize, T: trussed::Client>(

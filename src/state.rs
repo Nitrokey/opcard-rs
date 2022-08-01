@@ -109,9 +109,9 @@ pub struct Internal {
     #[serde(with = "serde_bytes")]
     keygen_dates: [u8; 12],
 
-    cardholder_name: String<39>,
+    cardholder_name: Bytes<39>,
     cardholder_sex: Sex,
-    language_preferences: String<8>,
+    language_preferences: Bytes<8>,
     sign_count: usize,
     uif_sign: Uif,
     uif_dec: Uif,
@@ -128,15 +128,16 @@ impl Internal {
         // § 4.3.1
         let admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
         let user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
+        let language_preferences = Bytes::from_slice(b"en").unwrap();
         Self {
             user_pin_tries: 0,
             admin_pin_tries: 0,
             verify_valid_mutltiple: true,
             admin_pin,
             user_pin,
-            cardholder_name: String::new(),
+            cardholder_name: Bytes::new(),
             cardholder_sex: Sex::default(),
-            language_preferences: String::from("en"),
+            language_preferences,
             sign_count: 0,
             signing_key: None,
             confidentiality_key: None,
@@ -369,7 +370,7 @@ impl Internal {
         self.save(client)
     }
 
-    pub fn cardholder_name(&self) -> &str {
+    pub fn cardholder_name(&self) -> &[u8] {
         &self.cardholder_name
     }
 
@@ -377,7 +378,7 @@ impl Internal {
         self.cardholder_sex
     }
 
-    pub fn language_preferences(&self) -> &str {
+    pub fn language_preferences(&self) -> &[u8] {
         &self.language_preferences
     }
 
