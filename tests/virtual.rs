@@ -80,7 +80,7 @@ fn gpg_card_status() {
                 URL of public key : \\[not set\\]\n\
                 Login data .......: \\[not set\\]\n\
                 Signature PIN ....: forced\n\
-                Key attributes ...: ed25519 cv25519 cv25519\n\
+                Key attributes ...: rsa2048 rsa2048 rsa2048\n\
                 Max. PIN lengths .: 127 127 127\n\
                 PIN retry counter : 3 3 3\n\
                 Signature counter : 0\n\
