@@ -354,7 +354,7 @@ impl GetDataObject {
             Self::AlgorithmAttributesAuthentication => alg_attr_aut(context.load_state()?)?,
             Self::AlgorithmInformation => algo_info(context)?,
             Self::Fingerprints => fingerprints(context.load_state()?)?,
-            Self::CAFingerprints => ca_fingerprints(context)?,
+            Self::CAFingerprints => ca_fingerprints(context.load_state()?)?,
             Self::KeyGenerationDates => keygen_dates(context.load_state()?)?,
             Self::KeyInformation => key_info(context)?,
             Self::UifCds => uif(context.load_state()?, KeyType::Sign)?,
@@ -582,10 +582,9 @@ pub fn fingerprints<const R: usize, T: trussed::Client>(
 }
 
 pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load from state
-    ctx.reply.expand(&[0; 60])?;
+    ctx.reply.expand(&ctx.state.internal.ca_fingerprints())?;
     Ok(())
 }
 
@@ -770,9 +769,11 @@ impl PutDataObject {
             Self::CardHolderSex => put_cardholder_sex(ctx.load_state()?)?,
             Self::LanguagePreferences => put_language_prefs(ctx.load_state()?)?,
             Self::PwStatusBytes => put_status_bytes(ctx.load_state()?)?,
-            Self::CaFingerprint1 => unimplemented!(),
-            Self::CaFingerprint2 => unimplemented!(),
-            Self::CaFingerprint3 => unimplemented!(),
+            Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
+            Self::CaFingerprint2 => {
+                put_ca_fingerprint(ctx.load_state()?, KeyType::Confidentiality)?
+            }
+            Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             Self::ResetingCode => unimplemented!(),
             Self::PSOEncDecKey => unimplemented!(),
             Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
@@ -974,6 +975,27 @@ fn put_fingerprint<const R: usize, T: trussed::Client>(
     ctx.state
         .internal
         .set_fingerprints(ctx.backend.client_mut(), fp)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    for_key: KeyType,
+) -> Result<(), Status> {
+    if ctx.data.len() != 20 {
+        return Err(Status::WrongLength);
+    }
+    let offset = match for_key {
+        KeyType::Sign => 0,
+        KeyType::Confidentiality => 20,
+        KeyType::Aut => 40,
+    };
+
+    let mut fp = ctx.state.internal.ca_fingerprints();
+    fp[offset..][..20].copy_from_slice(ctx.data);
+    ctx.state
+        .internal
+        .set_ca_fingerprints(ctx.backend.client_mut(), fp)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 

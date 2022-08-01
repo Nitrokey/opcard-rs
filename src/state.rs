@@ -139,6 +139,8 @@ pub struct Internal {
     #[serde(with = "serde_bytes")]
     fingerprints: [u8; 60],
     #[serde(with = "serde_bytes")]
+    ca_fingerprints: [u8; 60],
+    #[serde(with = "serde_bytes")]
     keygen_dates: [u8; 12],
 
     cardholder_name: Bytes<39>,
@@ -177,6 +179,7 @@ impl Internal {
             aut_alg: AuthenticationAlgorithms::default(),
             aut_key: None,
             fingerprints: [0; 60],
+            ca_fingerprints: [0; 60],
             keygen_dates: [0; 12],
             uif_sign: Uif::Disabled,
             uif_dec: Uif::Disabled,
@@ -350,6 +353,19 @@ impl Internal {
         data: [u8; 60],
     ) -> Result<(), Error> {
         self.fingerprints = data;
+        self.save(client)
+    }
+
+    pub fn ca_fingerprints(&self) -> [u8; 60] {
+        self.ca_fingerprints
+    }
+
+    pub fn set_ca_fingerprints(
+        &mut self,
+        client: &mut impl trussed::Client,
+        data: [u8; 60],
+    ) -> Result<(), Error> {
+        self.ca_fingerprints = data;
         self.save(client)
     }
 
