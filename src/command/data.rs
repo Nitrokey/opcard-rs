@@ -791,10 +791,8 @@ fn put_uif<const R: usize, T: trussed::Client>(
         return Err(Status::WrongLength);
     }
 
-    if ctx.data.len() == 2 {
-        if ctx.data[1] != general_feature_management_byte(ctx.options) {
-            warn!("Incorrect GFM byte in put_uif");
-        }
+    if ctx.data.len() == 2 && ctx.data[1] != general_feature_management_byte(ctx.options) {
+        warn!("Incorrect GFM byte in put_uif");
     }
 
     let uif = Uif::try_from(ctx.data[0]).map_err(|_| Status::IncorrectDataParameter)?;
@@ -818,8 +816,8 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
     let flag = match ctx.data[0] {
         0 => false,
         1 => true,
-        input => {
-            warn!("Incorrect PW status byte {input:x}");
+        _input => {
+            warn!("Incorrect PW status byte {_input:x}");
             return Err(Status::IncorrectDataParameter)?;
         }
     };
@@ -828,11 +826,9 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
         .set_pw1_valid_multiple(flag, client)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
 
-    if ctx.data.len() == 4 {
-        if ctx.data[1..] != [MAX_PIN_LENGTH as u8; 3] {
-            // Don't support chaging max pin length and switching to PIN format 2
-            return Err(Status::FunctionNotSupported);
-        }
+    if ctx.data.len() == 4 && ctx.data[1..] != [MAX_PIN_LENGTH as u8; 3] {
+        // Don't support chaging max pin length and switching to PIN format 2
+        return Err(Status::FunctionNotSupported);
     }
     Ok(())
 }
@@ -867,8 +863,9 @@ fn put_cardholder_sex<const R: usize, T: trussed::Client>(
         return Err(Status::WrongLength);
     }
 
-    let sex = Sex::try_from(ctx.data[0])
-        .inspect_err_stable(|_| warn!("Incorrect data for Sex: {:x}", ctx.data[0]))?;
+    let sex = Sex::try_from(ctx.data[0]).inspect_err_stable(|_| {
+        warn!("Incorrect data for Sex: {:x}", ctx.data[0]);
+    })?;
 
     ctx.state
         .internal
