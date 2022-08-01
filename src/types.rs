@@ -5,6 +5,8 @@ use hex_literal::hex;
 use iso7816::Status;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+use crate::error::Error;
+
 /// Creates an enum with an `iter_all` associated function giving an iterator over all variants
 macro_rules! iterable_enum {
     (
@@ -233,5 +235,35 @@ impl KeyType {
             hex!("A4 00") | hex!("A4 03 84 01 03") => Ok(KeyType::Aut),
             _ => Err(Status::KeyReferenceNotFound),
         }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
+pub enum Uif {
+    Disabled = 0,
+    Enabled = 1,
+}
+
+impl Default for Uif {
+    fn default() -> Self {
+        Uif::Disabled
+    }
+}
+
+impl TryFrom<u8> for Uif {
+    type Error = Error;
+    fn try_from(v: u8) -> Result<Uif, Error> {
+        match v {
+            0 => Ok(Uif::Disabled),
+            1 => Ok(Uif::Enabled),
+            _ => Err(Error::BadRequest),
+        }
+    }
+}
+
+impl Uif {
+    pub fn as_byte(self) -> u8 {
+        self as u8
     }
 }

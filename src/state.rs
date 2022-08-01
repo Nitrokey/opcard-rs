@@ -90,26 +90,6 @@ impl Default for Sex {
         Sex::NotKnown
     }
 }
-
-#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
-#[repr(u8)]
-pub enum Uif {
-    Disabled = 0,
-    Enable = 1,
-}
-
-impl Default for Uif {
-    fn default() -> Self {
-        Uif::Disabled
-    }
-}
-
-impl Uif {
-    pub fn as_byte(self) -> u8 {
-        self as u8
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,
@@ -132,9 +112,9 @@ pub struct Internal {
     pub cardholder_sex: Sex,
     pub language_preferences: String<8>,
     pub sign_count: usize,
-    pub uif_sign: Uif,
-    pub uif_dec: Uif,
-    pub uif_aut: Uif,
+    uif_sign: Uif,
+    uif_dec: Uif,
+    uif_aut: Uif,
 }
 
 impl Internal {
@@ -349,6 +329,28 @@ impl Internal {
         data: [u8; 12],
     ) -> Result<(), Error> {
         self.keygen_dates = data;
+        self.save(client)
+    }
+
+    pub fn uif(&self, key: KeyType) -> Uif {
+        match key {
+            KeyType::Sign => self.uif_sign,
+            KeyType::Confidentiality => self.uif_dec,
+            KeyType::Aut => self.uif_aut,
+        }
+    }
+
+    pub fn set_uif(
+        &mut self,
+        client: &mut impl trussed::Client,
+        uif: Uif,
+        key: KeyType,
+    ) -> Result<(), Error> {
+        match key {
+            KeyType::Sign => self.uif_sign = uif,
+            KeyType::Confidentiality => self.uif_dec = uif,
+            KeyType::Aut => self.uif_aut = uif,
+        }
         self.save(client)
     }
 }

@@ -357,9 +357,9 @@ impl GetDataObject {
             Self::CAFingerprints => ca_fingerprints(context)?,
             Self::KeyGenerationDates => keygen_dates(context.load_state()?)?,
             Self::KeyInformation => key_info(context)?,
-            Self::UifCds => uif_sign(context.load_state()?)?,
-            Self::UifDec => uif_dec(context.load_state()?)?,
-            Self::UifAut => uif_aut(context.load_state()?)?,
+            Self::UifCds => uif(context.load_state()?, KeyType::Sign)?,
+            Self::UifDec => uif(context.load_state()?, KeyType::Confidentiality)?,
+            Self::UifAut => uif(context.load_state()?, KeyType::Aut)?,
             Self::CardHolderName => cardholder_name(context.load_state()?)?,
             Self::CardHolderSex => cardholder_sex(context.load_state()?)?,
             Self::LanguagePreferences => language_preferences(context.load_state()?)?,
@@ -611,27 +611,12 @@ pub fn key_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn uif_sign<const R: usize, T: trussed::Client>(
+pub fn uif<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
+    key: KeyType,
 ) -> Result<(), Status> {
     let button_byte = general_feature_management_byte(ctx.options);
-    let state_byte = ctx.state.internal.uif_sign.as_byte();
-    ctx.reply.expand(&[state_byte, button_byte])
-}
-
-pub fn uif_dec<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
-    let button_byte = general_feature_management_byte(ctx.options);
-    let state_byte = ctx.state.internal.uif_dec.as_byte();
-    ctx.reply.expand(&[state_byte, button_byte])
-}
-
-pub fn uif_aut<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
-    let button_byte = general_feature_management_byte(ctx.options);
-    let state_byte = ctx.state.internal.uif_aut.as_byte();
+    let state_byte = ctx.state.internal.uif(key).as_byte();
     ctx.reply.expand(&[state_byte, button_byte])
 }
 
@@ -791,30 +776,33 @@ impl PutDataObject {
             Self::CaFingerprint3 => unimplemented!(),
             Self::ResetingCode => unimplemented!(),
             Self::PSOEncDecKey => unimplemented!(),
-            Self::UifCds => put_uif_sign(ctx.load_state()?)?,
-            Self::UifDec => put_uif_dec(ctx.load_state()?)?,
-            Self::UifAut => put_uif_aut(ctx.load_state()?)?,
+            Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
+            Self::UifDec => put_uif(ctx.load_state()?, KeyType::Confidentiality)?,
+            Self::UifAut => put_uif(ctx.load_state()?, KeyType::Aut)?,
         }
         Ok(())
     }
 }
 
-fn put_uif_aut<const R: usize, T: trussed::Client>(
+fn put_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
+    key: KeyType,
 ) -> Result<(), Status> {
-    todo!()
-}
+    if ctx.data.len() > 2 || ctx.data.is_empty() {
+        return Err(Status::WrongLength);
+    }
 
-fn put_uif_dec<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
-    todo!()
-}
+    if ctx.data.len() == 2 {
+        if ctx.data[1] != general_feature_management_byte(ctx.options) {
+            warn!("Incorrect GFM byte in put_uif");
+        }
+    }
 
-fn put_uif_sign<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
-    todo!()
+    let uif = Uif::try_from(ctx.data[0]).map_err(|_| Status::IncorrectDataParameter)?;
+    ctx.state
+        .internal
+        .set_uif(ctx.backend.client_mut(), uif, key)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
 fn put_status_bytes<const R: usize, T: trussed::Client>(

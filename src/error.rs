@@ -8,6 +8,7 @@ pub enum Error {
     InvalidPin,
     TooManyTries,
     RequestTooLarge,
+    BadRequest,
 }
 
 impl core::fmt::Display for Error {
@@ -18,6 +19,7 @@ impl core::fmt::Display for Error {
             Error::InvalidPin => "Failed PIN authentication",
             Error::TooManyTries => "PIN is locked",
             Error::RequestTooLarge => "Request data is larger than supported",
+            Error::BadRequest => "Request data invalid",
         };
         f.write_str(to_write)
     }
