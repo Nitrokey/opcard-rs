@@ -782,7 +782,20 @@ impl PutDataObject {
             Self::AlgorithmAttributesSignature => put_alg_attributes_sign(ctx.load_state()?)?,
             Self::AlgorithmAttributesDecryption => put_alg_attributes_dec(ctx.load_state()?)?,
             Self::AlgorithmAttributesAuthentication => put_alg_attributes_aut(ctx.load_state()?)?,
-            _ => unimplemented!(),
+            Self::LoginData => unimplemented!(),
+            Self::HistoricalBytes => unimplemented!(),
+            Self::CardHolderName => unimplemented!(),
+            Self::CardHolderSex => unimplemented!(),
+            Self::LanguagePreferences => unimplemented!(),
+            Self::PwStatusBytes => unimplemented!(),
+            Self::CaFingerprint1 => unimplemented!(),
+            Self::CaFingerprint2 => unimplemented!(),
+            Self::CaFingerprint3 => unimplemented!(),
+            Self::ResetingCode => unimplemented!(),
+            Self::PSOEncDecKey => unimplemented!(),
+            Self::UifCds => unimplemented!(),
+            Self::UifDec => unimplemented!(),
+            Self::UifAut => unimplemented!(),
         }
         Ok(())
     }
