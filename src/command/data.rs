@@ -808,7 +808,34 @@ fn put_uif<const R: usize, T: trussed::Client>(
 fn put_status_bytes<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
+    if ctx.data.len() != 4 || ctx.data.len() != 1 {
+        warn!("put status bytes with incorrect length");
+        return Err(Status::WrongLength);
+    }
+
+    let internal = ctx.state.internal;
+    let client = ctx.backend.client_mut();
+
+    let flag = match ctx.data[0] {
+        0 => false,
+        1 => true,
+        input => {
+            warn!("Incorrect PW status byte {input:x}");
+            return Err(Status::IncorrectDataParameter)?;
+        }
+    };
+
+    internal
+        .set_verify_valid_multiple(flag, client)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+
+    if ctx.data.len() == 4 {
+        if ctx.data[1..] != [MAX_PIN_LENGTH as u8; 3] {
+            // Don't support chaging max pin length and switching to PIN format 2
+            return Err(Status::FunctionNotSupported);
+        }
+    }
+    Ok(())
 }
 
 fn put_language_prefs<const R: usize, T: trussed::Client>(
