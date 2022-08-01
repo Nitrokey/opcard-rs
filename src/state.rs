@@ -125,7 +125,7 @@ impl Default for Sex {
 pub struct Internal {
     user_pin_tries: u8,
     admin_pin_tries: u8,
-    verify_valid_mutltiple: bool,
+    pw1_valid_multiple: bool,
     user_pin: Bytes<MAX_PIN_LENGTH>,
     admin_pin: Bytes<MAX_PIN_LENGTH>,
     signing_key: Option<KeyId>,
@@ -164,7 +164,7 @@ impl Internal {
         Self {
             user_pin_tries: 0,
             admin_pin_tries: 0,
-            verify_valid_mutltiple: true,
+            pw1_valid_multiple: false,
             admin_pin,
             user_pin,
             cardholder_name: Bytes::new(),
@@ -403,16 +403,16 @@ impl Internal {
         self.save(client)
     }
 
-    pub fn verify_valid_multiple(&self) -> bool {
-        self.verify_valid_mutltiple
+    pub fn pw1_valid_multiple(&self) -> bool {
+        self.pw1_valid_multiple
     }
 
-    pub fn set_verify_valid_multiple(
+    pub fn set_pw1_valid_multiple(
         &mut self,
         value: bool,
         client: &mut impl trussed::Client,
     ) -> Result<(), Error> {
-        self.verify_valid_mutltiple = value;
+        self.pw1_valid_multiple = value;
         self.save(client)
     }
 

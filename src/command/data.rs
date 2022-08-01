@@ -512,8 +512,7 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let status = PasswordStatus {
-        // TODO support true
-        pw1_valid_multiple: false,
+        pw1_valid_multiple: ctx.state.internal.pw1_valid_multiple(),
         max_length_pw1: MAX_PIN_LENGTH as u8,
         max_length_rc: MAX_PIN_LENGTH as u8,
         max_length_pw3: MAX_PIN_LENGTH as u8,
@@ -826,7 +825,7 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
     };
 
     internal
-        .set_verify_valid_multiple(flag, client)
+        .set_pw1_valid_multiple(flag, client)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
 
     if ctx.data.len() == 4 {
