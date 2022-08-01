@@ -16,7 +16,7 @@ impl<T, E> InspectErr<E> for Result<T, E> {
     }
 }
 
-/// See https://github.com/serde-rs/bytes/pull/28
+/// See <https://github.com/serde-rs/bytes/pull/28>
 pub mod serde_bytes {
     use core::fmt;
     use serde::{
