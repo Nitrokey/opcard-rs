@@ -8,7 +8,7 @@ use crate::{
     card::{reply::Reply, Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
-        ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
+        ArbitraryDO, PermissionRequirement, Sex, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
         MAX_PIN_LENGTH,
     },
     types::*,
@@ -840,19 +840,58 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
 fn put_language_prefs<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
+    let bytes = match heapless::Vec::try_from(ctx.data) {
+        Ok(d) if ctx.data.len() % 2 == 0 => d.into(),
+        _ => {
+            warn!(
+                "put language pref with incorrect length: {}",
+                ctx.data.len()
+            );
+            return Err(Status::WrongLength);
+        }
+    };
+    ctx.state
+        .internal
+        .set_language_preferences(bytes, ctx.backend.client_mut())
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
 fn put_cardholder_sex<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
+    if ctx.data.len() != 1 {
+        warn!(
+            "put CardHolder sex length different than 1 byte: {:x?}",
+            ctx.data
+        );
+        return Err(Status::WrongLength);
+    }
+
+    let sex = Sex::try_from(ctx.data[0])
+        .inspect_err_stable(|_| warn!("Incorrect data for Sex: {:x}", ctx.data[0]))?;
+
+    ctx.state
+        .internal
+        .set_cardholder_sex(sex, ctx.backend.client_mut())
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
 fn put_cardholder_name<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
+    let bytes = heapless::Vec::try_from(ctx.data)
+        .map_err(|_| {
+            warn!(
+                "put language pref with incorrect length: {}",
+                ctx.data.len()
+            );
+            Status::WrongLength
+        })?
+        .into();
+    ctx.state
+        .internal
+        .set_cardholder_name(bytes, ctx.backend.client_mut())
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
 fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(

@@ -75,7 +75,7 @@ fn gpg_card_status() {
                 Manufacturer .....: test card\n\
                 Serial number ....: 00000000\n\
                 Name of cardholder: \\[not set\\]\n\
-                Language prefs ...: en\n\
+                Language prefs ...: \\[not set]\n\
                 Salutation .......: \n\
                 URL of public key : \\[not set\\]\n\
                 Login data .......: \\[not set\\]\n\

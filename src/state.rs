@@ -4,6 +4,7 @@
 use heapless::String;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
+use iso7816::Status;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
@@ -30,6 +31,36 @@ pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
 pub const MAX_GENERIC_LENGTH: usize = 1024;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
 pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_bytes();
+
+macro_rules! enum_u8 {
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident {
+            $($var:ident = $num:expr),+
+            $(,)*
+        }
+    ) => {
+        $(#[$outer])*
+        #[repr(u8)]
+        $vis enum $name {
+            $(
+                $var = $num,
+            )*
+        }
+
+        impl TryFrom<u8> for $name {
+            type Error = Status;
+            fn try_from(val: u8) -> ::core::result::Result<Self, Status> {
+                match val {
+                    $(
+                        $num => Ok($name::$var),
+                    )*
+                    _ => Err(Status::KeyReferenceNotFound)
+                }
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
@@ -76,13 +107,14 @@ pub struct LoadedState<'s> {
     pub runtime: &'s mut Runtime,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
-#[repr(u8)]
-pub enum Sex {
-    NotKnown = 0x30,
-    Male = 0x31,
-    Female = 0x32,
-    NotApplicable = 0x39,
+enum_u8! {
+    #[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
+    pub enum Sex {
+        NotKnown = 0x30,
+        Male = 0x31,
+        Female = 0x32,
+        NotApplicable = 0x39,
+    }
 }
 
 impl Default for Sex {
@@ -373,12 +405,39 @@ impl Internal {
         &self.cardholder_name
     }
 
+    pub fn set_cardholder_name(
+        &mut self,
+        value: Bytes<39>,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.cardholder_name = value;
+        self.save(client)
+    }
+
     pub fn cardholder_sex(&self) -> Sex {
         self.cardholder_sex
     }
 
+    pub fn set_cardholder_sex(
+        &mut self,
+        value: Sex,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.cardholder_sex = value;
+        self.save(client)
+    }
+
     pub fn language_preferences(&self) -> &[u8] {
         &self.language_preferences
+    }
+
+    pub fn set_language_preferences(
+        &mut self,
+        value: Bytes<8>,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.language_preferences = value;
+        self.save(client)
     }
 
     pub fn sign_count(&self) -> usize {
