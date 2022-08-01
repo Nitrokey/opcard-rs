@@ -288,13 +288,38 @@ impl Internal {
     pub fn sign_alg(&self) -> SignatureAlgorithms {
         self.sign_alg
     }
+    pub fn set_sign_alg(
+        &mut self,
+        client: &mut impl trussed::Client,
+        alg: SignatureAlgorithms,
+    ) -> Result<(), Error> {
+        self.sign_alg = alg;
+        self.save(client)
+    }
 
     pub fn dec_alg(&self) -> DecryptionAlgorithms {
         self.dec_alg
     }
+    pub fn set_dec_alg(
+        &mut self,
+        client: &mut impl trussed::Client,
+        alg: DecryptionAlgorithms,
+    ) -> Result<(), Error> {
+        self.dec_alg = alg;
+        self.save(client)
+    }
 
     pub fn aut_alg(&self) -> AuthenticationAlgorithms {
         self.aut_alg
+    }
+
+    pub fn set_aut_alg(
+        &mut self,
+        client: &mut impl trussed::Client,
+        alg: AuthenticationAlgorithms,
+    ) -> Result<(), Error> {
+        self.aut_alg = alg;
+        self.save(client)
     }
 
     pub fn fingerprints(&self) -> &[u8; 60] {

@@ -54,6 +54,9 @@ const RSA_4K_ATTRIBUTES: &[u8] = hex!(
 )
 .as_slice();
 
+#[derive(Debug, Copy, Clone)]
+pub struct AttributesFromsSliceError;
+
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
@@ -90,6 +93,20 @@ impl SignatureAlgorithms {
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
         &self.attributes()[1..]
+    }
+}
+
+impl TryFrom<&[u8]> for SignatureAlgorithms {
+    type Error = AttributesFromsSliceError;
+
+    fn try_from(v: &[u8]) -> Result<SignatureAlgorithms, AttributesFromsSliceError> {
+        match v {
+            ED255_ATTRIBUTES => Ok(Self::Ed255),
+            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
+            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
+            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
+            _ => Err(AttributesFromsSliceError),
+        }
     }
 }
 
@@ -132,6 +149,20 @@ impl DecryptionAlgorithms {
     }
 }
 
+impl TryFrom<&[u8]> for DecryptionAlgorithms {
+    type Error = AttributesFromsSliceError;
+
+    fn try_from(v: &[u8]) -> Result<DecryptionAlgorithms, AttributesFromsSliceError> {
+        match v {
+            X255_ATTRIBUTES => Ok(Self::X255),
+            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
+            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
+            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
+            _ => Err(AttributesFromsSliceError),
+        }
+    }
+}
+
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
@@ -168,6 +199,20 @@ impl AuthenticationAlgorithms {
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
         &self.attributes()[1..]
+    }
+}
+
+impl TryFrom<&[u8]> for AuthenticationAlgorithms {
+    type Error = AttributesFromsSliceError;
+
+    fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithms, AttributesFromsSliceError> {
+        match v {
+            X255_ATTRIBUTES => Ok(Self::X255),
+            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
+            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
+            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
+            _ => Err(AttributesFromsSliceError),
+        }
     }
 }
 

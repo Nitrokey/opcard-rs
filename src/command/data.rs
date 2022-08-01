@@ -553,7 +553,6 @@ pub fn algo_info<const R: usize, T: trussed::Client>(
 pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct algorithm from state
     ctx.reply
         .expand(ctx.state.internal.sign_alg().attributes())?;
     Ok(())
@@ -562,7 +561,6 @@ pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
 pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct algorithm from state
     ctx.reply
         .expand(ctx.state.internal.dec_alg().attributes())?;
     Ok(())
@@ -571,7 +569,6 @@ pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
 pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct algorithm from state
     ctx.reply
         .expand(ctx.state.internal.aut_alg().attributes())?;
     Ok(())
@@ -778,13 +775,66 @@ impl PutDataObject {
             Self::AuthFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             // TODO support curDo
             Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
+            Self::AlgorithmAttributesSignature => put_alg_attributes_sign(ctx.load_state()?)?,
+            Self::AlgorithmAttributesDecryption => put_alg_attributes_dec(ctx.load_state()?)?,
+            Self::AlgorithmAttributesAuthentication => put_alg_attributes_aut(ctx.load_state()?)?,
             _ => unimplemented!(),
         }
         Ok(())
     }
 }
+fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let alg = SignatureAlgorithms::try_from(ctx.data).map_err(|_| {
+        warn!(
+            "PUT DATA for signature attribute for unkown algorithm: {:x?}",
+            ctx.data
+        );
+        Status::IncorrectDataParameter
+    })?;
 
-pub fn put_arbitrary_do<const R: usize, T: trussed::Client>(
+    ctx.state
+        .internal
+        .set_sign_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let alg = DecryptionAlgorithms::try_from(ctx.data).map_err(|_| {
+        warn!(
+            "PUT DATA for decryption attribute for unkown algorithm: {:x?}",
+            ctx.data
+        );
+        Status::IncorrectDataParameter
+    })?;
+
+    ctx.state
+        .internal
+        .set_dec_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let alg = AuthenticationAlgorithms::try_from(ctx.data).map_err(|_| {
+        warn!(
+            "PUT DATA for authentication attribute for unkown algorithm: {:x?}",
+            ctx.data
+        );
+        Status::IncorrectDataParameter
+    })?;
+
+    ctx.state
+        .internal
+        .set_aut_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_arbitrary_do<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
@@ -795,7 +845,7 @@ pub fn put_arbitrary_do<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-pub fn put_fingerprint<const R: usize, T: trussed::Client>(
+fn put_fingerprint<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     for_key: KeyType,
 ) -> Result<(), Status> {
