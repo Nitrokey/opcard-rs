@@ -624,27 +624,28 @@ pub fn cardholder_name<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
-        .expand(ctx.state.internal.cardholder_name.as_bytes())
+        .expand(ctx.state.internal.cardholder_name().as_bytes())
 }
 
 pub fn cardholder_sex<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply.expand(&[ctx.state.internal.cardholder_sex as u8])
+    ctx.reply
+        .expand(&[ctx.state.internal.cardholder_sex() as u8])
 }
 
 pub fn language_preferences<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
-        .expand(ctx.state.internal.language_preferences.as_bytes())
+        .expand(ctx.state.internal.language_preferences().as_bytes())
 }
 
 pub fn signature_counter<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
-    let resp = &ctx.state.internal.sign_count.to_be_bytes()[1..];
+    let resp = &ctx.state.internal.sign_count().to_be_bytes()[1..];
     ctx.reply.expand(resp)
 }
 

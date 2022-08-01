@@ -109,10 +109,10 @@ pub struct Internal {
     #[serde(with = "serde_bytes")]
     keygen_dates: [u8; 12],
 
-    pub cardholder_name: String<39>,
-    pub cardholder_sex: Sex,
-    pub language_preferences: String<8>,
-    pub sign_count: usize,
+    cardholder_name: String<39>,
+    cardholder_sex: Sex,
+    language_preferences: String<8>,
+    sign_count: usize,
     uif_sign: Uif,
     uif_dec: Uif,
     uif_aut: Uif,
@@ -367,6 +367,22 @@ impl Internal {
     ) -> Result<(), Error> {
         self.verify_valid_mutltiple = value;
         self.save(client)
+    }
+
+    pub fn cardholder_name(&self) -> &str {
+        &self.cardholder_name
+    }
+
+    pub fn cardholder_sex(&self) -> Sex {
+        self.cardholder_sex
+    }
+
+    pub fn language_preferences(&self) -> &str {
+        &self.language_preferences
+    }
+
+    pub fn sign_count(&self) -> usize {
+        self.sign_count
     }
 }
 
