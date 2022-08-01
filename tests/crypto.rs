@@ -12,13 +12,12 @@ fn gen_key() {
     with_card(|mut card| {
         card.with_tx(|mut tx| {
             assert!(tx.verify_pw3(b"12345678").is_ok());
-            assert!(tx
-                .generate_key_simple(
-                    |_, _, _| panic!("Got here!"),
-                    KeyType::Signing,
-                    AlgoSimple::Curve25519
-                )
-                .is_ok())
+            tx.generate_key_simple(
+                |_, _, _| panic!("Got here!"),
+                KeyType::Signing,
+                AlgoSimple::Curve25519,
+            )
+            .unwrap();
         })
     })
 }
