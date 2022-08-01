@@ -128,7 +128,6 @@ impl Internal {
         // § 4.3.1
         let admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
         let user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
-        let language_preferences = Bytes::from_slice(b"en").unwrap();
         Self {
             user_pin_tries: 0,
             admin_pin_tries: 0,
@@ -137,7 +136,7 @@ impl Internal {
             user_pin,
             cardholder_name: Bytes::new(),
             cardholder_sex: Sex::default(),
-            language_preferences,
+            language_preferences: Bytes::new(),
             sign_count: 0,
             signing_key: None,
             confidentiality_key: None,

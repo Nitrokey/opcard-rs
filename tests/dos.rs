@@ -40,7 +40,7 @@ fn get_data() {
         // We may want the name to return None when not set. We'll have to see how GPG handles it
         assert_eq!(holderdata.name().unwrap(), b"".as_slice());
         assert_eq!(holderdata.sex().unwrap(), Sex::NotKnown);
-        assert_eq!(holderdata.lang().unwrap(), &[Lang::Value(*b"en")]);
+        assert_eq!(holderdata.lang().unwrap(), &[]);
 
         let cardholder_cert = tx.cardholder_certificate().unwrap();
         assert_eq!(cardholder_cert, &[]);
