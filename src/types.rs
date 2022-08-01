@@ -34,6 +34,26 @@ macro_rules! iterable_enum {
     }
 }
 
+const ED255_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice();
+const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
+const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
+const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
+const RSA_2K_ATTRIBUTES: &[u8] = hex!("
+    01
+    0800 // Length modulus (in bit): 2048                                                                                                                                        
+    0020 // Length exponent (in bit): 32
+    00   // 0: Acceptable format is: P and Q
+").as_slice();
+const RSA_4K_ATTRIBUTES: &[u8] = hex!(
+    "
+    01
+    1000 // Length modulus (in bit): 4096
+    0020 // Length exponent (in bit): 32
+    00   // 0: Acceptable format is: P and Q
+"
+)
+.as_slice();
+
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
@@ -60,20 +80,10 @@ impl SignatureAlgorithms {
 
     pub fn attributes(&self) -> &'static [u8] {
         match self {
-            Self::Ed255 => &hex!("16 2B 06 01 04 01 DA 47 0F 01"),
-            Self::EcDsaP256 => &hex!("13 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
+            Self::Ed255 => ED255_ATTRIBUTES,
+            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
+            Self::Rsa2k => RSA_2K_ATTRIBUTES,
+            Self::Rsa4k => RSA_4K_ATTRIBUTES,
         }
     }
 
@@ -109,20 +119,10 @@ impl DecryptionAlgorithms {
 
     pub fn attributes(&self) -> &'static [u8] {
         match self {
-            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
-            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
+            Self::X255 => X255_ATTRIBUTES,
+            Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
+            Self::Rsa2k => RSA_2K_ATTRIBUTES,
+            Self::Rsa4k => RSA_4K_ATTRIBUTES,
         }
     }
 
@@ -158,20 +158,10 @@ impl AuthenticationAlgorithms {
 
     pub fn attributes(&self) -> &'static [u8] {
         match self {
-            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
-            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
+            Self::X255 => X255_ATTRIBUTES,
+            Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
+            Self::Rsa2k => RSA_2K_ATTRIBUTES,
+            Self::Rsa4k => RSA_4K_ATTRIBUTES,
         }
     }
 
