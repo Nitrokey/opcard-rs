@@ -768,11 +768,11 @@ impl PutDataObject {
             Self::CardHolderSex => put_cardholder_sex(ctx.load_state()?)?,
             Self::LanguagePreferences => put_language_prefs(ctx.load_state()?)?,
             Self::PwStatusBytes => put_status_bytes(ctx.load_state()?)?,
-            Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
+            Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             Self::CaFingerprint2 => {
                 put_ca_fingerprint(ctx.load_state()?, KeyType::Confidentiality)?
             }
-            Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
+            Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
             Self::ResetingCode => unimplemented!(),
             Self::PSOEncDecKey => unimplemented!(),
             Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
@@ -985,9 +985,9 @@ fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
         return Err(Status::WrongLength);
     }
     let offset = match for_key {
-        KeyType::Sign => 0,
+        KeyType::Sign => 40,
         KeyType::Confidentiality => 20,
-        KeyType::Aut => 40,
+        KeyType::Aut => 0,
     };
 
     let mut fp = ctx.state.internal.ca_fingerprints();
