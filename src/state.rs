@@ -1,7 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use heapless::String;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
