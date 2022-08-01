@@ -355,7 +355,7 @@ impl GetDataObject {
             Self::AlgorithmInformation => algo_info(context)?,
             Self::Fingerprints => fingerprints(context.load_state()?)?,
             Self::CAFingerprints => ca_fingerprints(context)?,
-            Self::KeyGenerationDates => keygen_dates(context)?,
+            Self::KeyGenerationDates => keygen_dates(context.load_state()?)?,
             Self::KeyInformation => key_info(context)?,
             Self::UifCds => uif_sign(context.load_state()?)?,
             Self::UifDec => uif_dec(context.load_state()?)?,
@@ -577,7 +577,7 @@ pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
 pub fn fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply.expand(&*ctx.state.internal.fingerprints())?;
+    ctx.reply.expand(&ctx.state.internal.fingerprints())?;
     Ok(())
 }
 
@@ -590,10 +590,9 @@ pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
 }
 
 pub fn keygen_dates<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load from state
-    ctx.reply.expand(&[0; 12])?;
+    ctx.reply.expand(&ctx.state.internal.keygen_dates())?;
     Ok(())
 }
 
@@ -773,6 +772,11 @@ impl PutDataObject {
             Self::SignFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Sign)?,
             Self::DecFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Confidentiality)?,
             Self::AuthFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Aut)?,
+            Self::SignGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Sign)?,
+            Self::DecGenerationDate => {
+                put_keygen_date(ctx.load_state()?, KeyType::Confidentiality)?
+            }
+            Self::AuthGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Aut)?,
             // TODO support curDo
             Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
             Self::AlgorithmAttributesSignature => put_alg_attributes_sign(ctx.load_state()?)?,
@@ -857,11 +861,32 @@ fn put_fingerprint<const R: usize, T: trussed::Client>(
         KeyType::Confidentiality => 20,
         KeyType::Aut => 40,
     };
-    let mut fp = *ctx.state.internal.fingerprints();
+
+    let mut fp = ctx.state.internal.fingerprints();
     fp[offset..][..20].copy_from_slice(ctx.data);
     ctx.state
         .internal
         .set_fingerprints(ctx.backend.client_mut(), fp)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_keygen_date<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    for_key: KeyType,
+) -> Result<(), Status> {
+    if ctx.data.len() != 4 {
+        return Err(Status::WrongLength);
+    }
+    let offset = match for_key {
+        KeyType::Sign => 0,
+        KeyType::Confidentiality => 4,
+        KeyType::Aut => 8,
+    };
+    let mut dates = ctx.state.internal.keygen_dates();
+    dates[offset..][..4].copy_from_slice(ctx.data);
+    ctx.state
+        .internal
+        .set_keygen_dates(ctx.backend.client_mut(), dates)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
