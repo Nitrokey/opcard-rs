@@ -2,6 +2,8 @@
 // let algo = ctx.state.internal.
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use std::mem::swap;
+
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
@@ -561,6 +563,22 @@ impl Internal {
             KeyType::Dec => self.confidentiality_key,
             KeyType::Aut => self.aut_key,
         }
+    }
+
+    /// If the key id was already set, return the old key_id
+    pub fn set_key_id(
+        &mut self,
+        ty: KeyType,
+        mut new: Option<KeyId>,
+        client: &mut impl trussed::Client,
+    ) -> Result<Option<KeyId>, Error> {
+        match ty {
+            KeyType::Sign => swap(&mut self.signing_key, &mut new),
+            KeyType::Dec => swap(&mut self.confidentiality_key, &mut new),
+            KeyType::Aut => swap(&mut self.aut_key, &mut new),
+        }
+        self.save(client)?;
+        Ok(new)
     }
 }
 

@@ -3,12 +3,13 @@
 
 use hex_literal::hex;
 use iso7816::Status;
-use trussed::try_syscall;
 use trussed::types::{KeySerialization, Location, Mechanism, StorageAttributes};
+use trussed::{syscall, try_syscall};
 
 use crate::card::reply::Reply;
 use crate::card::LoadedContext;
 use crate::types::*;
+use crate::utils::InspectErr;
 
 pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
@@ -53,7 +54,7 @@ fn gen_ed255<const R: usize, T: trussed::Client>(
     let key_id = try_syscall!(client.generate_key(
         Mechanism::Ed255,
         StorageAttributes {
-            persistence: Location::Internal,
+            persistence: Location::Internal
         }
     ))
     .map_err(|_err| {
@@ -61,8 +62,31 @@ fn gen_ed255<const R: usize, T: trussed::Client>(
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
+    if let Some(old_key) = ctx
+        .state
+        .internal
+        .set_key_id(KeyType::Sign, Some(key_id), client)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
+    {
+        // Deletion is not a fatal error
+        try_syscall!(client.delete(old_key))
+            .inspect_err_stable(|_err| {
+                error!("Failed to delete old key: {_err:?}");
+            })
+            .ok();
+    }
+
+    let public_key = syscall!(client.derive_key(
+        Mechanism::Ed255,
+        key_id,
+        None,
+        StorageAttributes {
+            persistence: Location::Volatile
+        }
+    ))
+    .key;
     let serialized =
-        try_syscall!(client.serialize_key(Mechanism::Ed255, key_id, KeySerialization::Raw))
+        try_syscall!(client.serialize_key(Mechanism::Ed255, public_key, KeySerialization::Raw))
             .map_err(|_err| {
                 error!("Failed to serialize public key: {_err:?}");
                 Status::UnspecifiedNonpersistentExecutionError

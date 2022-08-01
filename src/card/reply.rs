@@ -77,7 +77,6 @@ impl<'v, const R: usize> Reply<'v, R> {
         Ok(())
     }
 
-    #[allow(unused)]
     pub fn append_len(&mut self, len: usize) -> Result<(), Status> {
         let encoded = Self::serialize_len(len)?;
         self.extend_from_slice(&encoded).map_err(|_| {
