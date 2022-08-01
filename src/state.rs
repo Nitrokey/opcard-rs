@@ -2,7 +2,7 @@
 // let algo = ctx.state.internal.
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use std::mem::swap;
+use core::mem::swap;
 
 use heapless_bytes::Bytes;
 use hex_literal::hex;

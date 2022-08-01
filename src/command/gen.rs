@@ -93,7 +93,8 @@ fn gen_ed255<const R: usize, T: trussed::Client>(
             })?
             .serialized_key;
     ctx.reply.expand(&[0x86])?;
-    ctx.reply.append_len(serialized.len())?;
+    ctx.reply.append_len(serialized.len() + 1)?;
+    ctx.reply.expand(&[0x04])?;
     ctx.reply.expand(&serialized)
 }
 
