@@ -222,7 +222,7 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
 #[allow(unused)]
 pub enum KeyType {
     Sign,
-    Confidentiality,
+    Dec,
     Aut,
 }
 
@@ -231,7 +231,7 @@ impl KeyType {
     pub fn try_from_crt(v: &[u8]) -> Result<Self, Status> {
         match v {
             hex!("B6 00") | hex!("B6 03 84 01 01") => Ok(KeyType::Sign),
-            hex!("B8 00") | hex!("B8 03 84 01 02") => Ok(KeyType::Confidentiality),
+            hex!("B8 00") | hex!("B8 03 84 01 02") => Ok(KeyType::Dec),
             hex!("A4 00") | hex!("A4 03 84 01 03") => Ok(KeyType::Aut),
             _ => Err(Status::KeyReferenceNotFound),
         }

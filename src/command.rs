@@ -261,7 +261,7 @@ impl TryFrom<u8> for GenerateAsymmetricKeyPairMode {
 #[derive(Debug, Eq, PartialEq)]
 pub enum ManageSecurityEnvironmentMode {
     Authentication,
-    Confidentiality,
+    Dec,
 }
 
 impl TryFrom<u8> for ManageSecurityEnvironmentMode {
@@ -270,7 +270,7 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0xA4 => Ok(Self::Authentication),
-            0xB8 => Ok(Self::Confidentiality),
+            0xB8 => Ok(Self::Dec),
             _ => Err(Status::IncorrectP1OrP2Parameter),
         }
     }

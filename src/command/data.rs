@@ -359,7 +359,7 @@ impl GetDataObject {
             Self::KeyGenerationDates => keygen_dates(context.load_state()?)?,
             Self::KeyInformation => key_info(context)?,
             Self::UifCds => uif(context.load_state()?, KeyType::Sign)?,
-            Self::UifDec => uif(context.load_state()?, KeyType::Confidentiality)?,
+            Self::UifDec => uif(context.load_state()?, KeyType::Dec)?,
             Self::UifAut => uif(context.load_state()?, KeyType::Aut)?,
             Self::CardHolderName => cardholder_name(context.load_state()?)?,
             Self::CardHolderSex => cardholder_sex(context.load_state()?)?,
@@ -753,12 +753,10 @@ impl PutDataObject {
             Self::Url => put_arbitrary_do(ctx, ArbitraryDO::Url)?,
             Self::KdfDo => put_arbitrary_do(ctx, ArbitraryDO::KdfDo)?,
             Self::SignFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Sign)?,
-            Self::DecFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Confidentiality)?,
+            Self::DecFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Dec)?,
             Self::AuthFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             Self::SignGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Sign)?,
-            Self::DecGenerationDate => {
-                put_keygen_date(ctx.load_state()?, KeyType::Confidentiality)?
-            }
+            Self::DecGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Dec)?,
             Self::AuthGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Aut)?,
             // TODO support curDo
             Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
@@ -770,14 +768,12 @@ impl PutDataObject {
             Self::LanguagePreferences => put_language_prefs(ctx.load_state()?)?,
             Self::PwStatusBytes => put_status_bytes(ctx.load_state()?)?,
             Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
-            Self::CaFingerprint2 => {
-                put_ca_fingerprint(ctx.load_state()?, KeyType::Confidentiality)?
-            }
+            Self::CaFingerprint2 => put_ca_fingerprint(ctx.load_state()?, KeyType::Dec)?,
             Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
             Self::ResetingCode => unimplemented!(),
             Self::PSOEncDecKey => unimplemented!(),
             Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
-            Self::UifDec => put_uif(ctx.load_state()?, KeyType::Confidentiality)?,
+            Self::UifDec => put_uif(ctx.load_state()?, KeyType::Dec)?,
             Self::UifAut => put_uif(ctx.load_state()?, KeyType::Aut)?,
         }
         Ok(())

@@ -121,7 +121,7 @@ impl Fingerprints {
     fn key_offset(&self, for_key: KeyType) -> usize {
         match for_key {
             KeyType::Sign => 0,
-            KeyType::Confidentiality => 20,
+            KeyType::Dec => 20,
             KeyType::Aut => 40,
         }
     }
@@ -131,7 +131,7 @@ impl KeyGenDates {
     fn key_offset(&self, for_key: KeyType) -> usize {
         match for_key {
             KeyType::Sign => 0,
-            KeyType::Confidentiality => 4,
+            KeyType::Dec => 4,
             KeyType::Aut => 8,
         }
     }
@@ -141,7 +141,7 @@ impl CaFingerprints {
     fn key_offset(&self, for_key: KeyType) -> usize {
         match for_key {
             KeyType::Sign => 40,
-            KeyType::Confidentiality => 20,
+            KeyType::Dec => 20,
             KeyType::Aut => 0,
         }
     }
@@ -466,7 +466,7 @@ impl Internal {
     pub fn uif(&self, key: KeyType) -> Uif {
         match key {
             KeyType::Sign => self.uif_sign,
-            KeyType::Confidentiality => self.uif_dec,
+            KeyType::Dec => self.uif_dec,
             KeyType::Aut => self.uif_aut,
         }
     }
@@ -479,7 +479,7 @@ impl Internal {
     ) -> Result<(), Error> {
         match key {
             KeyType::Sign => self.uif_sign = uif,
-            KeyType::Confidentiality => self.uif_dec = uif,
+            KeyType::Dec => self.uif_dec = uif,
             KeyType::Aut => self.uif_aut = uif,
         }
         self.save(client)
