@@ -810,8 +810,10 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
         return Err(Status::WrongLength);
     }
 
-    let internal = ctx.state.internal;
-    let client = ctx.backend.client_mut();
+    if ctx.data.len() == 4 && ctx.data[1..] != [MAX_PIN_LENGTH as u8; 3] {
+        // Don't support chaging max pin length and switching to PIN format 2
+        return Err(Status::FunctionNotSupported);
+    }
 
     let flag = match ctx.data[0] {
         0 => false,
@@ -822,14 +824,11 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
         }
     };
 
-    internal
-        .set_pw1_valid_multiple(flag, client)
+    ctx.state
+        .internal
+        .set_pw1_valid_multiple(flag, ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
 
-    if ctx.data.len() == 4 && ctx.data[1..] != [MAX_PIN_LENGTH as u8; 3] {
-        // Don't support chaging max pin length and switching to PIN format 2
-        return Err(Status::FunctionNotSupported);
-    }
     Ok(())
 }
 
