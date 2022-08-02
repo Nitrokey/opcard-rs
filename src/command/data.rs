@@ -1,44 +1,20 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
 
 use crate::{
     card::{reply::Reply, Context, LoadedContext, Options},
-    command::{GetDataMode, Password, Tag},
-    state::{ArbitraryDO, PermissionRequirement, MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH},
+    command::{GetDataMode, Password, PutDataMode, Tag},
+    state::{
+        ArbitraryDO, PermissionRequirement, Sex, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
+        MAX_PIN_LENGTH,
+    },
+    types::*,
     utils::InspectErr,
 };
-
-/// Creates an enum with an `iter_all` associated function giving an iterator over all variants
-macro_rules! iterable_enum {
-    (
-        $(#[$outer:meta])*
-        $vis:vis enum $name:ident {
-            $($var:ident),+
-            $(,)*
-        }
-    ) => {
-        $(#[$outer])*
-        $vis enum $name {
-            $(
-                $var,
-            )*
-        }
-
-        #[allow(unused)]
-        impl $name {
-            $vis fn iter_all() -> impl Iterator<Item = Self> {
-                [
-                    $(
-                        $name::$var,
-                    )*
-                ].into_iter()
-            }
-        }
-    }
-}
 
 macro_rules! enum_u16 {
     (
@@ -252,7 +228,7 @@ enum_u16! {
 
 enum_subset! {
     /// Data objects available via GET DATA
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum GetDataObject: DataObject {
         PrivateUse1,
         PrivateUse2,
@@ -374,30 +350,32 @@ impl GetDataObject {
             Self::GeneralFeatureManagement => context
                 .reply
                 .expand(&general_feature_management(context.options))?,
-            Self::AlgorithmAttributesSignature => alg_attr_sign(context)?,
-            Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
-            Self::AlgorithmAttributesAuthentication => alg_attr_aut(context)?,
+            Self::AlgorithmAttributesSignature => alg_attr_sign(context.load_state()?)?,
+            Self::AlgorithmAttributesDecryption => alg_attr_dec(context.load_state()?)?,
+            Self::AlgorithmAttributesAuthentication => alg_attr_aut(context.load_state()?)?,
             Self::AlgorithmInformation => algo_info(context)?,
-            Self::Fingerprints => fingerprints(context)?,
-            Self::CAFingerprints => ca_fingerprints(context)?,
-            Self::KeyGenerationDates => keygen_dates(context)?,
+            Self::Fingerprints => fingerprints(context.load_state()?)?,
+            Self::CAFingerprints => ca_fingerprints(context.load_state()?)?,
+            Self::KeyGenerationDates => keygen_dates(context.load_state()?)?,
             Self::KeyInformation => key_info(context)?,
-            Self::UifCds => uif_sign(context.load_state()?)?,
-            Self::UifDec => uif_dec(context.load_state()?)?,
-            Self::UifAut => uif_aut(context.load_state()?)?,
+            Self::UifCds => uif(context.load_state()?, KeyType::Sign)?,
+            Self::UifDec => uif(context.load_state()?, KeyType::Dec)?,
+            Self::UifAut => uif(context.load_state()?, KeyType::Aut)?,
             Self::CardHolderName => cardholder_name(context.load_state()?)?,
             Self::CardHolderSex => cardholder_sex(context.load_state()?)?,
             Self::LanguagePreferences => language_preferences(context.load_state()?)?,
-            Self::Url => arbitrary_do(context, ArbitraryDO::Url)?,
-            Self::LoginData => arbitrary_do(context, ArbitraryDO::LoginData)?,
+            Self::Url => get_arbitrary_do(context, ArbitraryDO::Url)?,
+            Self::LoginData => get_arbitrary_do(context, ArbitraryDO::LoginData)?,
             Self::DigitalSignatureCounter => signature_counter(context.load_state()?)?,
-            Self::KdfDo => arbitrary_do(context, ArbitraryDO::KdfDo)?,
-            Self::PrivateUse1 => arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
-            Self::PrivateUse2 => arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
-            Self::PrivateUse3 => arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
-            Self::PrivateUse4 => arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
+            Self::KdfDo => get_arbitrary_do(context, ArbitraryDO::KdfDo)?,
+            Self::PrivateUse1 => get_arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
+            Self::PrivateUse2 => get_arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
+            Self::PrivateUse3 => get_arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
+            Self::PrivateUse4 => get_arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
             // TODO revisit with support for GET NEXT DAT/ SELECT DATA
-            Self::CardHolderCertificate => arbitrary_do(context, ArbitraryDO::CardHolderCertAut)?,
+            Self::CardHolderCertificate => {
+                get_arbitrary_do(context, ArbitraryDO::CardHolderCertAut)?
+            }
             Self::SecureMessagingCertificate => return Err(Status::SecureMessagingNotSupported),
             Self::CardHolderRelatedData
             | Self::ApplicationRelatedData
@@ -409,153 +387,6 @@ impl GetDataObject {
         }
         info!("Returning data for tag: {self:?}");
         Ok(())
-    }
-}
-
-iterable_enum! {
-    enum SignatureAlgorithms {
-        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        Ed255,
-        EcDsaP256,
-        Rsa2k,
-        Rsa4k,
-    }
-}
-
-impl Default for SignatureAlgorithms {
-    fn default() -> Self {
-        Self::Rsa2k
-    }
-}
-
-impl SignatureAlgorithms {
-    #[allow(unused)]
-    pub fn id(&self) -> u8 {
-        self.attributes()[0]
-    }
-
-    pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::Ed255 => &hex!("16 2B 06 01 04 01 DA 47 0F 01"),
-            Self::EcDsaP256 => &hex!("13 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-        }
-    }
-
-    #[allow(unused)]
-    pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
-    }
-}
-
-iterable_enum! {
-    enum DecryptionAlgorithms {
-        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        X255,
-        EcDhP256,
-        Rsa2k,
-        Rsa4k,
-    }
-}
-
-impl Default for DecryptionAlgorithms {
-    fn default() -> Self {
-        Self::Rsa2k
-    }
-}
-
-impl DecryptionAlgorithms {
-    #[allow(unused)]
-    pub fn id(&self) -> u8 {
-        match self {
-            Self::X255 | Self::EcDhP256 => 0x12,
-            Self::Rsa2k | Self::Rsa4k => 0x1,
-        }
-    }
-
-    pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
-            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-        }
-    }
-
-    #[allow(unused)]
-    pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
-    }
-}
-
-iterable_enum! {
-    enum AuthenticationAlgorithms {
-        // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        X255,
-        EcDhP256,
-        Rsa2k,
-        Rsa4k,
-    }
-}
-
-impl Default for AuthenticationAlgorithms {
-    fn default() -> Self {
-        Self::Rsa2k
-    }
-}
-
-impl AuthenticationAlgorithms {
-    #[allow(unused)]
-    pub fn id(&self) -> u8 {
-        match self {
-            Self::X255 | Self::EcDhP256 => 0x12,
-            Self::Rsa2k | Self::Rsa4k => 0x1,
-        }
-    }
-
-    pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::X255=> &hex!("12 2B 06 01 04 01 97 55 01 05 01"),
-            Self::EcDhP256=> &hex!("12 2A 86 48 CE 3D 03 01 07"),
-            Self::Rsa2k => &hex!("
-                01
-                0800 // Length modulus (in bit): 2048                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-            Self::Rsa4k => &hex!("
-                01
-                1000 // Length modulus (in bit): 4096                                                                                                                                        
-                0020 // Length exponent (in bit): 32
-                00   // 0: Acceptable format is: P and Q
-            "),
-        }
-    }
-
-    #[allow(unused)]
-    pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
     }
 }
 
@@ -638,11 +469,29 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     }
 }
 
+fn filtered_objects(
+    options: &Options,
+    objects: &'static [GetDataObject],
+) -> impl Iterator<Item = &'static GetDataObject> {
+    let to_filter = if !options.button_available {
+        [
+            GetDataObject::UifCds,
+            GetDataObject::UifDec,
+            GetDataObject::UifAut,
+        ]
+        .as_slice()
+    } else {
+        [].as_slice()
+    };
+
+    objects.iter().filter(move |o| !to_filter.contains(o))
+}
+
 fn get_constructed_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
     objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
-    for obj in objects {
+    for obj in filtered_objects(context.options, objects) {
         context.reply.expand(obj.tag())?;
         let offset = context.reply.len();
         // Copied to avoid moving the context
@@ -657,7 +506,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
         match obj.simple_or_constructed() {
             GetDataDoType::Simple(simple) => simple.reply(tmp_ctx)?,
             GetDataDoType::Constructed(children) => {
-                for inner_obj in children {
+                for inner_obj in filtered_objects(tmp_ctx.options, children) {
                     tmp_ctx.reply.expand(inner_obj.tag())?;
                     let inner_offset = tmp_ctx.reply.len();
                     let inner_tmp_ctx = Context {
@@ -682,8 +531,7 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let status = PasswordStatus {
-        // TODO support true
-        pw1_valid_multiple: false,
+        pw1_valid_multiple: ctx.state.internal.pw1_valid_multiple(),
         max_length_pw1: MAX_PIN_LENGTH as u8,
         max_length_rc: MAX_PIN_LENGTH as u8,
         max_length_pw3: MAX_PIN_LENGTH as u8,
@@ -699,19 +547,19 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
 pub fn algo_info<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    for alg in SignatureAlgorithms::iter_all() {
+    for alg in SignatureAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
         ctx.reply.expand(alg.attributes())?;
         ctx.reply.prepend_len(offset)?;
     }
-    for alg in DecryptionAlgorithms::iter_all() {
+    for alg in DecryptionAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC2])?;
         let offset = ctx.reply.len();
         ctx.reply.expand(alg.attributes())?;
         ctx.reply.prepend_len(offset)?;
     }
-    for alg in AuthenticationAlgorithms::iter_all() {
+    for alg in AuthenticationAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC3])?;
         let offset = ctx.reply.len();
         ctx.reply.expand(alg.attributes())?;
@@ -721,53 +569,47 @@ pub fn algo_info<const R: usize, T: trussed::Client>(
 }
 
 pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct algorithm from state
     ctx.reply
-        .expand(SignatureAlgorithms::default().attributes())?;
+        .expand(ctx.state.internal.sign_alg().attributes())?;
     Ok(())
 }
 
 pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct algorithm from state
     ctx.reply
-        .expand(DecryptionAlgorithms::default().attributes())?;
+        .expand(ctx.state.internal.dec_alg().attributes())?;
     Ok(())
 }
 
 pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load correct algorithm from state
     ctx.reply
-        .expand(AuthenticationAlgorithms::default().attributes())?;
+        .expand(ctx.state.internal.aut_alg().attributes())?;
     Ok(())
 }
 
 pub fn fingerprints<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load from state
-    ctx.reply.expand(&[0; 60])?;
+    ctx.reply.expand(&ctx.state.internal.fingerprints().0)?;
     Ok(())
 }
 
 pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load from state
-    ctx.reply.expand(&[0; 60])?;
+    ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)?;
     Ok(())
 }
 
 pub fn keygen_dates<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO load from state
-    ctx.reply.expand(&[0; 12])?;
+    ctx.reply.expand(&ctx.state.internal.keygen_dates().0)?;
     Ok(())
 }
 
@@ -786,59 +628,48 @@ pub fn key_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn uif_sign<const R: usize, T: trussed::Client>(
+pub fn uif<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
+    key: KeyType,
 ) -> Result<(), Status> {
-    let button_byte = general_feature_management_byte(ctx.options);
-    let state_byte = ctx.state.internal.uif_sign.as_byte();
-    ctx.reply.expand(&[state_byte, button_byte])
-}
+    if !ctx.options.button_available {
+        warn!("GET DAT for uif without a button available");
+        return Err(Status::FunctionNotSupported);
+    }
 
-pub fn uif_dec<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
     let button_byte = general_feature_management_byte(ctx.options);
-    let state_byte = ctx.state.internal.uif_dec.as_byte();
-    ctx.reply.expand(&[state_byte, button_byte])
-}
-
-pub fn uif_aut<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
-    let button_byte = general_feature_management_byte(ctx.options);
-    let state_byte = ctx.state.internal.uif_aut.as_byte();
+    let state_byte = ctx.state.internal.uif(key).as_byte();
     ctx.reply.expand(&[state_byte, button_byte])
 }
 
 pub fn cardholder_name<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply
-        .expand(ctx.state.internal.cardholder_name.as_bytes())
+    ctx.reply.expand(ctx.state.internal.cardholder_name())
 }
 
 pub fn cardholder_sex<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply.expand(&[ctx.state.internal.cardholder_sex as u8])
+    ctx.reply
+        .expand(&[ctx.state.internal.cardholder_sex() as u8])
 }
 
 pub fn language_preferences<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply
-        .expand(ctx.state.internal.language_preferences.as_bytes())
+    ctx.reply.expand(ctx.state.internal.language_preferences())
 }
 
 pub fn signature_counter<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
-    let resp = &ctx.state.internal.sign_count.to_be_bytes()[1..];
+    let resp = &ctx.state.internal.sign_count().to_be_bytes()[1..];
     ctx.reply.expand(resp)
 }
 
-pub fn arbitrary_do<const R: usize, T: trussed::Client>(
+pub fn get_arbitrary_do<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
@@ -856,6 +687,350 @@ pub fn arbitrary_do<const R: usize, T: trussed::Client>(
         .load(ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     ctx.reply.expand(&data)
+}
+
+// § 7.2.8
+pub fn put_data<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+    mode: PutDataMode,
+    tag: Tag,
+) -> Result<(), Status> {
+    // TODO: curDO pointer
+    if mode != PutDataMode::Even {
+        unimplemented!();
+    }
+    let object = PutDataObject::try_from(tag).inspect_err_stable(|_err| {
+        warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
+    })?;
+
+    match object.write_perm() {
+        PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
+            warn!("Put data for admin authorized object: {object:?}");
+            return Err(Status::SecurityStatusNotSatisfied);
+        }
+        PermissionRequirement::User if !context.state.runtime.other_verified => {
+            warn!("Put data for user authorized object: {object:?}");
+            return Err(Status::SecurityStatusNotSatisfied);
+        }
+        _ => {}
+    }
+
+    debug!("Writing data for tag {:?}", tag);
+    object.put_data(context)
+}
+
+enum_subset! {
+    /// Data objects available for PUT DATA
+    #[derive(Debug, Clone, Copy)]
+    enum PutDataObject: DataObject {
+        PrivateUse1,
+        PrivateUse2,
+        PrivateUse3,
+        PrivateUse4,
+        LoginData,
+        Url,
+        CardHolderName,
+        CardHolderSex,
+        LanguagePreferences,
+        CardHolderCertificate,
+        AlgorithmAttributesSignature,
+        AlgorithmAttributesDecryption,
+        AlgorithmAttributesAuthentication,
+        PwStatusBytes,
+        CaFingerprint1,
+        CaFingerprint2,
+        CaFingerprint3,
+        SignFingerprint,
+        DecFingerprint,
+        AuthFingerprint,
+        SignGenerationDate,
+        DecGenerationDate,
+        AuthGenerationDate,
+        ResetingCode,
+        PSOEncDecKey,
+        UifCds,
+        UifDec,
+        UifAut,
+        KdfDo,
+    }
+}
+
+impl PutDataObject {
+    fn write_perm(&self) -> PermissionRequirement {
+        match self {
+            Self::PrivateUse2 | Self::PrivateUse4 => PermissionRequirement::User,
+            _ => PermissionRequirement::Admin,
+        }
+    }
+
+    fn put_data<const R: usize, T: trussed::Client>(
+        self,
+        ctx: Context<'_, R, T>,
+    ) -> Result<(), Status> {
+        match self {
+            Self::PrivateUse1 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse1)?,
+            Self::PrivateUse2 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse2)?,
+            Self::PrivateUse3 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse3)?,
+            Self::PrivateUse4 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse4)?,
+            Self::LoginData => put_arbitrary_do(ctx, ArbitraryDO::LoginData)?,
+            Self::Url => put_arbitrary_do(ctx, ArbitraryDO::Url)?,
+            Self::KdfDo => put_arbitrary_do(ctx, ArbitraryDO::KdfDo)?,
+            Self::SignFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Sign)?,
+            Self::DecFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Dec)?,
+            Self::AuthFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Aut)?,
+            Self::SignGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Sign)?,
+            Self::DecGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Dec)?,
+            Self::AuthGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Aut)?,
+            // TODO support curDo
+            Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
+            Self::AlgorithmAttributesSignature => put_alg_attributes_sign(ctx.load_state()?)?,
+            Self::AlgorithmAttributesDecryption => put_alg_attributes_dec(ctx.load_state()?)?,
+            Self::AlgorithmAttributesAuthentication => put_alg_attributes_aut(ctx.load_state()?)?,
+            Self::CardHolderName => put_cardholder_name(ctx.load_state()?)?,
+            Self::CardHolderSex => put_cardholder_sex(ctx.load_state()?)?,
+            Self::LanguagePreferences => put_language_prefs(ctx.load_state()?)?,
+            Self::PwStatusBytes => put_status_bytes(ctx.load_state()?)?,
+            Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
+            Self::CaFingerprint2 => put_ca_fingerprint(ctx.load_state()?, KeyType::Dec)?,
+            Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
+            Self::ResetingCode => unimplemented!(),
+            Self::PSOEncDecKey => unimplemented!(),
+            Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
+            Self::UifDec => put_uif(ctx.load_state()?, KeyType::Dec)?,
+            Self::UifAut => put_uif(ctx.load_state()?, KeyType::Aut)?,
+        }
+        Ok(())
+    }
+}
+
+fn put_uif<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    key: KeyType,
+) -> Result<(), Status> {
+    if !ctx.options.button_available {
+        warn!("put uif without button support");
+        return Err(Status::FunctionNotSupported);
+    }
+
+    if ctx.data.len() != 2 {
+        warn!("put uif with incorrect length: {}", ctx.data.len());
+        return Err(Status::WrongLength);
+    }
+
+    if ctx.data[1] != general_feature_management_byte(ctx.options) {
+        warn!("Incorrect GFM byte in put_uif");
+        return Err(Status::OperationBlocked);
+    }
+
+    if ctx.state.internal.uif(key) == Uif::PermanentlyEnabled {
+        return Err(Status::OperationBlocked);
+    }
+
+    let uif = Uif::try_from(ctx.data[0]).map_err(|_| Status::IncorrectDataParameter)?;
+    ctx.state
+        .internal
+        .set_uif(ctx.backend.client_mut(), uif, key)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
+}
+
+fn put_status_bytes<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    if ctx.data.len() != 4 && ctx.data.len() != 1 {
+        warn!("put status bytes with incorrect length");
+        return Err(Status::WrongLength);
+    }
+
+    if ctx.data.len() == 4 && ctx.data[1..] != [MAX_PIN_LENGTH as u8; 3] {
+        // Don't support changing max pin length and switching to PIN format 2
+        return Err(Status::FunctionNotSupported);
+    }
+
+    let flag = match ctx.data[0] {
+        0 => false,
+        1 => true,
+        _input => {
+            warn!("Incorrect PW status byte {_input:x}");
+            return Err(Status::IncorrectDataParameter)?;
+        }
+    };
+
+    ctx.state
+        .internal
+        .set_pw1_valid_multiple(flag, ctx.backend.client_mut())
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
+
+    Ok(())
+}
+
+fn put_language_prefs<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let bytes = if ctx.data.len() % 2 == 0 {
+        Bytes::from_slice(ctx.data).ok()
+    } else {
+        None
+    };
+
+    let bytes = bytes.ok_or_else(|| {
+        warn!(
+            "put language pref with incorrect length: {}",
+            ctx.data.len()
+        );
+        Status::WrongLength
+    })?;
+
+    ctx.state
+        .internal
+        .set_language_preferences(bytes, ctx.backend.client_mut())
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
+}
+
+fn put_cardholder_sex<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    if ctx.data.len() != 1 {
+        warn!(
+            "put CardHolder sex length different than 1 byte: {:x?}",
+            ctx.data
+        );
+        return Err(Status::WrongLength);
+    }
+
+    let sex = Sex::try_from(ctx.data[0]).inspect_err_stable(|_| {
+        warn!("Incorrect data for Sex: {:x}", ctx.data[0]);
+    })?;
+
+    ctx.state
+        .internal
+        .set_cardholder_sex(sex, ctx.backend.client_mut())
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
+}
+
+fn put_cardholder_name<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let bytes = heapless::Vec::try_from(ctx.data)
+        .map_err(|_| {
+            warn!(
+                "put language pref with incorrect length: {}",
+                ctx.data.len()
+            );
+            Status::WrongLength
+        })?
+        .into();
+    ctx.state
+        .internal
+        .set_cardholder_name(bytes, ctx.backend.client_mut())
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
+}
+
+fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let alg = SignatureAlgorithm::try_from(ctx.data).map_err(|_| {
+        warn!(
+            "PUT DATA for signature attribute for unkown algorithm: {:x?}",
+            ctx.data
+        );
+        Status::IncorrectDataParameter
+    })?;
+
+    ctx.state
+        .internal
+        .set_sign_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let alg = DecryptionAlgorithm::try_from(ctx.data).map_err(|_| {
+        warn!(
+            "PUT DATA for decryption attribute for unkown algorithm: {:x?}",
+            ctx.data
+        );
+        Status::IncorrectDataParameter
+    })?;
+
+    ctx.state
+        .internal
+        .set_dec_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let alg = AuthenticationAlgorithm::try_from(ctx.data).map_err(|_| {
+        warn!(
+            "PUT DATA for authentication attribute for unkown algorithm: {:x?}",
+            ctx.data
+        );
+        Status::IncorrectDataParameter
+    })?;
+
+    ctx.state
+        .internal
+        .set_aut_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_arbitrary_do<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+    obj: ArbitraryDO,
+) -> Result<(), Status> {
+    if ctx.data.len() > MAX_GENERIC_LENGTH {
+        return Err(Status::WrongLength);
+    }
+    obj.save(ctx.backend.client_mut(), ctx.data)
+        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
+}
+
+fn put_fingerprint<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    for_key: KeyType,
+) -> Result<(), Status> {
+    if ctx.data.len() != 20 {
+        return Err(Status::WrongLength);
+    }
+
+    let mut fp = ctx.state.internal.fingerprints();
+    fp.key_part_mut(for_key).copy_from_slice(ctx.data);
+    ctx.state
+        .internal
+        .set_fingerprints(ctx.backend.client_mut(), fp)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    for_key: KeyType,
+) -> Result<(), Status> {
+    if ctx.data.len() != 20 {
+        return Err(Status::WrongLength);
+    }
+    let mut fp = ctx.state.internal.ca_fingerprints();
+    fp.key_part_mut(for_key).copy_from_slice(ctx.data);
+    ctx.state
+        .internal
+        .set_ca_fingerprints(ctx.backend.client_mut(), fp)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_keygen_date<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    for_key: KeyType,
+) -> Result<(), Status> {
+    if ctx.data.len() != 4 {
+        return Err(Status::WrongLength);
+    }
+    let mut dates = ctx.state.internal.keygen_dates();
+    dates.key_part_mut(for_key).copy_from_slice(ctx.data);
+    ctx.state
+        .internal
+        .set_keygen_dates(ctx.backend.client_mut(), dates)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
 #[cfg(test)]
@@ -920,21 +1095,6 @@ mod tests {
                     }
                 }
             }
-        }
-    }
-
-    #[test]
-    fn attributes_id() {
-        for alg in SignatureAlgorithms::iter_all() {
-            assert_eq!(alg.id(), alg.attributes()[0]);
-        }
-
-        for alg in DecryptionAlgorithms::iter_all() {
-            assert_eq!(alg.id(), alg.attributes()[0]);
-        }
-
-        for alg in AuthenticationAlgorithms::iter_all() {
-            assert_eq!(alg.id(), alg.attributes()[0]);
         }
     }
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 mod card;
+use test_log::test;
 
 use card::{error_to_retries, with_card};
 use opcard::{DEFAULT_ADMIN_PIN, DEFAULT_USER_PIN};

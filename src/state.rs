@@ -1,20 +1,22 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use heapless::String;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
-use serde::{Deserialize, Serialize};
+use iso7816::Status;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
 
 use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::try_syscall;
-use trussed::types::{Location, PathBuf};
+use trussed::types::{KeyId, Location, PathBuf};
 
 use crate::command::Password;
 use crate::error::Error;
+use crate::types::*;
+use crate::utils::serde_bytes;
 
 /// Maximum supported length for PW1 and PW3
 pub const MAX_PIN_LENGTH: usize = 127;
@@ -28,6 +30,122 @@ pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
 pub const MAX_GENERIC_LENGTH: usize = 1024;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
 pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_bytes();
+
+macro_rules! enum_u8 {
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident {
+            $($var:ident = $num:expr),+
+            $(,)*
+        }
+    ) => {
+        $(#[$outer])*
+        #[repr(u8)]
+        $vis enum $name {
+            $(
+                $var = $num,
+            )*
+        }
+
+        impl TryFrom<u8> for $name {
+            type Error = Status;
+            fn try_from(val: u8) -> ::core::result::Result<Self, Status> {
+                match val {
+                    $(
+                        $num => Ok($name::$var),
+                    )*
+                    _ => Err(Status::KeyReferenceNotFound)
+                }
+            }
+        }
+    }
+}
+
+macro_rules! concatenated_key_newtype {
+    (
+        $(#[$outer:meta])*
+        $vis:vis struct $name:ident ($inner_vis:vis [u8; $N:literal]);
+    ) => {
+        $(#[$outer])*
+        $vis struct $name($inner_vis [u8; $N]);
+
+        impl Default for $name {
+            fn default() -> $name {
+                $name([0;$N])
+            }
+        }
+
+        impl $name {
+            pub fn key_part(&self, key: KeyType) -> &[u8] {
+                &self.0[self.key_offset(key)..][..$N/3]
+            }
+
+            pub fn key_part_mut(&mut self, key: KeyType) -> &mut [u8] {
+                let offset = self.key_offset(key);
+                &mut self.0[offset..][..$N/3]
+            }
+        }
+
+        // Custom (De)Serialize impls using serde_bytes
+        impl Serialize for $name {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serde_bytes::serialize(&self.0, serializer)
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                serde_bytes::deserialize(deserializer).map(|i| $name(i))
+            }
+        }
+
+    }
+}
+
+concatenated_key_newtype! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub struct Fingerprints(pub [u8; 60]);
+}
+
+concatenated_key_newtype! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub struct CaFingerprints(pub [u8; 60]);
+}
+
+concatenated_key_newtype! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub struct KeyGenDates(pub [u8; 12]);
+}
+
+impl Fingerprints {
+    fn key_offset(&self, for_key: KeyType) -> usize {
+        match for_key {
+            KeyType::Sign => 0,
+            KeyType::Dec => 20,
+            KeyType::Aut => 40,
+        }
+    }
+}
+
+impl KeyGenDates {
+    fn key_offset(&self, for_key: KeyType) -> usize {
+        match for_key {
+            KeyType::Sign => 0,
+            KeyType::Dec => 4,
+            KeyType::Aut => 8,
+        }
+    }
+}
+
+impl CaFingerprints {
+    fn key_offset(&self, for_key: KeyType) -> usize {
+        match for_key {
+            KeyType::Sign => 40,
+            KeyType::Dec => 20,
+            KeyType::Aut => 0,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
@@ -74,13 +192,14 @@ pub struct LoadedState<'s> {
     pub runtime: &'s mut Runtime,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
-#[repr(u8)]
-pub enum Sex {
-    NotKnown = 0x30,
-    Male = 0x31,
-    Female = 0x32,
-    NotApplicable = 0x39,
+enum_u8! {
+    #[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
+    pub enum Sex {
+        NotKnown = 0x30,
+        Male = 0x31,
+        Female = 0x32,
+        NotApplicable = 0x39,
+    }
 }
 
 impl Default for Sex {
@@ -88,39 +207,30 @@ impl Default for Sex {
         Sex::NotKnown
     }
 }
-
-#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
-#[repr(u8)]
-pub enum Uif {
-    Disabled = 0,
-    Enable = 1,
-}
-
-impl Default for Uif {
-    fn default() -> Self {
-        Uif::Disabled
-    }
-}
-
-impl Uif {
-    pub fn as_byte(self) -> u8 {
-        self as u8
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,
     admin_pin_tries: u8,
+    pw1_valid_multiple: bool,
     user_pin: Bytes<MAX_PIN_LENGTH>,
     admin_pin: Bytes<MAX_PIN_LENGTH>,
-    pub cardholder_name: String<39>,
-    pub cardholder_sex: Sex,
-    pub language_preferences: String<8>,
-    pub sign_count: usize,
-    pub uif_sign: Uif,
-    pub uif_dec: Uif,
-    pub uif_aut: Uif,
+    signing_key: Option<KeyId>,
+    confidentiality_key: Option<KeyId>,
+    aut_key: Option<KeyId>,
+    sign_alg: SignatureAlgorithm,
+    dec_alg: DecryptionAlgorithm,
+    aut_alg: AuthenticationAlgorithm,
+    fingerprints: Fingerprints,
+    ca_fingerprints: CaFingerprints,
+    keygen_dates: KeyGenDates,
+
+    cardholder_name: Bytes<39>,
+    cardholder_sex: Sex,
+    language_preferences: Bytes<8>,
+    sign_count: usize,
+    uif_sign: Uif,
+    uif_dec: Uif,
+    uif_aut: Uif,
 }
 
 impl Internal {
@@ -136,12 +246,22 @@ impl Internal {
         Self {
             user_pin_tries: 0,
             admin_pin_tries: 0,
+            pw1_valid_multiple: false,
             admin_pin,
             user_pin,
-            cardholder_name: String::new(),
+            cardholder_name: Bytes::new(),
             cardholder_sex: Sex::default(),
-            language_preferences: String::from("en"),
+            language_preferences: Bytes::new(),
             sign_count: 0,
+            signing_key: None,
+            confidentiality_key: None,
+            sign_alg: SignatureAlgorithm::default(),
+            dec_alg: DecryptionAlgorithm::default(),
+            aut_alg: AuthenticationAlgorithm::default(),
+            aut_key: None,
+            fingerprints: Fingerprints::default(),
+            ca_fingerprints: CaFingerprints::default(),
+            keygen_dates: KeyGenDates::default(),
             uif_sign: Uif::Disabled,
             uif_dec: Uif::Disabled,
             uif_aut: Uif::Disabled,
@@ -266,6 +386,160 @@ impl Internal {
         *tries = 0;
         self.save(client)
     }
+
+    pub fn sign_alg(&self) -> SignatureAlgorithm {
+        self.sign_alg
+    }
+    pub fn set_sign_alg(
+        &mut self,
+        client: &mut impl trussed::Client,
+        alg: SignatureAlgorithm,
+    ) -> Result<(), Error> {
+        self.sign_alg = alg;
+        self.save(client)
+    }
+
+    pub fn dec_alg(&self) -> DecryptionAlgorithm {
+        self.dec_alg
+    }
+    pub fn set_dec_alg(
+        &mut self,
+        client: &mut impl trussed::Client,
+        alg: DecryptionAlgorithm,
+    ) -> Result<(), Error> {
+        self.dec_alg = alg;
+        self.save(client)
+    }
+
+    pub fn aut_alg(&self) -> AuthenticationAlgorithm {
+        self.aut_alg
+    }
+
+    pub fn set_aut_alg(
+        &mut self,
+        client: &mut impl trussed::Client,
+        alg: AuthenticationAlgorithm,
+    ) -> Result<(), Error> {
+        self.aut_alg = alg;
+        self.save(client)
+    }
+
+    pub fn fingerprints(&self) -> Fingerprints {
+        self.fingerprints
+    }
+
+    pub fn set_fingerprints(
+        &mut self,
+        client: &mut impl trussed::Client,
+        data: Fingerprints,
+    ) -> Result<(), Error> {
+        self.fingerprints = data;
+        self.save(client)
+    }
+
+    pub fn ca_fingerprints(&self) -> CaFingerprints {
+        self.ca_fingerprints
+    }
+
+    pub fn set_ca_fingerprints(
+        &mut self,
+        client: &mut impl trussed::Client,
+        data: CaFingerprints,
+    ) -> Result<(), Error> {
+        self.ca_fingerprints = data;
+        self.save(client)
+    }
+
+    pub fn keygen_dates(&self) -> KeyGenDates {
+        self.keygen_dates
+    }
+
+    pub fn set_keygen_dates(
+        &mut self,
+        client: &mut impl trussed::Client,
+        data: KeyGenDates,
+    ) -> Result<(), Error> {
+        self.keygen_dates = data;
+        self.save(client)
+    }
+
+    pub fn uif(&self, key: KeyType) -> Uif {
+        match key {
+            KeyType::Sign => self.uif_sign,
+            KeyType::Dec => self.uif_dec,
+            KeyType::Aut => self.uif_aut,
+        }
+    }
+
+    pub fn set_uif(
+        &mut self,
+        client: &mut impl trussed::Client,
+        uif: Uif,
+        key: KeyType,
+    ) -> Result<(), Error> {
+        match key {
+            KeyType::Sign => self.uif_sign = uif,
+            KeyType::Dec => self.uif_dec = uif,
+            KeyType::Aut => self.uif_aut = uif,
+        }
+        self.save(client)
+    }
+
+    pub fn pw1_valid_multiple(&self) -> bool {
+        self.pw1_valid_multiple
+    }
+
+    pub fn set_pw1_valid_multiple(
+        &mut self,
+        value: bool,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.pw1_valid_multiple = value;
+        self.save(client)
+    }
+
+    pub fn cardholder_name(&self) -> &[u8] {
+        &self.cardholder_name
+    }
+
+    pub fn set_cardholder_name(
+        &mut self,
+        value: Bytes<39>,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.cardholder_name = value;
+        self.save(client)
+    }
+
+    pub fn cardholder_sex(&self) -> Sex {
+        self.cardholder_sex
+    }
+
+    pub fn set_cardholder_sex(
+        &mut self,
+        value: Sex,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.cardholder_sex = value;
+        self.save(client)
+    }
+
+    pub fn language_preferences(&self) -> &[u8] {
+        &self.language_preferences
+    }
+
+    pub fn set_language_preferences(
+        &mut self,
+        value: Bytes<8>,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.language_preferences = value;
+        self.save(client)
+    }
+
+    pub fn sign_count(&self) -> usize {
+        self.sign_count
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -341,6 +615,20 @@ impl ArbitraryDO {
     ) -> Result<Bytes<MAX_GENERIC_LENGTH>, Error> {
         load_if_exists(client, Location::Internal, &self.path())
             .map(|data| data.unwrap_or_else(|| self.default()))
+    }
+
+    pub fn save(self, client: &mut impl trussed::Client, bytes: &[u8]) -> Result<(), Error> {
+        let msg = Bytes::from(heapless::Vec::try_from(bytes).map_err(|_| {
+            error!("Buffer full");
+            Error::Saving
+        })?);
+        try_syscall!(client.write_file(Location::Internal, self.path(), msg, None)).map_err(
+            |_err| {
+                error!("Failed to store data: {_err:?}");
+                Error::Saving
+            },
+        )?;
+        Ok(())
     }
 }
 

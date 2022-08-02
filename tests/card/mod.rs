@@ -5,6 +5,7 @@
 use std::sync::{Arc, Mutex};
 
 use iso7816::{command::FromSliceError, Command, Status};
+use opcard::Options;
 use openpgp_card::{
     CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
 };
@@ -21,8 +22,12 @@ pub struct Card<T: trussed::Client + Send + 'static>(Arc<Mutex<opcard::Card<T>>>
 
 impl<T: trussed::Client + Send + 'static> Card<T> {
     pub fn new(client: T) -> Self {
+        Self::with_options(client, Options::default())
+    }
+
+    pub fn with_options(client: T, options: Options) -> Self {
         let backend = opcard::backend::Backend::new(client);
-        let card = opcard::Card::new(backend, Default::default());
+        let card = opcard::Card::new(backend, options);
         Self(Arc::from(Mutex::from(card)))
     }
 
@@ -103,8 +108,16 @@ impl<T: trussed::Client + Send + 'static> CardTransaction for Transaction<T> {
     }
 }
 
+pub fn with_card_options<F: FnOnce(Card<Client<Ram>>) -> R, R>(options: Options, f: F) -> R {
+    trussed::virt::with_ram_client("opcard", |client| f(Card::with_options(client, options)))
+}
+
 pub fn with_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(f: F) -> R {
     trussed::virt::with_ram_client("opcard", |client| f(Card::new(client)))
+}
+
+pub fn with_tx_options<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(options: Options, f: F) -> R {
+    with_card_options(options, move |mut card| card.with_tx(f))
 }
 
 pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {

@@ -1,6 +1,8 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use test_log::test;
+
 mod card;
 
 use card::{error_to_retries, with_card, with_tx};

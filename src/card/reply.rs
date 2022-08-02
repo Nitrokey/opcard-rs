@@ -33,6 +33,24 @@ impl<'v, const R: usize> Reply<'v, R> {
         })
     }
 
+    fn serialize_len(len: usize) -> Result<heapless::Vec<u8, 3>, Status> {
+        let mut buf = heapless::Vec::new();
+        if let Ok(len) = u8::try_from(len) {
+            if len <= 0x7f {
+                buf.extend_from_slice(&[len]).ok();
+            } else {
+                buf.extend_from_slice(&[0x81, len]).ok();
+            }
+        } else if let Ok(len) = u16::try_from(len) {
+            let arr = len.to_be_bytes();
+            buf.extend_from_slice(&[0x82, arr[0], arr[1]]).ok();
+        } else {
+            error!("Length too long to be encoded");
+            return Err(Status::UnspecifiedNonpersistentExecutionError);
+        }
+        Ok(buf)
+    }
+
     /// Prepend the length to some data.
     ///
     /// Input:
@@ -49,29 +67,21 @@ impl<'v, const R: usize> Reply<'v, R> {
             error!("`prepend_len` called with offset lower than buffer length");
             return Err(Status::UnspecifiedNonpersistentExecutionError);
         }
-
         let len = self.len() - offset;
-        if let Ok(len) = u8::try_from(len) {
-            if len <= 0x7f {
-                let res = self.extend_from_slice(&[len]);
-                self[offset..].rotate_right(1);
-                res
-            } else {
-                let res = self.extend_from_slice(&[0x81, len]);
-                self[offset..].rotate_right(2);
-                res
-            }
-        } else if let Ok(len) = u16::try_from(len) {
-            let arr = len.to_be_bytes();
-            let res = self.extend_from_slice(&[0x82, arr[0], arr[1]]);
-            self[offset..].rotate_right(3);
-            res
-        } else {
-            error!("Length too long to be encoded");
-            return Err(Status::UnspecifiedNonpersistentExecutionError);
-        }
-        .map_err(|_| {
-            error!("Reply buffer full");
+        let encoded = Self::serialize_len(len)?;
+        self.extend_from_slice(&encoded).map_err(|_| {
+            error!("Buffer full");
+            Status::UnspecifiedNonpersistentExecutionError
+        })?;
+        self[offset..].rotate_right(encoded.len());
+        Ok(())
+    }
+
+    #[allow(unused)]
+    pub fn append_len(&mut self, len: usize) -> Result<(), Status> {
+        let encoded = Self::serialize_len(len)?;
+        self.extend_from_slice(&encoded).map_err(|_| {
+            error!("Buffer full");
             Status::UnspecifiedNonpersistentExecutionError
         })
     }
