@@ -812,7 +812,7 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
     }
 
     if ctx.data.len() == 4 && ctx.data[1..] != [MAX_PIN_LENGTH as u8; 3] {
-        // Don't support chaging max pin length and switching to PIN format 2
+        // Don't support changing max pin length and switching to PIN format 2
         return Err(Status::FunctionNotSupported);
     }
 
