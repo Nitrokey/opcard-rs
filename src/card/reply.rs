@@ -78,12 +78,7 @@ impl<'v, const R: usize> Reply<'v, R> {
     }
 
     #[allow(unused)]
-    pub fn append_len(&mut self, offset: usize) -> Result<(), Status> {
-        if self.len() < offset {
-            error!("`prepend_len` called with offset lower than buffer length");
-            return Err(Status::UnspecifiedNonpersistentExecutionError);
-        }
-        let len = self.len() - offset;
+    pub fn append_len(&mut self, len: usize) -> Result<(), Status> {
         let encoded = Self::serialize_len(len)?;
         self.extend_from_slice(&encoded).map_err(|_| {
             error!("Buffer full");
