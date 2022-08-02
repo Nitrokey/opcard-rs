@@ -577,21 +577,21 @@ pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
 pub fn fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply.expand(&ctx.state.internal.fingerprints())?;
+    ctx.reply.expand(&ctx.state.internal.fingerprints().0)?;
     Ok(())
 }
 
 pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply.expand(&ctx.state.internal.ca_fingerprints())?;
+    ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)?;
     Ok(())
 }
 
 pub fn keygen_dates<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply.expand(&ctx.state.internal.keygen_dates())?;
+    ctx.reply.expand(&ctx.state.internal.keygen_dates().0)?;
     Ok(())
 }
 
@@ -964,14 +964,9 @@ fn put_fingerprint<const R: usize, T: trussed::Client>(
     if ctx.data.len() != 20 {
         return Err(Status::WrongLength);
     }
-    let offset = match for_key {
-        KeyType::Sign => 0,
-        KeyType::Confidentiality => 20,
-        KeyType::Aut => 40,
-    };
 
     let mut fp = ctx.state.internal.fingerprints();
-    fp[offset..][..20].copy_from_slice(ctx.data);
+    fp.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
         .internal
         .set_fingerprints(ctx.backend.client_mut(), fp)
@@ -985,14 +980,8 @@ fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
     if ctx.data.len() != 20 {
         return Err(Status::WrongLength);
     }
-    let offset = match for_key {
-        KeyType::Sign => 40,
-        KeyType::Confidentiality => 20,
-        KeyType::Aut => 0,
-    };
-
     let mut fp = ctx.state.internal.ca_fingerprints();
-    fp[offset..][..20].copy_from_slice(ctx.data);
+    fp.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
         .internal
         .set_ca_fingerprints(ctx.backend.client_mut(), fp)
@@ -1006,13 +995,8 @@ fn put_keygen_date<const R: usize, T: trussed::Client>(
     if ctx.data.len() != 4 {
         return Err(Status::WrongLength);
     }
-    let offset = match for_key {
-        KeyType::Sign => 0,
-        KeyType::Confidentiality => 4,
-        KeyType::Aut => 8,
-    };
     let mut dates = ctx.state.internal.keygen_dates();
-    dates[offset..][..4].copy_from_slice(ctx.data);
+    dates.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
         .internal
         .set_keygen_dates(ctx.backend.client_mut(), dates)

@@ -4,7 +4,7 @@
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
 
@@ -57,6 +57,92 @@ macro_rules! enum_u8 {
                     _ => Err(Status::KeyReferenceNotFound)
                 }
             }
+        }
+    }
+}
+
+macro_rules! concatenated_key_newtype {
+    (
+        $(#[$outer:meta])*
+        $vis:vis struct $name:ident ($inner_vis:vis [u8; $N:literal]);
+    ) => {
+        $(#[$outer])*
+        $vis struct $name($inner_vis [u8; $N]);
+
+        impl Default for $name {
+            fn default() -> $name {
+                $name([0;$N])
+            }
+        }
+
+        impl $name {
+            pub fn key_part(&self, key: KeyType) -> &[u8] {
+                &self.0[self.key_offset(key)..][..$N/3]
+            }
+
+            pub fn key_part_mut(&mut self, key: KeyType) -> &mut [u8] {
+                let offset = self.key_offset(key);
+                &mut self.0[offset..][..$N/3]
+            }
+        }
+
+        // Custom (De)Serialize impls using serde_bytes
+        impl Serialize for $name {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serde_bytes::serialize(&self.0, serializer)
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                serde_bytes::deserialize(deserializer).map(|i| $name(i))
+            }
+        }
+
+    }
+}
+
+concatenated_key_newtype! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub struct Fingerprints(pub [u8; 60]);
+}
+
+concatenated_key_newtype! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub struct CaFingerprints(pub [u8; 60]);
+}
+
+concatenated_key_newtype! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub struct KeyGenDates(pub [u8; 12]);
+}
+
+impl Fingerprints {
+    fn key_offset(&self, for_key: KeyType) -> usize {
+        match for_key {
+            KeyType::Sign => 0,
+            KeyType::Confidentiality => 20,
+            KeyType::Aut => 40,
+        }
+    }
+}
+
+impl KeyGenDates {
+    fn key_offset(&self, for_key: KeyType) -> usize {
+        match for_key {
+            KeyType::Sign => 0,
+            KeyType::Confidentiality => 4,
+            KeyType::Aut => 8,
+        }
+    }
+}
+
+impl CaFingerprints {
+    fn key_offset(&self, for_key: KeyType) -> usize {
+        match for_key {
+            KeyType::Sign => 40,
+            KeyType::Confidentiality => 20,
+            KeyType::Aut => 0,
         }
     }
 }
@@ -134,13 +220,9 @@ pub struct Internal {
     sign_alg: SignatureAlgorithm,
     dec_alg: DecryptionAlgorithm,
     aut_alg: AuthenticationAlgorithm,
-    /// sig, dec, aut
-    #[serde(with = "serde_bytes")]
-    fingerprints: [u8; 60],
-    #[serde(with = "serde_bytes")]
-    ca_fingerprints: [u8; 60],
-    #[serde(with = "serde_bytes")]
-    keygen_dates: [u8; 12],
+    fingerprints: Fingerprints,
+    ca_fingerprints: CaFingerprints,
+    keygen_dates: KeyGenDates,
 
     cardholder_name: Bytes<39>,
     cardholder_sex: Sex,
@@ -177,9 +259,9 @@ impl Internal {
             dec_alg: DecryptionAlgorithm::default(),
             aut_alg: AuthenticationAlgorithm::default(),
             aut_key: None,
-            fingerprints: [0; 60],
-            ca_fingerprints: [0; 60],
-            keygen_dates: [0; 12],
+            fingerprints: Fingerprints::default(),
+            ca_fingerprints: CaFingerprints::default(),
+            keygen_dates: KeyGenDates::default(),
             uif_sign: Uif::Disabled,
             uif_dec: Uif::Disabled,
             uif_aut: Uif::Disabled,
@@ -342,40 +424,40 @@ impl Internal {
         self.save(client)
     }
 
-    pub fn fingerprints(&self) -> [u8; 60] {
+    pub fn fingerprints(&self) -> Fingerprints {
         self.fingerprints
     }
 
     pub fn set_fingerprints(
         &mut self,
         client: &mut impl trussed::Client,
-        data: [u8; 60],
+        data: Fingerprints,
     ) -> Result<(), Error> {
         self.fingerprints = data;
         self.save(client)
     }
 
-    pub fn ca_fingerprints(&self) -> [u8; 60] {
+    pub fn ca_fingerprints(&self) -> CaFingerprints {
         self.ca_fingerprints
     }
 
     pub fn set_ca_fingerprints(
         &mut self,
         client: &mut impl trussed::Client,
-        data: [u8; 60],
+        data: CaFingerprints,
     ) -> Result<(), Error> {
         self.ca_fingerprints = data;
         self.save(client)
     }
 
-    pub fn keygen_dates(&self) -> [u8; 12] {
+    pub fn keygen_dates(&self) -> KeyGenDates {
         self.keygen_dates
     }
 
     pub fn set_keygen_dates(
         &mut self,
         client: &mut impl trussed::Client,
-        data: [u8; 12],
+        data: KeyGenDates,
     ) -> Result<(), Error> {
         self.keygen_dates = data;
         self.save(client)
