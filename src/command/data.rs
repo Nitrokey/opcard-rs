@@ -529,19 +529,19 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
 pub fn algo_info<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    for alg in SignatureAlgorithms::iter_all() {
+    for alg in SignatureAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
         ctx.reply.expand(alg.attributes())?;
         ctx.reply.prepend_len(offset)?;
     }
-    for alg in DecryptionAlgorithms::iter_all() {
+    for alg in DecryptionAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC2])?;
         let offset = ctx.reply.len();
         ctx.reply.expand(alg.attributes())?;
         ctx.reply.prepend_len(offset)?;
     }
-    for alg in AuthenticationAlgorithms::iter_all() {
+    for alg in AuthenticationAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC3])?;
         let offset = ctx.reply.len();
         ctx.reply.expand(alg.attributes())?;
@@ -898,7 +898,7 @@ fn put_cardholder_name<const R: usize, T: trussed::Client>(
 fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let alg = SignatureAlgorithms::try_from(ctx.data).map_err(|_| {
+    let alg = SignatureAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
             "PUT DATA for signature attribute for unkown algorithm: {:x?}",
             ctx.data
@@ -915,7 +915,7 @@ fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
 fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let alg = DecryptionAlgorithms::try_from(ctx.data).map_err(|_| {
+    let alg = DecryptionAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
             "PUT DATA for decryption attribute for unkown algorithm: {:x?}",
             ctx.data
@@ -932,7 +932,7 @@ fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
 fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let alg = AuthenticationAlgorithms::try_from(ctx.data).map_err(|_| {
+    let alg = AuthenticationAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
             "PUT DATA for authentication attribute for unkown algorithm: {:x?}",
             ctx.data

@@ -131,9 +131,9 @@ pub struct Internal {
     signing_key: Option<KeyId>,
     confidentiality_key: Option<KeyId>,
     aut_key: Option<KeyId>,
-    sign_alg: SignatureAlgorithms,
-    dec_alg: DecryptionAlgorithms,
-    aut_alg: AuthenticationAlgorithms,
+    sign_alg: SignatureAlgorithm,
+    dec_alg: DecryptionAlgorithm,
+    aut_alg: AuthenticationAlgorithm,
     /// sig, dec, aut
     #[serde(with = "serde_bytes")]
     fingerprints: [u8; 60],
@@ -173,9 +173,9 @@ impl Internal {
             sign_count: 0,
             signing_key: None,
             confidentiality_key: None,
-            sign_alg: SignatureAlgorithms::default(),
-            dec_alg: DecryptionAlgorithms::default(),
-            aut_alg: AuthenticationAlgorithms::default(),
+            sign_alg: SignatureAlgorithm::default(),
+            dec_alg: DecryptionAlgorithm::default(),
+            aut_alg: AuthenticationAlgorithm::default(),
             aut_key: None,
             fingerprints: [0; 60],
             ca_fingerprints: [0; 60],
@@ -305,38 +305,38 @@ impl Internal {
         self.save(client)
     }
 
-    pub fn sign_alg(&self) -> SignatureAlgorithms {
+    pub fn sign_alg(&self) -> SignatureAlgorithm {
         self.sign_alg
     }
     pub fn set_sign_alg(
         &mut self,
         client: &mut impl trussed::Client,
-        alg: SignatureAlgorithms,
+        alg: SignatureAlgorithm,
     ) -> Result<(), Error> {
         self.sign_alg = alg;
         self.save(client)
     }
 
-    pub fn dec_alg(&self) -> DecryptionAlgorithms {
+    pub fn dec_alg(&self) -> DecryptionAlgorithm {
         self.dec_alg
     }
     pub fn set_dec_alg(
         &mut self,
         client: &mut impl trussed::Client,
-        alg: DecryptionAlgorithms,
+        alg: DecryptionAlgorithm,
     ) -> Result<(), Error> {
         self.dec_alg = alg;
         self.save(client)
     }
 
-    pub fn aut_alg(&self) -> AuthenticationAlgorithms {
+    pub fn aut_alg(&self) -> AuthenticationAlgorithm {
         self.aut_alg
     }
 
     pub fn set_aut_alg(
         &mut self,
         client: &mut impl trussed::Client,
-        alg: AuthenticationAlgorithms,
+        alg: AuthenticationAlgorithm,
     ) -> Result<(), Error> {
         self.aut_alg = alg;
         self.save(client)

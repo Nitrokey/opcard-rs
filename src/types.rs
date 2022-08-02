@@ -62,7 +62,7 @@ pub struct AttributesFromsSliceError;
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum SignatureAlgorithms {
+    pub enum SignatureAlgorithm {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
@@ -71,13 +71,13 @@ iterable_enum! {
     }
 }
 
-impl Default for SignatureAlgorithms {
+impl Default for SignatureAlgorithm {
     fn default() -> Self {
         Self::Rsa2k
     }
 }
 
-impl SignatureAlgorithms {
+impl SignatureAlgorithm {
     #[allow(unused)]
     pub fn id(&self) -> u8 {
         self.attributes()[0]
@@ -98,10 +98,10 @@ impl SignatureAlgorithms {
     }
 }
 
-impl TryFrom<&[u8]> for SignatureAlgorithms {
+impl TryFrom<&[u8]> for SignatureAlgorithm {
     type Error = AttributesFromsSliceError;
 
-    fn try_from(v: &[u8]) -> Result<SignatureAlgorithms, AttributesFromsSliceError> {
+    fn try_from(v: &[u8]) -> Result<SignatureAlgorithm, AttributesFromsSliceError> {
         match v {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
@@ -115,7 +115,7 @@ impl TryFrom<&[u8]> for SignatureAlgorithms {
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum DecryptionAlgorithms {
+    pub enum DecryptionAlgorithm {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         X255,
         EcDhP256,
@@ -124,13 +124,13 @@ iterable_enum! {
     }
 }
 
-impl Default for DecryptionAlgorithms {
+impl Default for DecryptionAlgorithm {
     fn default() -> Self {
         Self::Rsa2k
     }
 }
 
-impl DecryptionAlgorithms {
+impl DecryptionAlgorithm {
     #[allow(unused)]
     pub fn id(&self) -> u8 {
         self.attributes()[0]
@@ -151,10 +151,10 @@ impl DecryptionAlgorithms {
     }
 }
 
-impl TryFrom<&[u8]> for DecryptionAlgorithms {
+impl TryFrom<&[u8]> for DecryptionAlgorithm {
     type Error = AttributesFromsSliceError;
 
-    fn try_from(v: &[u8]) -> Result<DecryptionAlgorithms, AttributesFromsSliceError> {
+    fn try_from(v: &[u8]) -> Result<DecryptionAlgorithm, AttributesFromsSliceError> {
         match v {
             X255_ATTRIBUTES => Ok(Self::X255),
             ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
@@ -168,7 +168,7 @@ impl TryFrom<&[u8]> for DecryptionAlgorithms {
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum AuthenticationAlgorithms {
+    pub enum AuthenticationAlgorithm {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         X255,
         EcDhP256,
@@ -177,13 +177,13 @@ iterable_enum! {
     }
 }
 
-impl Default for AuthenticationAlgorithms {
+impl Default for AuthenticationAlgorithm {
     fn default() -> Self {
         Self::Rsa2k
     }
 }
 
-impl AuthenticationAlgorithms {
+impl AuthenticationAlgorithm {
     #[allow(unused)]
     pub fn id(&self) -> u8 {
         self.attributes()[0]
@@ -204,10 +204,10 @@ impl AuthenticationAlgorithms {
     }
 }
 
-impl TryFrom<&[u8]> for AuthenticationAlgorithms {
+impl TryFrom<&[u8]> for AuthenticationAlgorithm {
     type Error = AttributesFromsSliceError;
 
-    fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithms, AttributesFromsSliceError> {
+    fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithm, AttributesFromsSliceError> {
         match v {
             X255_ATTRIBUTES => Ok(Self::X255),
             ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
