@@ -228,7 +228,7 @@ enum_u16! {
 
 enum_subset! {
     /// Data objects available via GET DATA
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum GetDataObject: DataObject {
         PrivateUse1,
         PrivateUse2,
@@ -469,11 +469,29 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     }
 }
 
+fn filtered_objects(
+    options: &Options,
+    objects: &'static [GetDataObject],
+) -> impl Iterator<Item = &'static GetDataObject> {
+    let to_filter = if !options.button_available {
+        [
+            GetDataObject::UifCds,
+            GetDataObject::UifDec,
+            GetDataObject::UifAut,
+        ]
+        .as_slice()
+    } else {
+        [].as_slice()
+    };
+
+    objects.iter().filter(move |o| !to_filter.contains(o))
+}
+
 fn get_constructed_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
     objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
-    for obj in objects {
+    for obj in filtered_objects(context.options, objects) {
         context.reply.expand(obj.tag())?;
         let offset = context.reply.len();
         // Copied to avoid moving the context
@@ -488,7 +506,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
         match obj.simple_or_constructed() {
             GetDataDoType::Simple(simple) => simple.reply(tmp_ctx)?,
             GetDataDoType::Constructed(children) => {
-                for inner_obj in children {
+                for inner_obj in filtered_objects(tmp_ctx.options, children) {
                     tmp_ctx.reply.expand(inner_obj.tag())?;
                     let inner_offset = tmp_ctx.reply.len();
                     let inner_tmp_ctx = Context {
@@ -614,6 +632,11 @@ pub fn uif<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
+    if !ctx.options.button_available {
+        warn!("GET DAT for uif without a button available");
+        return Err(Status::FunctionNotSupported);
+    }
+
     let button_byte = general_feature_management_byte(ctx.options);
     let state_byte = ctx.state.internal.uif(key).as_byte();
     ctx.reply.expand(&[state_byte, button_byte])
@@ -784,6 +807,11 @@ fn put_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
+    if !ctx.options.button_available {
+        warn!("put uif without button support");
+        return Err(Status::FunctionNotSupported);
+    }
+
     if ctx.data.len() != 2 {
         warn!("put uif with incorrect length: {}", ctx.data.len());
         return Err(Status::WrongLength);

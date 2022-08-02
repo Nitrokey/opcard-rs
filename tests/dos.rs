@@ -4,13 +4,25 @@ use hex_literal::hex;
 mod card;
 use test_log::test;
 
-use card::with_tx;
+use card::with_tx_options;
+
+use opcard::Options;
 
 use openpgp_card::card_do::{ApplicationIdentifier, HistoricalBytes, Lang, Sex, TouchPolicy};
 
 #[test]
 fn get_data() {
-    with_tx(|mut tx| {
+    let mut options = Options::default();
+    options.button_available = false;
+    with_tx_options(options.clone(), |mut tx| {
+        let appdata = tx.application_related_data().unwrap();
+        dbg!(&appdata.uif_pso_cds());
+        assert!(appdata.uif_pso_cds().unwrap().is_none());
+        assert!(appdata.uif_pso_dec().unwrap().is_none());
+        assert!(appdata.uif_pso_aut().unwrap().is_none());
+    });
+    options.button_available = true;
+    with_tx_options(options, |mut tx| {
         assert!(tx.verify_pw3(b"12345678").is_ok());
         tx.set_lang(&[Lang::Value(*b"en")]).unwrap();
         tx.set_sex(Sex::NotApplicable).unwrap();
