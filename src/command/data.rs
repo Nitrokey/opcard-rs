@@ -788,11 +788,12 @@ fn put_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
-    if ctx.data.len() > 2 || ctx.data.is_empty() {
+    if ctx.data.len() != 2 {
+        warn!("put uif with incorrect length: {}", ctx.data.len());
         return Err(Status::WrongLength);
     }
 
-    if ctx.data.len() == 2 && ctx.data[1] != general_feature_management_byte(ctx.options) {
+    if ctx.data[1] != general_feature_management_byte(ctx.options) {
         warn!("Incorrect GFM byte in put_uif");
     }
 
