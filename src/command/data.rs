@@ -791,6 +791,7 @@ fn put_uif<const R: usize, T: trussed::Client>(
 
     if ctx.data[1] != general_feature_management_byte(ctx.options) {
         warn!("Incorrect GFM byte in put_uif");
+        return Err(Status::OperationBlocked);
     }
 
     if ctx.state.internal.uif(key) == Uif::PermanentlyEnabled {
