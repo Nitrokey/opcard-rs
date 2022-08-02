@@ -1,6 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
 
@@ -835,16 +836,20 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
 fn put_language_prefs<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let bytes = match heapless::Vec::try_from(ctx.data) {
-        Ok(d) if ctx.data.len() % 2 == 0 => d.into(),
-        _ => {
-            warn!(
-                "put language pref with incorrect length: {}",
-                ctx.data.len()
-            );
-            return Err(Status::WrongLength);
-        }
+    let bytes = if ctx.data.len() % 2 == 0 {
+        Bytes::from_slice(ctx.data).ok()
+    } else {
+        None
     };
+
+    let bytes = bytes.ok_or_else(|| {
+        warn!(
+            "put language pref with incorrect length: {}",
+            ctx.data.len()
+        );
+        Status::WrongLength
+    })?;
+
     ctx.state
         .internal
         .set_language_preferences(bytes, ctx.backend.client_mut())
