@@ -57,7 +57,7 @@ const RSA_4K_ATTRIBUTES: &[u8] = hex!(
 .as_slice();
 
 #[derive(Debug, Copy, Clone)]
-pub struct AttributesFromsSliceError;
+pub struct AlgorithmFromAttributesError;
 
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
@@ -99,15 +99,15 @@ impl SignatureAlgorithm {
 }
 
 impl TryFrom<&[u8]> for SignatureAlgorithm {
-    type Error = AttributesFromsSliceError;
+    type Error = AlgorithmFromAttributesError;
 
-    fn try_from(v: &[u8]) -> Result<SignatureAlgorithm, AttributesFromsSliceError> {
+    fn try_from(v: &[u8]) -> Result<SignatureAlgorithm, AlgorithmFromAttributesError> {
         match v {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
             RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
             RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
-            _ => Err(AttributesFromsSliceError),
+            _ => Err(AlgorithmFromAttributesError),
         }
     }
 }
@@ -152,15 +152,15 @@ impl DecryptionAlgorithm {
 }
 
 impl TryFrom<&[u8]> for DecryptionAlgorithm {
-    type Error = AttributesFromsSliceError;
+    type Error = AlgorithmFromAttributesError;
 
-    fn try_from(v: &[u8]) -> Result<DecryptionAlgorithm, AttributesFromsSliceError> {
+    fn try_from(v: &[u8]) -> Result<DecryptionAlgorithm, AlgorithmFromAttributesError> {
         match v {
             X255_ATTRIBUTES => Ok(Self::X255),
             ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
             RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
             RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
-            _ => Err(AttributesFromsSliceError),
+            _ => Err(AlgorithmFromAttributesError),
         }
     }
 }
@@ -205,15 +205,15 @@ impl AuthenticationAlgorithm {
 }
 
 impl TryFrom<&[u8]> for AuthenticationAlgorithm {
-    type Error = AttributesFromsSliceError;
+    type Error = AlgorithmFromAttributesError;
 
-    fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithm, AttributesFromsSliceError> {
+    fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithm, AlgorithmFromAttributesError> {
         match v {
             X255_ATTRIBUTES => Ok(Self::X255),
             ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
             RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
             RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
-            _ => Err(AttributesFromsSliceError),
+            _ => Err(AlgorithmFromAttributesError),
         }
     }
 }
