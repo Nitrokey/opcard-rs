@@ -243,6 +243,7 @@ impl KeyType {
 pub enum Uif {
     Disabled = 0,
     Enabled = 1,
+    PermanentlyEnabled = 2,
 }
 
 impl Default for Uif {
@@ -257,6 +258,7 @@ impl TryFrom<u8> for Uif {
         match v {
             0 => Ok(Uif::Disabled),
             1 => Ok(Uif::Enabled),
+            2 => Ok(Uif::PermanentlyEnabled),
             _ => Err(Error::BadRequest),
         }
     }

@@ -796,6 +796,10 @@ fn put_uif<const R: usize, T: trussed::Client>(
         warn!("Incorrect GFM byte in put_uif");
     }
 
+    if ctx.state.internal.uif(key) == Uif::PermanentlyEnabled {
+        return Err(Status::OperationBlocked);
+    }
+
     let uif = Uif::try_from(ctx.data[0]).map_err(|_| Status::IncorrectDataParameter)?;
     ctx.state
         .internal
