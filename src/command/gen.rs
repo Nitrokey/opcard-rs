@@ -3,7 +3,7 @@
 
 use hex_literal::hex;
 use iso7816::Status;
-use trussed::types::{KeySerialization, Location, Mechanism, StorageAttributes};
+use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
 use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
@@ -14,50 +14,37 @@ pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.sign_alg();
-    ctx.reply.expand(&hex!("7f49"))?;
-    let offset = ctx.reply.len();
     match algo {
-        SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::Ed255)?,
-        SignatureAlgorithm::EcDsaP256 => gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::P256)?,
+        SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::Ed255),
+        SignatureAlgorithm::EcDsaP256 => gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::P256),
         _ => unimplemented!(),
     }
-    ctx.reply.prepend_len(offset)
 }
 
-#[allow(unused)]
 pub fn dec<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.dec_alg();
-    ctx.reply.expand(&hex!("7f49"))?;
-    let offset = ctx.reply.len();
     match algo {
-        DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, Mechanism::X255)?,
-        DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256)?,
+        DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, Mechanism::X255),
+        DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256),
         _ => unimplemented!(),
     }
-    ctx.reply.prepend_len(offset)
 }
 
-#[allow(unused)]
 pub fn aut<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.aut_alg();
-    ctx.reply.expand(&hex!("7f49"))?;
-    let offset = ctx.reply.len();
     match algo {
-        AuthenticationAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::Ed255)?,
-        AuthenticationAlgorithm::EcDsaP256 => {
-            gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256)?
-        }
+        AuthenticationAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::Ed255),
+        AuthenticationAlgorithm::EcDsaP256 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256),
         _ => unimplemented!(),
     }
-    ctx.reply.prepend_len(offset)
 }
 
 fn gen_ec_key<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
     key: KeyType,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -86,7 +73,66 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
             })
             .ok();
     }
+    read_ec_key(ctx, key_id, mechanism)
+}
 
+pub fn read_sign<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let key_id = ctx
+        .state
+        .internal
+        .key_id(KeyType::Sign)
+        .ok_or(Status::KeyReferenceNotFound)?;
+
+    let algo = ctx.state.internal.sign_alg();
+    match algo {
+        SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, Mechanism::Ed255),
+        SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, Mechanism::P256),
+        _ => unimplemented!(),
+    }
+}
+
+pub fn read_dec<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let key_id = ctx
+        .state
+        .internal
+        .key_id(KeyType::Dec)
+        .ok_or(Status::KeyReferenceNotFound)?;
+
+    let algo = ctx.state.internal.dec_alg();
+    match algo {
+        DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, Mechanism::X255),
+        DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, Mechanism::P256),
+        _ => unimplemented!(),
+    }
+}
+
+pub fn read_aut<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let key_id = ctx
+        .state
+        .internal
+        .key_id(KeyType::Aut)
+        .ok_or(Status::KeyReferenceNotFound)?;
+
+    let algo = ctx.state.internal.aut_alg();
+    match algo {
+        AuthenticationAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, Mechanism::Ed255),
+        AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, Mechanism::P256),
+        _ => unimplemented!(),
+    }
+}
+
+fn read_ec_key<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+    key_id: KeyId,
+    mechanism: Mechanism,
+) -> Result<(), Status> {
+    let client = ctx.backend.client_mut();
     let public_key = syscall!(client.derive_key(
         mechanism,
         key_id,
@@ -103,8 +149,11 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
+    ctx.reply.expand(&hex!("7f49"))?;
+    let offset = ctx.reply.len();
     ctx.reply.expand(&[0x86])?;
     ctx.reply.append_len(serialized.len() + 1)?;
     ctx.reply.expand(&[0x04])?;
-    ctx.reply.expand(&serialized)
+    ctx.reply.expand(&serialized)?;
+    ctx.reply.prepend_len(offset)
 }

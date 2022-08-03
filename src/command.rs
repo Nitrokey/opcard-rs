@@ -417,7 +417,11 @@ fn gen_keypair<const R: usize, T: trussed::Client>(
     let key = KeyType::try_from_crt(context.data)?;
 
     if mode == GenerateAsymmetricKeyPairMode::ReadTemplate {
-        todo!();
+        return match key {
+            KeyType::Sign => gen::read_sign(context),
+            KeyType::Dec => gen::read_dec(context),
+            KeyType::Aut => gen::read_aut(context),
+        };
     }
 
     if !context.state.runtime.admin_verified {
