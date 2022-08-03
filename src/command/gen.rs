@@ -25,34 +25,33 @@ pub fn sign<const R: usize, T: trussed::Client>(
         reply: Reply(ctx.reply.0),
     };
     match algo {
-        SignatureAlgorithm::Ed255 => gen_ed255(tmp_ctx)?,
-        SignatureAlgorithm::EcDsaP256 => gen_ecdsa(tmp_ctx)?,
+        SignatureAlgorithm::Ed255 => gen_ec_key(tmp_ctx, KeyType::Sign, Mechanism::Ed255)?,
+        SignatureAlgorithm::EcDsaP256 => {
+            gen_ec_key(tmp_ctx, KeyType::Sign, Mechanism::P256Prehashed)?
+        }
         _ => unimplemented!(),
     }
     ctx.reply.prepend_len(offset)
 }
 
+#[allow(unused)]
 pub fn dec<const R: usize, T: trussed::Client>(ctx: LoadedContext<'_, R, T>) -> Result<(), Status> {
     todo!()
 }
 
+#[allow(unused)]
 pub fn aut<const R: usize, T: trussed::Client>(ctx: LoadedContext<'_, R, T>) -> Result<(), Status> {
     todo!()
 }
 
-fn gen_x255<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
-    key: KeyType,
-) -> Result<(), Status> {
-    todo!()
-}
-
-fn gen_ed255<const R: usize, T: trussed::Client>(
+fn gen_ec_key<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
+    key: KeyType,
+    mechanism: Mechanism,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
-        Mechanism::Ed255,
+        mechanism,
         StorageAttributes {
             persistence: Location::Internal
         }
@@ -65,7 +64,7 @@ fn gen_ed255<const R: usize, T: trussed::Client>(
     if let Some(old_key) = ctx
         .state
         .internal
-        .set_key_id(KeyType::Sign, Some(key_id), client)
+        .set_key_id(key, Some(key_id), client)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
         // Deletion is not a fatal error
@@ -77,7 +76,7 @@ fn gen_ed255<const R: usize, T: trussed::Client>(
     }
 
     let public_key = syscall!(client.derive_key(
-        Mechanism::Ed255,
+        mechanism,
         key_id,
         None,
         StorageAttributes {
@@ -86,7 +85,7 @@ fn gen_ed255<const R: usize, T: trussed::Client>(
     ))
     .key;
     let serialized =
-        try_syscall!(client.serialize_key(Mechanism::Ed255, public_key, KeySerialization::Raw))
+        try_syscall!(client.serialize_key(mechanism, public_key, KeySerialization::Raw))
             .map_err(|_err| {
                 error!("Failed to serialize public key: {_err:?}");
                 Status::UnspecifiedNonpersistentExecutionError
@@ -96,17 +95,4 @@ fn gen_ed255<const R: usize, T: trussed::Client>(
     ctx.reply.append_len(serialized.len() + 1)?;
     ctx.reply.expand(&[0x04])?;
     ctx.reply.expand(&serialized)
-}
-
-fn gen_ecdh<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
-    key: KeyType,
-) -> Result<(), Status> {
-    todo!()
-}
-
-fn gen_ecdsa<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
-    todo!()
 }
