@@ -4,8 +4,26 @@
 mod card;
 
 use card::with_card;
-use openpgp_card::{algorithm::AlgoSimple, KeyType};
+use openpgp_card::{
+    algorithm::AlgoSimple,
+    card_do::{Fingerprint, KeyGenerationTime},
+    crypto_data::PublicKeyMaterial,
+    KeyType,
+};
+use openpgp_card_sequoia::util::public_key_material_to_key;
 use test_log::test;
+
+fn public_key_material_to_fp(
+    mat: &PublicKeyMaterial,
+    time: KeyGenerationTime,
+    ty: KeyType,
+) -> Result<Fingerprint, openpgp_card::Error> {
+    let key = public_key_material_to_key(mat, ty, &time, None, None)?;
+
+    // Get fingerprint from the Sequoia Key
+    let fp = key.fingerprint();
+    fp.as_bytes().try_into()
+}
 
 #[test]
 fn gen_key() {
@@ -13,22 +31,14 @@ fn gen_key() {
         card.with_tx(|mut tx| {
             assert!(tx.verify_pw3(b"12345678").is_ok());
             tx.generate_key_simple(
-                |_, _, _| Ok([1; 20].into()),
+                public_key_material_to_fp,
                 KeyType::Signing,
                 AlgoSimple::Curve25519,
             )
             .unwrap();
 
             let appdata = tx.application_related_data().unwrap();
-            assert_eq!(
-                appdata
-                    .fingerprints()
-                    .unwrap()
-                    .signature()
-                    .unwrap()
-                    .as_bytes(),
-                &[1; 20]
-            );
+            assert!(appdata.fingerprints().unwrap().signature().is_some());
         })
     })
 }
