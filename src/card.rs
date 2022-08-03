@@ -173,6 +173,20 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
             reply: self.reply,
         })
     }
+
+    /// Lend the context
+    ///
+    /// The resulting `Context` has a shorter lifetime than the original one, meaning that it
+    /// can be passed by value to other functions and the original context can then be used again
+    pub fn lend(&mut self) -> Context<'_, R, T> {
+        Context {
+            reply: Reply(self.reply.0),
+            backend: self.backend,
+            options: self.options,
+            state: self.state,
+            data: self.data,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -183,6 +197,23 @@ pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
     pub state: LoadedState<'a>,
     pub data: &'a [u8],
     pub reply: Reply<'a, R>,
+}
+
+impl<'a, const R: usize, T: trussed::Client> LoadedContext<'a, R, T> {
+    /// Lend the context
+    ///
+    /// The resulting `LoadedContext` has a shorter lifetime than the original one, meaning that it
+    /// can be passed by value to other functions and the original context can then be used again
+    #[allow(unused)]
+    pub fn lend(&mut self) -> LoadedContext<'_, R, T> {
+        LoadedContext {
+            reply: Reply(self.reply.0),
+            backend: self.backend,
+            options: self.options,
+            state: self.state.lend(),
+            data: self.data,
+        }
+    }
 }
 
 #[cfg(test)]
