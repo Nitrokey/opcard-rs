@@ -6,7 +6,7 @@ use hex_literal::hex;
 use iso7816::Status;
 
 use crate::{
-    card::{reply::Reply, Context, LoadedContext, Options},
+    card::{Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
         ArbitraryDO, PermissionRequirement, Sex, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
@@ -488,41 +488,25 @@ fn filtered_objects(
 }
 
 fn get_constructed_data<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
     objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
-    for obj in filtered_objects(context.options, objects) {
-        context.reply.expand(obj.tag())?;
-        let offset = context.reply.len();
-        // Copied to avoid moving the context
-        // This works because the life of tmp_ctx are smaller that that of context
-        let mut tmp_ctx = Context {
-            reply: Reply(context.reply.0),
-            backend: context.backend,
-            options: context.options,
-            state: context.state,
-            data: context.data,
-        };
+    for obj in filtered_objects(ctx.options, objects) {
+        ctx.reply.expand(obj.tag())?;
+        let offset = ctx.reply.len();
         match obj.simple_or_constructed() {
-            GetDataDoType::Simple(simple) => simple.reply(tmp_ctx)?,
+            GetDataDoType::Simple(simple) => simple.reply(ctx.lend())?,
             GetDataDoType::Constructed(children) => {
-                for inner_obj in filtered_objects(tmp_ctx.options, children) {
-                    tmp_ctx.reply.expand(inner_obj.tag())?;
-                    let inner_offset = tmp_ctx.reply.len();
-                    let inner_tmp_ctx = Context {
-                        reply: Reply(tmp_ctx.reply.0),
-                        backend: tmp_ctx.backend,
-                        options: tmp_ctx.options,
-                        state: tmp_ctx.state,
-                        data: tmp_ctx.data,
-                    };
+                for inner_obj in filtered_objects(ctx.options, children) {
+                    ctx.reply.expand(inner_obj.tag())?;
+                    let inner_offset = ctx.reply.len();
                     // We only accept two levels of nesting to avoid recursion
-                    inner_obj.into_simple()?.reply(inner_tmp_ctx)?;
-                    tmp_ctx.reply.prepend_len(inner_offset)?;
+                    inner_obj.into_simple()?.reply(ctx.lend())?;
+                    ctx.reply.prepend_len(inner_offset)?;
                 }
             }
         }
-        context.reply.prepend_len(offset)?;
+        ctx.reply.prepend_len(offset)?;
     }
     Ok(())
 }

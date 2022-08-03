@@ -192,6 +192,19 @@ pub struct LoadedState<'s> {
     pub runtime: &'s mut Runtime,
 }
 
+impl<'a> LoadedState<'a> {
+    /// Lend the state
+    ///
+    /// The resulting `LoadedState` has a shorter lifetime than the original one, meaning that it
+    /// can be passed by value to other functions and the original state can then be used again
+    pub fn lend(&mut self) -> LoadedState {
+        LoadedState {
+            internal: self.internal,
+            runtime: self.runtime,
+        }
+    }
+}
+
 enum_u8! {
     #[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
     pub enum Sex {
