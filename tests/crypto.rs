@@ -29,6 +29,11 @@ fn public_key_material_to_fp(
 fn gen_key() {
     with_card(|mut card| {
         card.with_tx(|mut tx| {
+            let appdata = tx.application_related_data().unwrap();
+            assert!(appdata.fingerprints().unwrap().signature().is_none());
+            assert!(appdata.fingerprints().unwrap().decryption().is_none());
+            assert!(appdata.fingerprints().unwrap().authentication().is_none());
+
             assert!(tx.verify_pw3(b"12345678").is_ok());
             tx.generate_key_simple(
                 public_key_material_to_fp,
@@ -36,9 +41,45 @@ fn gen_key() {
                 AlgoSimple::Curve25519,
             )
             .unwrap();
-
             let appdata = tx.application_related_data().unwrap();
             assert!(appdata.fingerprints().unwrap().signature().is_some());
+
+            tx.generate_key_simple(
+                public_key_material_to_fp,
+                KeyType::Decryption,
+                AlgoSimple::Curve25519,
+            )
+            .unwrap();
+            let appdata = tx.application_related_data().unwrap();
+            assert!(appdata.fingerprints().unwrap().decryption().is_some());
+
+            tx.generate_key_simple(
+                public_key_material_to_fp,
+                KeyType::Authentication,
+                AlgoSimple::Curve25519,
+            )
+            .unwrap();
+            let appdata = tx.application_related_data().unwrap();
+            assert!(appdata.fingerprints().unwrap().authentication().is_some());
+
+            tx.generate_key_simple(
+                public_key_material_to_fp,
+                KeyType::Signing,
+                AlgoSimple::NIST256,
+            )
+            .unwrap();
+            tx.generate_key_simple(
+                public_key_material_to_fp,
+                KeyType::Decryption,
+                AlgoSimple::NIST256,
+            )
+            .unwrap();
+            tx.generate_key_simple(
+                public_key_material_to_fp,
+                KeyType::Authentication,
+                AlgoSimple::NIST256,
+            )
+            .unwrap();
         })
     })
 }

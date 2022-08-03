@@ -170,8 +170,8 @@ iterable_enum! {
     #[repr(u8)]
     pub enum AuthenticationAlgorithm {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        X255,
-        EcDhP256,
+        Ed255,
+        EcDsaP256,
         Rsa2k,
         Rsa4k,
     }
@@ -191,8 +191,8 @@ impl AuthenticationAlgorithm {
 
     pub fn attributes(&self) -> &'static [u8] {
         match self {
-            Self::X255 => X255_ATTRIBUTES,
-            Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
+            Self::Ed255 => ED255_ATTRIBUTES,
+            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
             Self::Rsa2k => RSA_2K_ATTRIBUTES,
             Self::Rsa4k => RSA_4K_ATTRIBUTES,
         }
@@ -209,8 +209,8 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
 
     fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithm, AlgorithmFromAttributesError> {
         match v {
-            X255_ATTRIBUTES => Ok(Self::X255),
-            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
+            ED255_ATTRIBUTES => Ok(Self::Ed255),
+            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
             RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
             RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
             _ => Err(AlgorithmFromAttributesError),

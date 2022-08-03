@@ -18,9 +18,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
     let offset = ctx.reply.len();
     match algo {
         SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::Ed255)?,
-        SignatureAlgorithm::EcDsaP256 => {
-            gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::P256Prehashed)?
-        }
+        SignatureAlgorithm::EcDsaP256 => gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::P256)?,
         _ => unimplemented!(),
     }
     ctx.reply.prepend_len(offset)
@@ -49,8 +47,10 @@ pub fn aut<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&hex!("7f49"))?;
     let offset = ctx.reply.len();
     match algo {
-        AuthenticationAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::X255)?,
-        AuthenticationAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256)?,
+        AuthenticationAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::Ed255)?,
+        AuthenticationAlgorithm::EcDsaP256 => {
+            gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256)?
+        }
         _ => unimplemented!(),
     }
     ctx.reply.prepend_len(offset)
