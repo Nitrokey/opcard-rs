@@ -406,11 +406,13 @@ impl Internal {
     pub fn sign_alg(&self) -> SignatureAlgorithm {
         self.sign_alg
     }
+
     pub fn set_sign_alg(
         &mut self,
         client: &mut impl trussed::Client,
         alg: SignatureAlgorithm,
     ) -> Result<(), Error> {
+        self.delete_key(KeyType::Sign, client)?;
         self.sign_alg = alg;
         self.save(client)
     }
@@ -418,11 +420,13 @@ impl Internal {
     pub fn dec_alg(&self) -> DecryptionAlgorithm {
         self.dec_alg
     }
+
     pub fn set_dec_alg(
         &mut self,
         client: &mut impl trussed::Client,
         alg: DecryptionAlgorithm,
     ) -> Result<(), Error> {
+        self.delete_key(KeyType::Dec, client)?;
         self.dec_alg = alg;
         self.save(client)
     }
@@ -436,6 +440,7 @@ impl Internal {
         client: &mut impl trussed::Client,
         alg: AuthenticationAlgorithm,
     ) -> Result<(), Error> {
+        self.delete_key(KeyType::Aut, client)?;
         self.aut_alg = alg;
         self.save(client)
     }
@@ -579,6 +584,22 @@ impl Internal {
         }
         self.save(client)?;
         Ok(new)
+    }
+
+    fn delete_key(&mut self, ty: KeyType, client: &mut impl trussed::Client) -> Result<(), Error> {
+        let key = match ty {
+            KeyType::Sign => self.signing_key.take(),
+            KeyType::Dec => self.confidentiality_key.take(),
+            KeyType::Aut => self.aut_key.take(),
+        };
+
+        if let Some(key_id) = key {
+            try_syscall!(client.delete(key_id)).map_err(|_err| {
+                error!("Failed to delete key {_err:?}");
+                Error::Saving
+            })?;
+        }
+        Ok(())
     }
 }
 
