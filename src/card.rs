@@ -204,7 +204,6 @@ impl<'a, const R: usize, T: trussed::Client> LoadedContext<'a, R, T> {
     ///
     /// The resulting `LoadedContext` has a shorter lifetime than the original one, meaning that it
     /// can be passed by value to other functions and the original context can then be used again
-    #[allow(unused)]
     pub fn lend(&mut self) -> LoadedContext<'_, R, T> {
         LoadedContext {
             reply: Reply(self.reply.0),

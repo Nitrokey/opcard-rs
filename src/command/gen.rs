@@ -6,7 +6,6 @@ use iso7816::Status;
 use trussed::types::{KeySerialization, Location, Mechanism, StorageAttributes};
 use trussed::{syscall, try_syscall};
 
-use crate::card::reply::Reply;
 use crate::card::LoadedContext;
 use crate::types::*;
 use crate::utils::InspectErr;
@@ -17,17 +16,10 @@ pub fn sign<const R: usize, T: trussed::Client>(
     let algo = ctx.state.internal.sign_alg();
     ctx.reply.expand(&hex!("7f49"))?;
     let offset = ctx.reply.len();
-    let tmp_ctx = LoadedContext {
-        state: ctx.state,
-        options: ctx.options,
-        backend: ctx.backend,
-        data: ctx.data,
-        reply: Reply(ctx.reply.0),
-    };
     match algo {
-        SignatureAlgorithm::Ed255 => gen_ec_key(tmp_ctx, KeyType::Sign, Mechanism::Ed255)?,
+        SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::Ed255)?,
         SignatureAlgorithm::EcDsaP256 => {
-            gen_ec_key(tmp_ctx, KeyType::Sign, Mechanism::P256Prehashed)?
+            gen_ec_key(ctx.lend(), KeyType::Sign, Mechanism::P256Prehashed)?
         }
         _ => unimplemented!(),
     }
