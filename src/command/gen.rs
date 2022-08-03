@@ -27,13 +27,33 @@ pub fn sign<const R: usize, T: trussed::Client>(
 }
 
 #[allow(unused)]
-pub fn dec<const R: usize, T: trussed::Client>(ctx: LoadedContext<'_, R, T>) -> Result<(), Status> {
-    todo!()
+pub fn dec<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let algo = ctx.state.internal.dec_alg();
+    ctx.reply.expand(&hex!("7f49"))?;
+    let offset = ctx.reply.len();
+    match algo {
+        DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, Mechanism::X255)?,
+        DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256)?,
+        _ => unimplemented!(),
+    }
+    ctx.reply.prepend_len(offset)
 }
 
 #[allow(unused)]
-pub fn aut<const R: usize, T: trussed::Client>(ctx: LoadedContext<'_, R, T>) -> Result<(), Status> {
-    todo!()
+pub fn aut<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let algo = ctx.state.internal.aut_alg();
+    ctx.reply.expand(&hex!("7f49"))?;
+    let offset = ctx.reply.len();
+    match algo {
+        AuthenticationAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::X255)?,
+        AuthenticationAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Aut, Mechanism::P256)?,
+        _ => unimplemented!(),
+    }
+    ctx.reply.prepend_len(offset)
 }
 
 fn gen_ec_key<const R: usize, T: trussed::Client>(
