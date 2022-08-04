@@ -268,4 +268,8 @@ impl Uif {
     pub fn as_byte(self) -> u8 {
         self as u8
     }
+
+    pub fn is_enabled(self) -> bool {
+        matches!(self, Uif::Enabled | Uif::PermanentlyEnabled)
+    }
 }

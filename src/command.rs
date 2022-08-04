@@ -3,6 +3,7 @@
 
 mod data;
 mod gen;
+mod pso;
 
 use iso7816::Status;
 
@@ -44,6 +45,7 @@ impl Command {
             Self::ChangeReferenceData(password) => {
                 change_reference_data(context.load_state()?, *password)
             }
+            Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
             Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
             _ => {
                 warn!("Command not yet implemented: {:x?}", self);
