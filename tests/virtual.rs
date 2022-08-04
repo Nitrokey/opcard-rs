@@ -5,9 +5,17 @@
 
 mod vpicc;
 
-use std::process::Command;
+use std::{
+    io::{BufRead, BufReader, Read, Write},
+    mem::drop,
+    process::{Command, Stdio},
+    sync::mpsc,
+    thread::sleep,
+    time::Duration,
+};
 
 use regex::Regex;
+use stoppable_thread::spawn;
 use test_log::test;
 
 #[test]
@@ -59,5 +67,24 @@ fn gpg_card_status() {
         assert!(output.status.success(), "{}", output.status);
 
         assert!(status_regex.is_match(&stdout), "{}", stdout);
+    });
+
+    vpicc::with_vsc(|| {
+        let mut gpg = Command::new("gpg")
+            .arg("--command-fd=0")
+            .arg("--status-fd=1")
+            .arg("--pinentry-mode")
+            .arg("loopback")
+            .arg("--card-edit")
+            .stdout(Stdio::piped())
+            //.stderr(Stdio::piped())
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("failed to run gpg --card-status");
+        let mut gpg_in = gpg.stdin.take().unwrap();
+        let _gpg_out = gpg.stdout.take().unwrap();
+        //let mut gpg_err = gpg.stderr.take().unwrap();
+        writeln!(gpg_in, "quit\n").unwrap();
+        //assert!(status_regex.is_match(status), "{status}")
     });
 }
