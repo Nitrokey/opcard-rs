@@ -6,16 +6,11 @@
 mod vpicc;
 
 use std::{
-    io::{BufRead, BufReader, Read, Write},
-    mem::drop,
+    io::{Write},
     process::{Command, Stdio},
-    sync::mpsc,
-    thread::sleep,
-    time::Duration,
 };
 
 use regex::Regex;
-use stoppable_thread::spawn;
 use test_log::test;
 
 #[test]
