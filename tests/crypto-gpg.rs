@@ -102,7 +102,7 @@ fn gpg_gen_key() {
                 r"gpg: revocation certificate stored as '.*\.rev'",
                 r"gpg: checking the trustdb",
                 r"gpg: marginals needed: \d  completes needed: \d  trust model: pgp",
-                r"gpg: depth: \d*  valid:  \d*  signed:   \d*  trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
+                r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u"
         ],
     );
 }
