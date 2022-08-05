@@ -161,7 +161,7 @@ pub fn gnupg_test(
 
         for l in stdin {
             println!("STDIN: {l}");
-            write!(gpg_in, "{l}\n").unwrap();
+            writeln!(gpg_in, "{l}").unwrap();
             gpg_in.flush().unwrap();
         }
         drop(gpg_in);

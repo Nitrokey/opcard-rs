@@ -167,7 +167,7 @@ fn serialize_p256<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&[0x86])?;
     ctx.reply.append_len(serialized.len() + 1)?;
     ctx.reply.expand(&[0x04])?;
-    ctx.reply.expand(&serialized)
+    ctx.reply.expand(serialized)
 }
 
 fn serialize_25519<const R: usize, T: trussed::Client>(
@@ -176,7 +176,7 @@ fn serialize_25519<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     ctx.reply.expand(&[0x86])?;
     ctx.reply.append_len(serialized.len())?;
-    ctx.reply.expand(&serialized)
+    ctx.reply.expand(serialized)
 }
 
 fn read_ec_key<const R: usize, T: trussed::Client>(

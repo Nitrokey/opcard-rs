@@ -48,8 +48,9 @@ impl<T: trussed::Client> Card<T> {
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
         trace!("Received APDU {:?}", command);
-        let card_command = Command::try_from(command)
-            .inspect_err_stable(|_err| warn!("Failed to parse command: {command:x?} {_err:?}"))?;
+        let card_command = Command::try_from(command).inspect_err_stable(|_err| {
+            warn!("Failed to parse command: {command:x?} {_err:?}");
+        })?;
         info!("Executing command {:x?}", card_command);
         let context = Context {
             backend: &mut self.backend,
