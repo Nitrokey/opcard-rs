@@ -257,7 +257,7 @@ impl TryFrom<u8> for GenerateAsymmetricKeyPairMode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x80 => Ok(Self::GenerateKey),
-            0x82 => Ok(Self::ReadTemplate),
+            0x81 => Ok(Self::ReadTemplate),
             _ => Err(Status::IncorrectP1OrP2Parameter),
         }
     }
