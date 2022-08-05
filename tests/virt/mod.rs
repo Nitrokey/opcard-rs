@@ -15,6 +15,8 @@ use std::{
 use regex::Regex;
 use stoppable_thread::spawn;
 
+const KEY_CONSIDERED_FILTER: &str = r"\[GNUPG:\] KEY_CONSIDERED [0-9A-Z]{40} \d";
+
 pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
 
@@ -117,10 +119,16 @@ pub fn gnupg_test(
         let mut gpg_err = gpg.stderr.take().unwrap();
 
         let out_handle = thread::spawn(move || {
+            let key_considered = Regex::new(KEY_CONSIDERED_FILTER).unwrap();
             let mut regexes = out_re.into_iter();
             let o = BufReader::new(gpg_out);
             for l in o.lines().map(|r| r.unwrap()) {
                 println!("STDOUT: {l}");
+
+                // KEY_CONSIDERED statuses are variable
+                if key_considered.is_match(&l) {
+                    continue;
+                }
                 match regexes.next() {
                     Some(re) => {
                         assert!(re.is_match(&l), r#"Expected in stdout: "{re}", got: "{l}""#)
