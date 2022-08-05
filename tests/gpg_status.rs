@@ -3,12 +3,9 @@
 
 #![cfg(feature = "virtual")]
 
-mod vpicc;
+mod virt;
 
-use std::{
-    io::{Write},
-    process::{Command, Stdio},
-};
+use std::process::Command;
 
 use regex::Regex;
 use test_log::test;
@@ -17,7 +14,7 @@ use test_log::test;
 fn gpg_card_status() {
     let status_regex = Regex::new(
         "\
-            Reader ...........: Virtual PCD \\d\\d \\d\\d\n\
+            Reader ...........: virt PCD \\d\\d \\d\\d\n\
             Application ID ...: D2760001240103040000000000000000\n\
             Application type .: OpenPGP\n\
             Version ..........: 3.4\n\
@@ -42,7 +39,7 @@ fn gpg_card_status() {
     )
     .expect("failed to compile regex");
 
-    vpicc::with_vsc(|| {
+    virt::with_vsc(|| {
         let output = Command::new("gpg")
             .arg("--card-status")
             .output()
@@ -62,24 +59,5 @@ fn gpg_card_status() {
         assert!(output.status.success(), "{}", output.status);
 
         assert!(status_regex.is_match(&stdout), "{}", stdout);
-    });
-
-    vpicc::with_vsc(|| {
-        let mut gpg = Command::new("gpg")
-            .arg("--command-fd=0")
-            .arg("--status-fd=1")
-            .arg("--pinentry-mode")
-            .arg("loopback")
-            .arg("--card-edit")
-            .stdout(Stdio::piped())
-            //.stderr(Stdio::piped())
-            .stdin(Stdio::piped())
-            .spawn()
-            .expect("failed to run gpg --card-status");
-        let mut gpg_in = gpg.stdin.take().unwrap();
-        let _gpg_out = gpg.stdout.take().unwrap();
-        //let mut gpg_err = gpg.stderr.take().unwrap();
-        writeln!(gpg_in, "quit\n").unwrap();
-        //assert!(status_regex.is_match(status), "{status}")
     });
 }

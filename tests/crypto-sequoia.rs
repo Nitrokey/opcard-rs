@@ -1,8 +1,9 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
+#![cfg(feature = "virtual")]
 
 mod card;
-mod vpicc;
+mod virt;
 
 use openpgp_card::{algorithm::AlgoSimple, KeyType, OpenPgp};
 use openpgp_card_pcsc::PcscBackend;
@@ -15,7 +16,7 @@ use test_log::test;
 
 #[test]
 fn sign() {
-    vpicc::with_vsc(|| {
+    virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
         let mut pgp = OpenPgp::new(&mut cards[0]);
         let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
@@ -37,7 +38,7 @@ fn sign() {
             .is_ok());
     });
 
-    vpicc::with_vsc(|| {
+    virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
         let mut pgp = OpenPgp::new(&mut cards[0]);
         let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
