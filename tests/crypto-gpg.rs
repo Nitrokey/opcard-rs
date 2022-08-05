@@ -4,8 +4,10 @@
 #![cfg(feature = "virtual")]
 mod virt;
 
+use test_log::test;
+
 #[test]
-fn gen_key() {
+fn gpg_gen_key() {
     virt::gnupg_test(
         &[
             "admin",

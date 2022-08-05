@@ -105,6 +105,7 @@ pub fn gnupg_test(
             .arg("--with-colons")
             .arg("--pinentry-mode")
             .arg("loopback")
+            .arg("--expert")
             .arg("--card-edit")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
