@@ -923,6 +923,10 @@ fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
     ctx.state
         .internal
         .set_sign_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    ctx.state
+        .internal
+        .delete_key(KeyType::Sign, ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -940,6 +944,10 @@ fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
     ctx.state
         .internal
         .set_dec_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    ctx.state
+        .internal
+        .delete_key(KeyType::Dec, ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -957,6 +965,10 @@ fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
     ctx.state
         .internal
         .set_aut_alg(ctx.backend.client_mut(), alg)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    ctx.state
+        .internal
+        .delete_key(KeyType::Aut, ctx.backend.client_mut())
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 

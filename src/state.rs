@@ -586,7 +586,11 @@ impl Internal {
         Ok(new)
     }
 
-    fn delete_key(&mut self, ty: KeyType, client: &mut impl trussed::Client) -> Result<(), Error> {
+    pub fn delete_key(
+        &mut self,
+        ty: KeyType,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
         let key = match ty {
             KeyType::Sign => self.signing_key.take(),
             KeyType::Dec => self.confidentiality_key.take(),
@@ -594,6 +598,7 @@ impl Internal {
         };
 
         if let Some(key_id) = key {
+            self.save(client)?;
             try_syscall!(client.delete(key_id)).map_err(|_err| {
                 error!("Failed to delete key {_err:?}");
                 Error::Saving
