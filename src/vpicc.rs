@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use iso7816::{command::FromSliceError, Status};
+use iso7816::{command::FromSliceError, Command, Status};
 
 use crate::card::Card;
 
@@ -14,6 +14,7 @@ const RESPONSE_LEN: usize = 7609;
 /// `vpicc-rs` and [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) to emulate the card.
 #[derive(Clone, Debug)]
 pub struct VirtualCard<T: trussed::Client> {
+    request_buffer: RequestBuffer<REQUEST_LEN>,
     response_buffer: ResponseBuffer<RESPONSE_LEN>,
     card: Card<T>,
 }
@@ -22,17 +23,22 @@ impl<T: trussed::Client> VirtualCard<T> {
     /// Creates a new virtual smart card from the given card.
     pub fn new(card: Card<T>) -> Self {
         Self {
+            request_buffer: Default::default(),
             response_buffer: Default::default(),
             card,
         }
     }
 
     fn handle(&mut self, request: &[u8]) -> (&[u8], Status) {
-        // TODO: consider using apdu_dispatch to combine APDUs
         parse_command(request)
+            .and_then(|command| self.request_buffer.handle(command))
             .map(|command| {
-                self.response_buffer
-                    .handle(&command, |c, b| self.card.handle(c, b))
+                command
+                    .map(|command| {
+                        self.response_buffer
+                            .handle(&command, |c, b| self.card.handle(c, b))
+                    })
+                    .unwrap_or_default()
             })
             .unwrap_or_else(|status| (&[], status))
     }
@@ -58,7 +64,7 @@ impl<T: trussed::Client> vpicc::VSmartCard for VirtualCard<T> {
     }
 }
 
-fn parse_command(data: &[u8]) -> Result<iso7816::Command<REQUEST_LEN>, Status> {
+fn parse_command(data: &[u8]) -> Result<Command<REQUEST_LEN>, Status> {
     data.try_into().map_err(|err| {
         warn!("Failed to parse command: {err:?}");
         match err {
@@ -80,6 +86,33 @@ fn make_response(data: &[u8], status: Status) -> Vec<u8> {
 }
 
 #[derive(Clone, Debug, Default)]
+struct RequestBuffer<const N: usize> {
+    command: Option<Command<N>>,
+}
+
+impl<const N: usize> RequestBuffer<N> {
+    pub fn handle(&mut self, command: Command<N>) -> Result<Option<Command<N>>, Status> {
+        if let Some(buffer) = &mut self.command {
+            buffer
+                .extend_from_command(&command)
+                .map_err(|_| Status::WrongLength)?;
+        }
+        if command.class().chain().last_or_only() {
+            if let Some(buffer) = self.command.take() {
+                Ok(Some(buffer))
+            } else {
+                Ok(Some(command))
+            }
+        } else {
+            if self.command.is_none() {
+                self.command = Some(command);
+            }
+            Ok(None)
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 struct ResponseBuffer<const N: usize> {
     buffer: heapless::Vec<u8, N>,
     offset: usize,
@@ -88,10 +121,10 @@ struct ResponseBuffer<const N: usize> {
 impl<const N: usize> ResponseBuffer<N> {
     pub fn handle<
         const C: usize,
-        F: FnOnce(&iso7816::Command<C>, &mut heapless::Vec<u8, N>) -> Result<(), Status>,
+        F: FnOnce(&Command<C>, &mut heapless::Vec<u8, N>) -> Result<(), Status>,
     >(
         &mut self,
-        command: &iso7816::Command<C>,
+        command: &Command<C>,
         exec: F,
     ) -> (&[u8], Status) {
         if command.instruction() != iso7816::Instruction::GetResponse {
