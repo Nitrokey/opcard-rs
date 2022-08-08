@@ -12,10 +12,18 @@ use std::{
     time::Duration,
 };
 
-use regex::Regex;
+use regex::{Regex, RegexSet};
 use stoppable_thread::spawn;
 
-const KEY_CONSIDERED_FILTER: &str = r"\[GNUPG:\] KEY_CONSIDERED [0-9A-Z]{40} \d";
+const STDOUT_FILTER: &[&str] = &[r"\[GNUPG:\] KEY_CONSIDERED [0-9A-Z]{40} \d"];
+
+const STDERR_FILTER: &[&str] = &[
+    r"gpg: WARNING: unsafe permissions on homedir '.*'",
+    r"gpg: keybox '.*' created",
+    r"gpg: .*: trustdb created",
+    r"gpg: key [0-9A-F]{16} marked as ultimately trusted",
+    r"gpg: directory '.*/openpgp-revocs.d' created",
+];
 
 pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
@@ -121,14 +129,13 @@ pub fn gnupg_test(
 
         let out_handle = thread::spawn(move || {
             let mut panic_message = None;
-            let key_considered = Regex::new(KEY_CONSIDERED_FILTER).unwrap();
+            let filter = RegexSet::new(STDOUT_FILTER).unwrap();
             let mut regexes = out_re.into_iter();
             let o = BufReader::new(gpg_out);
             for l in o.lines().map(|r| r.unwrap()) {
                 println!("STDOUT: {l}");
 
-                // KEY_CONSIDERED statuses are variable
-                if key_considered.is_match(&l) {
+                if filter.is_match(&l) {
                     continue;
                 }
                 match regexes.next() {
@@ -151,10 +158,16 @@ pub fn gnupg_test(
 
         let err_handle = thread::spawn(move || {
             let mut panic_message = None;
+            let filter = RegexSet::new(STDERR_FILTER).unwrap();
             let mut regexes = err_re.into_iter();
             let o = BufReader::new(gpg_err);
             for l in o.lines().map(|r| r.unwrap()) {
                 println!("STDERR: {l}");
+
+                if filter.is_match(&l) {
+                    continue;
+                }
+
                 match regexes.next() {
                     Some(re) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
                         format!(r#"Expected in stderr: "{re}", got: "{l}""#)
