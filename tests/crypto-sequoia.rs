@@ -15,13 +15,27 @@ use sequoia_openpgp::types::HashAlgorithm;
 use test_log::test;
 
 #[test]
-fn sign() {
+fn sequoia_gen_key() {
     virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
         let mut pgp = OpenPgp::new(&mut cards[0]);
         let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
         open.verify_admin(b"12345678").unwrap();
         let mut admin = open.admin_card().unwrap();
+        let (material, gendate) = admin
+            .generate_key_simple(KeyType::Decryption, Some(AlgoSimple::NIST256))
+            .unwrap();
+        let _pubk =
+            public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None)
+                .unwrap();
+
+        let (material, gendate) = admin
+            .generate_key_simple(KeyType::Authentication, Some(AlgoSimple::NIST256))
+            .unwrap();
+        let _pubk =
+            public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+                .unwrap();
+
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Signing, Some(AlgoSimple::NIST256))
             .unwrap();
@@ -44,6 +58,21 @@ fn sign() {
         let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
         open.verify_admin(b"12345678").unwrap();
         let mut admin = open.admin_card().unwrap();
+
+        let (material, gendate) = admin
+            .generate_key_simple(KeyType::Decryption, Some(AlgoSimple::Curve25519))
+            .unwrap();
+        let _pubk =
+            public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None)
+                .unwrap();
+
+        let (material, gendate) = admin
+            .generate_key_simple(KeyType::Authentication, Some(AlgoSimple::Curve25519))
+            .unwrap();
+        let _pubk =
+            public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+                .unwrap();
+
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Signing, Some(AlgoSimple::Curve25519))
             .unwrap();
