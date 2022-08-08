@@ -15,7 +15,10 @@ use std::{
 use regex::{Regex, RegexSet};
 use stoppable_thread::spawn;
 
-const STDOUT_FILTER: &[&str] = &[r"\[GNUPG:\] KEY_CONSIDERED [0-9A-F]{40} \d"];
+const STDOUT_FILTER: &[&str] = &[
+    r"\[GNUPG:\] KEY_CONSIDERED [0-9A-F]{40} \d",
+    r"\[GNUPG:\] GOT_IT",
+];
 
 const STDERR_FILTER: &[&str] = &[
     r"gpg: WARNING: unsafe permissions on homedir '.*'",
@@ -62,7 +65,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 }
 
 #[allow(unused)]
-pub fn gpg_status() -> impl Iterator<Item = &'static str> {
+pub fn gpg_status() -> impl Iterator<Item = &'static str> + Clone {
     [
         r"Reader:Virtual PCD \d\d \d\d:AID:D2760001240103040000000000000000:openpgp-card",
         r"version:0304",
@@ -89,11 +92,10 @@ pub fn gpg_status() -> impl Iterator<Item = &'static str> {
 }
 
 #[allow(unused)]
-pub fn gpg_inquire_pin() -> impl Iterator<Item = &'static str> {
+pub fn gpg_inquire_pin() -> impl Iterator<Item = &'static str> + Clone {
     [
         r"\[GNUPG:\] INQUIRE_MAXLEN 100",
         r"\[GNUPG:\] GET_HIDDEN passphrase.enter",
-        r"\[GNUPG:\] GOT_IT",
     ]
     .into_iter()
 }
@@ -130,7 +132,7 @@ pub fn gnupg_test(
         let out_handle = thread::spawn(move || {
             let mut panic_message = None;
             let filter = RegexSet::new(STDOUT_FILTER).unwrap();
-            let mut regexes = out_re.into_iter();
+            let mut regexes = out_re.into_iter().enumerate();
             let o = BufReader::new(gpg_out);
             for l in o.lines().map(|r| r.unwrap()) {
                 println!("STDOUT: {l}");
@@ -139,16 +141,21 @@ pub fn gnupg_test(
                     continue;
                 }
                 match regexes.next() {
-                    Some(re) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
-                        format!(r#"Expected in stdout: "{re}", got: "{l}""#)
+                    Some((id, re)) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
+                        let tmp = format!(r#"Expected in stdout {id}: "{re}", got: "{l}""#);
+                        println!("FAILED HERE: {tmp}");
+                        tmp
                     }),
-                    None => panic_message
-                        .get_or_insert_with(|| format!(r#"Expected in stdout: EOL, got: "{l}"#)),
+                    None => panic_message.get_or_insert_with(|| {
+                        let tmp = format!(r#"Expected in stdout: EOL, got: "{l}"#);
+                        println!("FAILED HERE: {tmp}");
+                        tmp
+                    }),
                     _ => continue,
                 };
             }
-            if let Some(re) = regexes.next() {
-                panic!(r#"Expected in stdout: "{re}", got EOL"#);
+            if let Some((id, re)) = regexes.next() {
+                panic!(r#"Expected in stdout {id}: "{re}", got EOL"#);
             }
 
             if let Some(m) = panic_message {

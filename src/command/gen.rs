@@ -43,6 +43,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.sign_alg();
+    info!("Generating dec key with algorithm: {algo:?}");
     match algo {
         SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => {
@@ -56,9 +57,10 @@ pub fn dec<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.dec_alg();
+    info!("Generating dec key with algorithm: {algo:?}");
     match algo {
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
-        DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDhP256),
+        DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
         _ => unimplemented!(),
     }
 }
@@ -67,6 +69,7 @@ pub fn aut<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.aut_alg();
+    info!("Generating aut key with algorithm: {algo:?}");
     match algo {
         AuthenticationAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::Ed255),
         AuthenticationAlgorithm::EcDsaP256 => {
