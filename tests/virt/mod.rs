@@ -109,6 +109,7 @@ pub fn gnupg_test(
             .arg("loopback")
             .arg("--expert")
             .arg("--card-edit")
+            .arg("--no-tty")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .stdin(Stdio::piped())
