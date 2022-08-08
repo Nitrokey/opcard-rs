@@ -13,4 +13,4 @@ push:
 
 .PHONY: run
 run:
-	docker run --interactive --rm --volume "$(PWD)/..:/app" $(TAG) make ci
+	docker run --interactive --rm --volume "$(PWD)/..:/app" --env RUST_LOG $(TAG) make ci
