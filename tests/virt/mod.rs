@@ -49,7 +49,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 
     rx.recv().expect("failed to read message");
 
-    sleep(Duration::from_millis(100));
+    sleep(Duration::from_millis(200));
 
     let result = f();
 
