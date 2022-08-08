@@ -178,6 +178,10 @@ pub fn gnupg_test(
             gpg_in.flush().unwrap();
         }
         drop(gpg_in);
+        let gpg_ret_code = gpg.wait().unwrap();
+        if !gpg_ret_code.success() {
+            panic!("Gpg failed with error code {gpg_ret_code}");
+        }
 
         out_handle.join().unwrap();
         err_handle.join().unwrap();
