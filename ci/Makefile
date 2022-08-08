@@ -14,3 +14,7 @@ push:
 .PHONY: run
 run:
 	docker run --interactive --rm --volume "$(PWD)/..:/app" --env RUST_LOG $(TAG) make ci
+
+.PHONY: test
+test:
+	docker run --interactive --rm --volume "$(PWD)/..:/app" --env RUST_LOG $(TAG) make test
