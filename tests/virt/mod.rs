@@ -119,6 +119,7 @@ pub fn gnupg_test(
         let mut gpg_err = gpg.stderr.take().unwrap();
 
         let out_handle = thread::spawn(move || {
+            let mut panic_message = None;
             let key_considered = Regex::new(KEY_CONSIDERED_FILTER).unwrap();
             let mut regexes = out_re.into_iter();
             let o = BufReader::new(gpg_out);
@@ -130,32 +131,44 @@ pub fn gnupg_test(
                     continue;
                 }
                 match regexes.next() {
-                    Some(re) => {
-                        assert!(re.is_match(&l), r#"Expected in stdout: "{re}", got: "{l}""#)
-                    }
-                    None => panic!(r#"Expected in stdout: EOL, got: "{l}"#),
-                }
+                    Some(re) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
+                        format!(r#"Expected in stdout: "{re}", got: "{l}""#)
+                    }),
+                    None => panic_message
+                        .get_or_insert_with(|| format!(r#"Expected in stdout: EOL, got: "{l}"#)),
+                    _ => continue,
+                };
             }
             if let Some(re) = regexes.next() {
                 panic!(r#"Expected in stdout: "{re}", got EOL"#);
             }
+
+            if let Some(m) = panic_message {
+                panic!("{m}");
+            }
         });
 
         let err_handle = thread::spawn(move || {
+            let mut panic_message = None;
             let mut regexes = err_re.into_iter();
             let o = BufReader::new(gpg_err);
             for l in o.lines().map(|r| r.unwrap()) {
                 println!("STDERR: {l}");
                 match regexes.next() {
-                    Some(re) => {
-                        assert!(re.is_match(&l), r#"Expected in stderr: "{re}", got: "{l}""#)
-                    }
-                    None => panic!(r#"Expected in stderr: EOL, got: "{l}"#),
-                }
+                    Some(re) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
+                        format!(r#"Expected in stderr: "{re}", got: "{l}""#)
+                    }),
+                    None => panic_message
+                        .get_or_insert_with(|| format!(r#"Expected in stderr: EOL, got: "{l}"#)),
+                    _ => continue,
+                };
             }
-
             if let Some(re) = regexes.next() {
                 panic!(r#"Expected in stderr: "{re}", got EOL"#);
+            }
+
+            if let Some(m) = panic_message {
+                panic!("{m}");
             }
         });
 
