@@ -15,7 +15,7 @@ use std::{
 use regex::{Regex, RegexSet};
 use stoppable_thread::spawn;
 
-const STDOUT_FILTER: &[&str] = &[r"\[GNUPG:\] KEY_CONSIDERED [0-9A-Z]{40} \d"];
+const STDOUT_FILTER: &[&str] = &[r"\[GNUPG:\] KEY_CONSIDERED [0-9A-F]{40} \d"];
 
 const STDERR_FILTER: &[&str] = &[
     r"gpg: WARNING: unsafe permissions on homedir '.*'",
