@@ -17,6 +17,8 @@ RUN mkdir -p ~/.gnupg
 RUN echo "disable-ccid" > ~/.gnupg/scdaemon.conf
 RUN echo "log-file /app/.cache/scdaemon.log" >> ~/.gnupg/scdaemon.conf
 
+ENV CARGO_HOME=/app/.cache/cargo
+
 WORKDIR /app
 
 COPY entrypoint.sh /entrypoint.sh
