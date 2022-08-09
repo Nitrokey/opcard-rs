@@ -2,19 +2,20 @@
 # SPDX-License-Identifier: CC0-1.0
 
 TAG := registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build
+DOCKER ?= docker
 
 .PHONY: build
 build:
-	docker build . --tag $(TAG)
+	$(DOCKER) build . --tag $(TAG)
 
 .PHONY: push
 push:
-	docker push $(TAG)
+	$(DOCKER) push $(TAG)
 
 .PHONY: run
 run:
-	docker run --interactive --rm --volume "$(PWD)/..:/app" --env RUST_LOG $(TAG) make ci
+	$(DOCKER) run --interactive --rm --volume "$(PWD)/..:/app" --env RUST_LOG $(TAG) make ci
 
 .PHONY: test
 test:
-	docker run --interactive --rm --volume "$(PWD)/..:/app" --env RUST_LOG $(TAG) make test
+	$(DOCKER) run --interactive --rm --volume "$(PWD)/..:/app" --env RUST_LOG $(TAG) make test
