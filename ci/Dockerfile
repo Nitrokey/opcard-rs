@@ -4,7 +4,7 @@
 FROM rust:latest
 
 RUN apt update
-RUN apt install --yes gnupg scdaemon libclang-dev llvm python3-pip vsmartcard-vpcd pkg-config nettle-dev
+RUN apt install --yes gnupg scdaemon libclang-dev llvm python3-pip vsmartcard-vpcd pkg-config nettle-dev libpcsclite-dev
 
 RUN python3 -m pip install reuse
 
@@ -15,6 +15,9 @@ RUN cargo search
 
 RUN mkdir -p ~/.gnupg
 RUN echo "disable-ccid" > ~/.gnupg/scdaemon.conf
+RUN echo "log-file /app/.cache/scdaemon.log" >> ~/.gnupg/scdaemon.conf
+
+ENV CARGO_HOME=/app/.cache/cargo
 
 WORKDIR /app
 

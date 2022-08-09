@@ -1,6 +1,8 @@
 # Copyright (C) 2022 Nitrokey GmbH
 # SPDX-License-Identifier: CC0-1.0
 
+export RUST_LOG ?= info
+
 .PHONY: check
 check:
 	cargo check --all-features --all-targets
@@ -17,8 +19,8 @@ fix:
 
 .PHONY: test
 test:
-	RUST_LOG=info cargo test --features virtual
-	RUST_LOG=info cargo test --features virtual --no-fail-fast -- --ignored || true
+	cargo test --features virtual
+	cargo test --features virtual --no-fail-fast -- --ignored || true
 
 .PHONY: ci
 ci: | check test
