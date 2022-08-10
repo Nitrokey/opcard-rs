@@ -56,7 +56,6 @@ fn gpg_gen_key() {
         "12345678",
         "generate",
         "n",
-        "y",
         "12345678",
         "123456",
         "0",
@@ -117,7 +116,6 @@ fn gpg_gen_key() {
         .chain([
             r"\[GNUPG:\] GET_LINE cardedit.prompt",
             r"\[GNUPG:\] GET_LINE cardedit.genkeys.backup_enc",
-            r"\[GNUPG:\] GET_BOOL cardedit.genkeys.replace_keys",
         ])
         .chain(virt::gpg_inquire_pin())
         .chain(virt::gpg_inquire_pin())
@@ -147,7 +145,6 @@ fn gpg_gen_key() {
             r"gpg: checking the trustdb",
             r"gpg: marginals needed: \d  completes needed: \d  trust model: pgp",
             r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
-            r"gpg: Note: keys are already stored on the card!",
             r"gpg: revocation certificate stored as '.*\.rev'",
         ],
     );

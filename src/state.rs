@@ -412,6 +412,9 @@ impl Internal {
         client: &mut impl trussed::Client,
         alg: SignatureAlgorithm,
     ) -> Result<(), Error> {
+        if self.sign_alg == alg {
+            return Ok(());
+        }
         self.delete_key(KeyType::Sign, client)?;
         self.sign_alg = alg;
         self.save(client)
@@ -426,6 +429,9 @@ impl Internal {
         client: &mut impl trussed::Client,
         alg: DecryptionAlgorithm,
     ) -> Result<(), Error> {
+        if self.dec_alg == alg {
+            return Ok(());
+        }
         self.delete_key(KeyType::Dec, client)?;
         self.dec_alg = alg;
         self.save(client)
@@ -440,6 +446,9 @@ impl Internal {
         client: &mut impl trussed::Client,
         alg: AuthenticationAlgorithm,
     ) -> Result<(), Error> {
+        if self.aut_alg == alg {
+            return Ok(());
+        }
         self.delete_key(KeyType::Aut, client)?;
         self.aut_alg = alg;
         self.save(client)
@@ -603,6 +612,8 @@ impl Internal {
                 error!("Failed to delete key {_err:?}");
                 Error::Saving
             })?;
+            self.fingerprints.key_part_mut(ty).copy_from_slice(&[0; 20]);
+            self.keygen_dates.key_part_mut(ty).copy_from_slice(&[0; 4]);
         }
         Ok(())
     }
