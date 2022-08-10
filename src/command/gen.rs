@@ -10,6 +10,8 @@ use crate::card::LoadedContext;
 use crate::types::*;
 use crate::utils::InspectErr;
 
+const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
+
 #[derive(Debug, Copy, Clone)]
 enum CurveAlgo {
     EcDhP256,
@@ -222,7 +224,7 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
-    ctx.reply.expand(&hex!("7f49"))?;
+    ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
     curve.serialize_pub(ctx.lend(), &serialized)?;
     ctx.reply.prepend_len(offset)
