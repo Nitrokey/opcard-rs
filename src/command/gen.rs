@@ -49,7 +49,10 @@ pub fn sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::EcDsaP256 => {
             gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP256)
         }
-        _ => unimplemented!(),
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
     }
 }
 
@@ -61,7 +64,10 @@ pub fn dec<const R: usize, T: trussed::Client>(
     match algo {
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
-        _ => unimplemented!(),
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
     }
 }
 
@@ -75,7 +81,10 @@ pub fn aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::EcDsaP256 => {
             gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP256)
         }
-        _ => unimplemented!(),
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
     }
 }
 
@@ -125,7 +134,10 @@ pub fn read_sign<const R: usize, T: trussed::Client>(
     match algo {
         SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
-        _ => unimplemented!(),
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
     }
 }
 
@@ -142,7 +154,10 @@ pub fn read_dec<const R: usize, T: trussed::Client>(
     match algo {
         DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
-        _ => unimplemented!(),
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
     }
 }
 
@@ -159,7 +174,10 @@ pub fn read_aut<const R: usize, T: trussed::Client>(
     match algo {
         AuthenticationAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
-        _ => unimplemented!(),
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
     }
 }
 

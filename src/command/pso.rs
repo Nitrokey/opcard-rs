@@ -48,7 +48,10 @@ pub fn sign<const R: usize, T: trussed::Client>(
             }
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
-        _ => unimplemented!(),
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
     }
 }
 
