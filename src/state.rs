@@ -79,10 +79,6 @@ macro_rules! concatenated_key_newtype {
         }
 
         impl $name {
-            pub fn key_part(&self, key: KeyType) -> &[u8] {
-                &self.0[self.key_offset(key)..][..$N/3]
-            }
-
             pub fn key_part_mut(&mut self, key: KeyType) -> &mut [u8] {
                 let offset = self.key_offset(key);
                 &mut self.0[offset..][..$N/3]

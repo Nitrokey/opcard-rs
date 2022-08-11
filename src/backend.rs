@@ -35,18 +35,6 @@ impl<T: trussed::Client> Backend<T> {
         Self { client }
     }
 
-    /// If the state is already loaded, returns it, otherwise try to load it
-    pub fn load_internal<'s, 'i>(
-        &'s mut self,
-        internal: &'i mut Option<state::Internal>,
-    ) -> Result<&'i mut state::Internal, Error> {
-        if let Some(state) = internal {
-            return Ok(state);
-        }
-        let to_ret = internal.insert(state::Internal::load(&mut self.client)?);
-        Ok(to_ret)
-    }
-
     /// Return a mutable reference to the trussed client
     pub fn client_mut(&mut self) -> &mut T {
         &mut self.client
