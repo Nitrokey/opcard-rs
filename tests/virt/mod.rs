@@ -34,10 +34,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
         trussed::virt::with_ram_client("opcard", |client| {
-            let card = opcard::Card::new(
-                opcard::backend::Backend::new(client),
-                opcard::Options::default(),
-            );
+            let card = opcard::Card::new(client, opcard::Options::default());
             let mut virtual_card = opcard::VirtualCard::new(card);
             let mut result = Ok(());
             while !stopped.get() && result.is_ok() {
