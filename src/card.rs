@@ -31,9 +31,9 @@ pub struct Card<T: trussed::Client> {
 
 impl<T: trussed::Client> Card<T> {
     /// Creates a new OpenPGP card with the given backend and options.
-    pub fn new(backend: Backend<T>, options: Options) -> Self {
+    pub fn new(client: T, options: Options) -> Self {
         Self {
-            backend,
+            backend: Backend::new(client),
             options,
             state: Default::default(),
         }

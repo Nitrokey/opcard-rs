@@ -26,8 +26,7 @@ impl<T: trussed::Client + Send + 'static> Card<T> {
     }
 
     pub fn with_options(client: T, options: Options) -> Self {
-        let backend = opcard::backend::Backend::new(client);
-        let card = opcard::Card::new(backend, options);
+        let card = opcard::Card::new(client, options);
         Self(Arc::from(Mutex::from(card)))
     }
 

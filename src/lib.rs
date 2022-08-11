@@ -12,8 +12,8 @@
 //!
 //! # Command handling
 //!
-//! The [`Card`] struct is the main entry point for this crate.  It depends on a
-//! [`Backend`][`backend::Backend`] implementation that provides low-level functionality.  The card
+//! The [`Card`] struct is the main entry point for this crate.  It depends on a Trussed
+//! [`Client`][`trussed::Client`] implementation that provides low-level functionality.  The card
 //! can be configured using [`Options`].  Its [`Card::handle`] method expects a full APDU command
 //! and constructs a reply for it.
 //!
@@ -48,7 +48,7 @@ extern crate log;
 #[cfg(feature = "delog")]
 delog::generate_macros!();
 
-pub mod backend;
+mod backend;
 mod card;
 mod command;
 mod error;
