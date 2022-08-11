@@ -9,6 +9,7 @@ pub enum Error {
     TooManyTries,
     RequestTooLarge,
     BadRequest,
+    UserInteraction,
 }
 
 impl core::fmt::Display for Error {
@@ -20,6 +21,7 @@ impl core::fmt::Display for Error {
             Error::TooManyTries => "PIN is locked",
             Error::RequestTooLarge => "Request data is larger than supported",
             Error::BadRequest => "Request data invalid",
+            Error::UserInteraction => "Failed to get user presence",
         };
         f.write_str(to_write)
     }
