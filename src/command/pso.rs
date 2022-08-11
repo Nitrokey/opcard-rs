@@ -22,9 +22,6 @@ pub fn sign<const R: usize, T: trussed::Client>(
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
-    if !ctx.state.internal.pw1_valid_multiple() {
-        ctx.state.runtime.sign_verified = false;
-    }
     if ctx.state.internal.uif(KeyType::Sign).is_enabled()
         && !ctx
             .backend
@@ -32,9 +29,11 @@ pub fn sign<const R: usize, T: trussed::Client>(
             .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
         warn!("User presence confirmation timed out");
-        ctx.state.runtime.sign_verified = true;
         // FIXME SecurityRelatedIssues (0x6600 is not available?)
         return Err(Status::SecurityStatusNotSatisfied);
+    }
+    if !ctx.state.internal.pw1_valid_multiple() {
+        ctx.state.runtime.sign_verified = false;
     }
 
     match ctx.state.internal.sign_alg() {
