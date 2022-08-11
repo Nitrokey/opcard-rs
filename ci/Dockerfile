@@ -9,7 +9,7 @@ RUN apt install --yes gnupg scdaemon libclang-dev llvm python3-pip vsmartcard-vp
 RUN python3 -m pip install reuse
 
 RUN rustup component add clippy rustfmt
-
+RUN cargo install cargo-tarpaulin --profile release && rm -rf "$CARGO_HOME"/registry
 # initialize cargo cache
 RUN cargo search
 

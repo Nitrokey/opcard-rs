@@ -41,9 +41,10 @@ fuzz-cov:
 
 .PHONY: tarpaulin
 tarpaulin:
-	cargo tarpaulin --features virtual -o Html
+	cargo tarpaulin --features virtual -o Html -o Xml
 
-ci: | check test
+.PHONY: ci
+ci: | check tarpaulin
 
 .PHONY: clean
 clean:

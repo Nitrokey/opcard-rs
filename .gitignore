@@ -9,3 +9,4 @@ Cargo.lock
 fuzz/coverage
 fuzz_coverage.html
 tarpaulin-report.html
+cobertura.xml
