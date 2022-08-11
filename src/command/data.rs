@@ -453,7 +453,9 @@ pub fn get_data<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     // TODO: curDO pointer
     if mode != GetDataMode::Even {
-        unimplemented!();
+        // TODO: implement
+        error!("Put data in even mode not yet implemented");
+        return Err(Status::FunctionNotSupported);
     }
     let object = GetDataObject::try_from(tag).inspect_err_stable(|_err| {
         warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
@@ -681,7 +683,9 @@ pub fn put_data<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     // TODO: curDO pointer
     if mode != PutDataMode::Even {
-        unimplemented!();
+        // TODO: implement
+        error!("Put data in even mode not yet implemented");
+        return Err(Status::FunctionNotSupported);
     }
     let object = PutDataObject::try_from(tag).inspect_err_stable(|_err| {
         warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
@@ -777,14 +781,30 @@ impl PutDataObject {
             Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             Self::CaFingerprint2 => put_ca_fingerprint(ctx.load_state()?, KeyType::Dec)?,
             Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
-            Self::ResetingCode => unimplemented!(),
-            Self::PSOEncDecKey => unimplemented!(),
+            Self::ResetingCode => put_reseting_code(ctx.load_state()?)?,
+            Self::PSOEncDecKey => put_enc_dec_key(ctx.load_state()?)?,
             Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
             Self::UifDec => put_uif(ctx.load_state()?, KeyType::Dec)?,
             Self::UifAut => put_uif(ctx.load_state()?, KeyType::Aut)?,
         }
         Ok(())
     }
+}
+
+fn put_enc_dec_key<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO: implement
+    error!("Put data in even mode not yet implemented");
+    Err(Status::FunctionNotSupported)
+}
+
+fn put_reseting_code<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    // TODO: implement
+    error!("Put data in even mode not yet implemented");
+    Err(Status::FunctionNotSupported)
 }
 
 fn put_uif<const R: usize, T: trussed::Client>(
