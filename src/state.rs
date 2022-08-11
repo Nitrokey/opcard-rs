@@ -1,5 +1,8 @@
 // Copyright (C) 2022 Nitrokey GmbH
+// let algo = ctx.state.internal.
 // SPDX-License-Identifier: LGPL-3.0-only
+
+use core::mem::swap;
 
 use heapless_bytes::Bytes;
 use hex_literal::hex;
@@ -403,11 +406,16 @@ impl Internal {
     pub fn sign_alg(&self) -> SignatureAlgorithm {
         self.sign_alg
     }
+
     pub fn set_sign_alg(
         &mut self,
         client: &mut impl trussed::Client,
         alg: SignatureAlgorithm,
     ) -> Result<(), Error> {
+        if self.sign_alg == alg {
+            return Ok(());
+        }
+        self.delete_key(KeyType::Sign, client)?;
         self.sign_alg = alg;
         self.save(client)
     }
@@ -415,11 +423,16 @@ impl Internal {
     pub fn dec_alg(&self) -> DecryptionAlgorithm {
         self.dec_alg
     }
+
     pub fn set_dec_alg(
         &mut self,
         client: &mut impl trussed::Client,
         alg: DecryptionAlgorithm,
     ) -> Result<(), Error> {
+        if self.dec_alg == alg {
+            return Ok(());
+        }
+        self.delete_key(KeyType::Dec, client)?;
         self.dec_alg = alg;
         self.save(client)
     }
@@ -433,6 +446,10 @@ impl Internal {
         client: &mut impl trussed::Client,
         alg: AuthenticationAlgorithm,
     ) -> Result<(), Error> {
+        if self.aut_alg == alg {
+            return Ok(());
+        }
+        self.delete_key(KeyType::Aut, client)?;
         self.aut_alg = alg;
         self.save(client)
     }
@@ -552,6 +569,53 @@ impl Internal {
 
     pub fn sign_count(&self) -> usize {
         self.sign_count
+    }
+
+    pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
+        match ty {
+            KeyType::Sign => self.signing_key,
+            KeyType::Dec => self.confidentiality_key,
+            KeyType::Aut => self.aut_key,
+        }
+    }
+
+    /// If the key id was already set, return the old key_id
+    pub fn set_key_id(
+        &mut self,
+        ty: KeyType,
+        mut new: Option<KeyId>,
+        client: &mut impl trussed::Client,
+    ) -> Result<Option<KeyId>, Error> {
+        match ty {
+            KeyType::Sign => swap(&mut self.signing_key, &mut new),
+            KeyType::Dec => swap(&mut self.confidentiality_key, &mut new),
+            KeyType::Aut => swap(&mut self.aut_key, &mut new),
+        }
+        self.save(client)?;
+        Ok(new)
+    }
+
+    pub fn delete_key(
+        &mut self,
+        ty: KeyType,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        let key = match ty {
+            KeyType::Sign => self.signing_key.take(),
+            KeyType::Dec => self.confidentiality_key.take(),
+            KeyType::Aut => self.aut_key.take(),
+        };
+
+        if let Some(key_id) = key {
+            self.save(client)?;
+            try_syscall!(client.delete(key_id)).map_err(|_err| {
+                error!("Failed to delete key {_err:?}");
+                Error::Saving
+            })?;
+            self.fingerprints.key_part_mut(ty).copy_from_slice(&[0; 20]);
+            self.keygen_dates.key_part_mut(ty).copy_from_slice(&[0; 4]);
+        }
+        Ok(())
     }
 }
 

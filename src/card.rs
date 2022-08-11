@@ -7,6 +7,7 @@ use iso7816::Status;
 pub(crate) mod reply;
 
 use crate::state::{LoadedState, State};
+use crate::utils::InspectErr;
 use crate::{backend::Backend, command::Command};
 use reply::Reply;
 
@@ -47,7 +48,9 @@ impl<T: trussed::Client> Card<T> {
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
         trace!("Received APDU {:?}", command);
-        let card_command = Command::try_from(command)?;
+        let card_command = Command::try_from(command).inspect_err_stable(|_err| {
+            warn!("Failed to parse command: {command:x?} {_err:?}");
+        })?;
         info!("Executing command {:x?}", card_command);
         let context = Context {
             backend: &mut self.backend,
@@ -204,7 +207,6 @@ impl<'a, const R: usize, T: trussed::Client> LoadedContext<'a, R, T> {
     ///
     /// The resulting `LoadedContext` has a shorter lifetime than the original one, meaning that it
     /// can be passed by value to other functions and the original context can then be used again
-    #[allow(unused)]
     pub fn lend(&mut self) -> LoadedContext<'_, R, T> {
         LoadedContext {
             reply: Reply(self.reply.0),

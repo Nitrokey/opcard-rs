@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 mod data;
+mod gen;
+mod pso;
 
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
+use crate::types::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -42,6 +45,8 @@ impl Command {
             Self::ChangeReferenceData(password) => {
                 change_reference_data(context.load_state()?, *password)
             }
+            Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
+            Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
             _ => {
                 warn!("Command not yet implemented: {:x?}", self);
                 unimplemented!();
@@ -240,7 +245,7 @@ pub enum PutDataMode {
     Odd,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum GenerateAsymmetricKeyPairMode {
     GenerateKey,
     ReadTemplate,
@@ -251,8 +256,8 @@ impl TryFrom<u8> for GenerateAsymmetricKeyPairMode {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0x00 => Ok(Self::GenerateKey),
-            0x02 => Ok(Self::ReadTemplate),
+            0x80 => Ok(Self::GenerateKey),
+            0x81 => Ok(Self::ReadTemplate),
             _ => Err(Status::IncorrectP1OrP2Parameter),
         }
     }
@@ -404,4 +409,30 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
         .internal
         .change_pin(client_mut, new, password)
         .map_err(|_| Status::WrongLength)
+}
+
+// § 7.2.14
+fn gen_keypair<const R: usize, T: trussed::Client>(
+    context: LoadedContext<'_, R, T>,
+    mode: GenerateAsymmetricKeyPairMode,
+) -> Result<(), Status> {
+    let key = KeyType::try_from_crt(context.data)?;
+
+    if mode == GenerateAsymmetricKeyPairMode::ReadTemplate {
+        return match key {
+            KeyType::Sign => gen::read_sign(context),
+            KeyType::Dec => gen::read_dec(context),
+            KeyType::Aut => gen::read_aut(context),
+        };
+    }
+
+    if !context.state.runtime.admin_verified {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+
+    match key {
+        KeyType::Sign => gen::sign(context),
+        KeyType::Dec => gen::dec(context),
+        KeyType::Aut => gen::aut(context),
+    }
 }
