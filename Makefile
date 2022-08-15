@@ -26,6 +26,10 @@ test:
 fuzz: fuzz-corpus
 	cargo +nightly fuzz run --jobs $$(nproc) fuzz_target_1 fuzz/corpus
 
+.PHONY: fuzz-check
+fuzz-check: fuzz-corpus
+	cd fuzz && cargo check --all-targets
+
 .PHONY: fuzz-corpus
 fuzz-corpus:
 	mkdir -p fuzz/corpus
@@ -40,7 +44,7 @@ fuzz-cov:
 		> fuzz_coverage.html
 
 .PHONY: ci
-ci: | check test
+ci: | check test fuzz-check
 
 .PHONY: clean
 clean:
