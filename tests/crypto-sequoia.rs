@@ -32,22 +32,31 @@ fn sequoia_gen_key() {
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Authentication, Some(AlgoSimple::NIST256))
             .unwrap();
-        let _pubk =
+        let aut_pubk =
             public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
                 .unwrap();
 
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Signing, Some(AlgoSimple::NIST256))
             .unwrap();
-        let pubk =
+        let sign_pubk =
             public_key_material_to_key(&material, KeyType::Signing, &gendate, None, None).unwrap();
 
         open.verify_user_for_signing(b"123456").unwrap();
         let mut sign_card = open.signing_card().unwrap();
-        let mut signer = sign_card.signer_from_public(pubk.clone(), &|| {});
+        let mut signer = sign_card.signer_from_public(sign_pubk.clone(), &|| {});
         let data = [1; 32];
         let signature = signer.sign(HashAlgorithm::SHA256, &data).unwrap();
-        assert!(pubk
+        assert!(sign_pubk
+            .verify(&signature, HashAlgorithm::SHA256, &data)
+            .is_ok());
+
+        open.verify_user(b"123456").unwrap();
+        let mut user_card = open.user_card().unwrap();
+        let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+        let data = [2; 32];
+        let signature = authenticator.sign(HashAlgorithm::SHA256, &data).unwrap();
+        assert!(aut_pubk
             .verify(&signature, HashAlgorithm::SHA256, &data)
             .is_ok());
     });
@@ -69,7 +78,7 @@ fn sequoia_gen_key() {
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Authentication, Some(AlgoSimple::Curve25519))
             .unwrap();
-        let _pubk =
+        let aut_pubk =
             public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
                 .unwrap();
 
@@ -85,6 +94,15 @@ fn sequoia_gen_key() {
         let data = [1; 32];
         let signature = signer.sign(HashAlgorithm::SHA256, &data).unwrap();
         assert!(pubk
+            .verify(&signature, HashAlgorithm::SHA256, &data)
+            .is_ok());
+
+        open.verify_user(b"123456").unwrap();
+        let mut user_card = open.user_card().unwrap();
+        let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+        let data = [2; 32];
+        let signature = authenticator.sign(HashAlgorithm::SHA256, &data).unwrap();
+        assert!(aut_pubk
             .verify(&signature, HashAlgorithm::SHA256, &data)
             .is_ok());
     });

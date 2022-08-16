@@ -69,3 +69,41 @@ fn sign_ec<const R: usize, T: trussed::Client>(
     .signature;
     ctx.reply.expand(&signature)
 }
+
+// § 7.2.13
+pub fn internal_authenticate<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let key_id = ctx.state.internal.key_id(KeyType::Aut).ok_or_else(|| {
+        warn!("Attempt to authenticate without a key set");
+        Status::KeyReferenceNotFound
+    })?;
+    if !ctx.state.runtime.other_verified {
+        warn!("Attempt to sign without PW1 verified");
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+
+    if ctx.state.internal.uif(KeyType::Aut).is_enabled()
+        && !ctx
+            .backend
+            .confirm_user_present()
+            .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
+    {
+        warn!("User presence confirmation timed out");
+        // FIXME SecurityRelatedIssues (0x6600 is not available?)
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+    match ctx.state.internal.aut_alg() {
+        AuthenticationAlgorithm::Ed255 => sign_ec(ctx, key_id, Mechanism::Ed255),
+        AuthenticationAlgorithm::EcDsaP256 => {
+            if ctx.data.len() != 32 {
+                return Err(Status::ConditionsOfUseNotSatisfied);
+            }
+            sign_ec(ctx, key_id, Mechanism::P256Prehashed)
+        }
+        _ => {
+            error!("Unimplemented operation");
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
+    }
+}
