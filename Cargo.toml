@@ -10,6 +10,11 @@ description = "OpenPGP smart card implementation"
 repository = "https://github.com/nitrokey/opcard-rs"
 license = "LGPL-3.0-only"
 
+[workspace]
+members = [
+	"fuzz"
+]
+
 [[example]]
 name = "virtual"
 required-features = ["virtual"]
@@ -56,6 +61,7 @@ log-error = []
 [patch.crates-io]
 trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "3da56d8e41b9de64b852ed2bdcfd623118b09c3d" }
 littlefs2-sys = { git = "https://github.com/sosthene-nitrokey/littlefs2-sys.git", branch = "bindgen-runtime-feature" }
+iso7816 = { git = "https://github.com/sosthene-nitrokey/iso7816.git", branch = "fix-panic" }
 
 [package.metadata.docs.rs]
 all-features = true

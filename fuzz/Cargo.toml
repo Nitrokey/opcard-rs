@@ -24,18 +24,9 @@ hex-literal = "0.3.4"
 path = ".."
 features = ["virtual"]
 
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
-
 [[bin]]
 name = "fuzz_target_1"
 path = "fuzz_targets/fuzz_target_1.rs"
 test = false
 doc = false
-
-[patch.crates-io]
-trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "3da56d8e41b9de64b852ed2bdcfd623118b09c3d" }
-littlefs2-sys = { git = "https://github.com/sosthene-nitrokey/littlefs2-sys.git", branch = "bindgen-runtime-feature" }
-iso7816 = { git = "https://github.com/sosthene-nitrokey/iso7816.git", branch = "fix-panic" }
 
