@@ -4,7 +4,7 @@
 [package]
 name = "opcard"
 version = "0.1.0"
-authors = ["Robin Krahl <robin@nitrokey.com>"]
+authors = ["Nitrokey GmbH <info@nitrokey.com>"]
 edition = "2021"
 description = "OpenPGP smart card implementation"
 repository = "https://github.com/nitrokey/opcard-rs"
