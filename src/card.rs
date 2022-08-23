@@ -6,7 +6,7 @@ use iso7816::Status;
 
 pub(crate) mod reply;
 
-use crate::state::{LoadedState, State};
+use crate::state::{self, LifeCycle, LoadedState, State};
 use crate::utils::InspectErr;
 use crate::{backend::Backend, command::Command};
 use reply::Reply;
@@ -31,11 +31,17 @@ pub struct Card<T: trussed::Client> {
 
 impl<T: trussed::Client> Card<T> {
     /// Creates a new OpenPGP card with the given backend and options.
-    pub fn new(client: T, options: Options) -> Self {
+    pub fn new(mut client: T, options: Options) -> Self {
+        let mut state = State::default();
+        state.runtime.lifecycle = match state::Internal::exists(&mut client) {
+            // Operationnal allows TERMINATE DF, which *should* be able to fix any loading issue
+            Ok(true) | Err(_) => LifeCycle::Operationnal,
+            Ok(false) => LifeCycle::Initialization,
+        };
         Self {
             backend: Backend::new(client),
             options,
-            state: Default::default(),
+            state,
         }
     }
 

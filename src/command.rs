@@ -8,7 +8,10 @@ mod pso;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
+use crate::state::LifeCycle;
 use crate::types::*;
+use trussed::try_syscall;
+use trussed::types::{Location, PathBuf};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -33,10 +36,28 @@ pub enum Command {
 }
 
 impl Command {
+    fn can_lifecycle_run(&self, lifecycle: LifeCycle) -> bool {
+        match (self, lifecycle) {
+            (Self::Select | Self::ActivateFile | Self::TerminateDf, LifeCycle::Initialization) => {
+                true
+            }
+            (_, LifeCycle::Initialization) => false,
+            (Self::ActivateFile, LifeCycle::Operationnal) => false,
+            (_, LifeCycle::Operationnal) => true,
+        }
+    }
+
     pub fn exec<const R: usize, T: trussed::Client>(
         &self,
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
+        if !self.can_lifecycle_run(context.state.runtime.lifecycle) {
+            warn!(
+                "Command {self:?} called in lifecycle {:?}",
+                context.state.runtime.lifecycle
+            );
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         match self {
             Self::Select => select(context),
             Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
@@ -47,6 +68,8 @@ impl Command {
             }
             Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
             Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
+            Self::TerminateDf => terminate_df(context),
+            Self::ActivateFile => activate_file(context),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
                 Err(Status::FunctionNotSupported)
@@ -435,4 +458,63 @@ fn gen_keypair<const R: usize, T: trussed::Client>(
         KeyType::Dec => gen::dec(context),
         KeyType::Aut => gen::aut(context),
     }
+}
+
+// § 7.2.16
+fn terminate_df<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    if let Ok(ctx) = context.load_state() {
+        if ctx.state.runtime.admin_verified || ctx.state.internal.is_locked(Password::Pw3) {
+            factory_reset(context)
+        } else {
+            Err(Status::ConditionsOfUseNotSatisfied)
+        }
+    } else {
+        factory_reset(context)
+    }
+}
+
+fn unspecified_delete_error<E: core::fmt::Debug>(_err: E) -> Status {
+    error!("Failed to delete data {_err:?}");
+    Status::UnspecifiedPersistentExecutionError
+}
+
+fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> Result<(), Status> {
+    *ctx.state = Default::default();
+    ctx.state.runtime.lifecycle = LifeCycle::Initialization;
+    try_syscall!(ctx
+        .backend
+        .client_mut()
+        .remove_dir_all(Location::Internal, PathBuf::new()))
+    .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx.backend.client_mut().delete_all(Location::Internal))
+        .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx
+        .backend
+        .client_mut()
+        .remove_dir_all(Location::Volatile, PathBuf::new()))
+    .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx.backend.client_mut().delete_all(Location::Volatile))
+        .map_err(unspecified_delete_error)?;
+    Ok(())
+}
+
+// § 7.2.17
+fn activate_file<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    *context.state = Default::default();
+    context
+        .state
+        .internal
+        .as_ref()
+        .unwrap()
+        .save(context.backend.client_mut())
+        .map_err(|_err| {
+            error!("Failed to store data {_err:?}");
+            Status::UnspecifiedPersistentExecutionError
+        })?;
+    context.state.runtime.lifecycle = LifeCycle::Operationnal;
+    Ok(())
 }

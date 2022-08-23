@@ -295,6 +295,26 @@ impl Internal {
         }
     }
 
+    pub fn exists<T: trussed::Client>(client: &mut T) -> Result<bool, Error> {
+        match try_syscall!(client.entry_metadata(Location::Internal, Self::path())) {
+            Ok(Metadata {
+                metadata: Some(metadata),
+            }) => {
+                if metadata.is_file() {
+                    Ok(true)
+                } else {
+                    error!("Folder exists with the name of the state");
+                    Err(Error::Loading)
+                }
+            }
+            Ok(Metadata { metadata: None }) => Ok(false),
+            Err(_err) => {
+                error!("State couldn't be read: {_err:?}");
+                Err(Error::Loading)
+            }
+        }
+    }
+
     pub fn save<T: trussed::Client>(&self, client: &mut T) -> Result<(), Error> {
         let msg = trussed::cbor_serialize_bytes(&self).map_err(|_err| {
             error!("Failed to serialize: {_err}");
@@ -615,11 +635,25 @@ impl Internal {
     }
 }
 
+/// Life cycle status byte, see § 6
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum LifeCycle {
+    Initialization = 0x03,
+    Operationnal = 0x05,
+}
+
+impl Default for LifeCycle {
+    fn default() -> Self {
+        Self::Initialization
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Runtime {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
+    pub lifecycle: LifeCycle,
 }
 
 /// DOs that can store arbitrary data from the user
