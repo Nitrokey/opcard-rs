@@ -57,6 +57,7 @@ mod types;
 mod utils;
 #[cfg(feature = "virtual")]
 mod vpicc;
+mod tlv;
 
 #[cfg(feature = "virtual")]
 pub use self::vpicc::VirtualCard;

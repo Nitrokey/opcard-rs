@@ -1079,6 +1079,36 @@ mod tests {
         assert_eq!(GetDataObject::LoginData.tag(), &[0x5E]);
     }
 
+    // See https://www.emvco.com/wp-content/uploads/2017/05/EMV_v4.3_Book_3_Application_Specification_20120607062110791.pdf
+    // Annex B1
+    #[test]
+    fn constructed_tag() {
+        // Constructed DOs that don't have any actual nested data and are therefore treated as
+        // "simple"
+        let filter = [
+            GetDataObject::GeneralFeatureManagement,
+            GetDataObject::CardHolderCertificate,
+            GetDataObject::ExtendedLengthInformation,
+            GetDataObject::KdfDo,
+            GetDataObject::AlgorithmInformation,
+            GetDataObject::SecureMessagingCertificate,
+        ];
+        for o in GetDataObject::iter_all() {
+            if filter.contains(&o) {
+                continue;
+            }
+
+            let constructed_byte = (o.tag()[0] & 0b00100000) == 0b00100000;
+            let contructed_manual = o.into_simple().is_err();
+            assert_eq!(
+                constructed_byte,
+                contructed_manual,
+                "Constructed byte and static data do not match for {o:?}, of tag {:x?}",
+                o.tag()
+            )
+        }
+    }
+
     #[test]
     fn max_nesting() {
         for o in GetDataObject::iter_all() {
