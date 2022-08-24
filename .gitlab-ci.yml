@@ -23,8 +23,11 @@ variables:
 build:
   image: registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build:latest
   rules:
+    - if: '$CI_PIPELINE_SHOULD_NOT_BUILD == "true"'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   tags:
     - docker
   stage: build
@@ -51,7 +54,7 @@ fuzz:
     FUZZ_DURATION: "3600"
   image: registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build:latest
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SHOULD_FUZZ== "true"'
   tags:
     - docker
   stage: fuzz
