@@ -6,6 +6,7 @@ include: 'https://raw.githubusercontent.com/Nitrokey/common-ci-jobs/master/commo
 stages:
   - pull-github
   - build
+  - fuzz
   - deploy
 
 variables:
@@ -23,7 +24,6 @@ build:
   image: registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build:latest
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
   tags:
     - docker
@@ -44,3 +44,22 @@ build:
       coverage_report:
         coverage_format: cobertura
         path: cobertura.xml
+
+fuzz:
+  variables:
+    FUZZ_JOBS: "1"
+    FUZZ_DURATION: "3600"
+  image: registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build:latest
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  tags:
+    - docker
+  stage: fuzz
+  timeout: 1h
+  script:
+    - make fuzz FUZZ_JOBS="$FUZZ_JOBS" FUZZ_DURATION="$FUZZ_DURATION"
+  artifacts:
+    when: always
+    paths:
+      - "fuzz/artifacts" 
+      - "fuzz/corpus"
