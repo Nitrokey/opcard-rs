@@ -7,7 +7,7 @@ use std::{
     io::{BufRead, BufReader, Write},
     mem::drop,
     process::{Command, Stdio},
-    sync::{mpsc, Once},
+    sync::mpsc,
     thread::{self, sleep},
     time::Duration,
 };
@@ -15,8 +15,6 @@ use std::{
 use hex_literal::hex;
 use regex::{Regex, RegexSet};
 use stoppable_thread::spawn;
-
-static ACTIVATED_ONCE: Once = Once::new();
 
 const STDOUT_FILTER: &[&str] = &[
     r"\[GNUPG:\] KEY_CONSIDERED [0-9A-F]{40} \d",
@@ -38,12 +36,10 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let handle = spawn(move |stopped| {
         trussed::virt::with_ram_client("opcard", |client| {
             let mut card = opcard::Card::new(client, opcard::Options::default());
-            ACTIVATED_ONCE.call_once(|| {
-                let command: iso7816::Command<4> =
-                    iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
-                let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
-                card.handle(&command, &mut rep).unwrap();
-            });
+            let command: iso7816::Command<4> =
+                iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
+            let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
+            card.handle(&command, &mut rep).unwrap();
             let mut virtual_card = opcard::VirtualCard::new(card);
             let mut result = Ok(());
             while !stopped.get() && result.is_ok() {

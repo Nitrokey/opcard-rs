@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, Mutex};
 
 use hex_literal::hex;
 use iso7816::{command::FromSliceError, Command, Status};
@@ -17,8 +17,6 @@ use trussed::{
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
-
-static ACTIVATED_ONCE: Once = Once::new();
 
 #[derive(Debug)]
 pub struct Card<T: trussed::Client + Send + 'static>(Arc<Mutex<opcard::Card<T>>>);
@@ -146,10 +144,8 @@ fn with_activated_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(
     mut card: opcard::Card<Client<Ram>>,
     f: F,
 ) -> R {
-    ACTIVATED_ONCE.call_once(|| {
-        let command: iso7816::Command<4> = iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
-        let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
-        card.handle(&command, &mut rep).unwrap();
-    });
+    let command: iso7816::Command<4> = iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
+    let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
+    card.handle(&command, &mut rep).unwrap();
     f(Card::from_opcard(card))
 }

@@ -70,7 +70,13 @@ impl<T: trussed::Client> Card<T> {
 
     /// Resets the state of the card.
     pub fn reset(&mut self) {
-        self.state = Default::default();
+        let mut state = State::default();
+        state.runtime.lifecycle = match state::Internal::exists(self.backend.client_mut()) {
+            // Operationnal allows TERMINATE DF, which *should* be able to fix any loading issue
+            Ok(true) | Err(_) => LifeCycle::Operationnal,
+            Ok(false) => LifeCycle::Initialization,
+        };
+        self.state = state;
     }
 }
 
