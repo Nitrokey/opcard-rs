@@ -8,3 +8,5 @@ Cargo.lock
 /ci/config.mk
 fuzz/coverage
 fuzz_coverage.html
+tarpaulin-report.html
+cobertura.xml

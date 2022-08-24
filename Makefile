@@ -1,7 +1,7 @@
 # Copyright (C) 2022 Nitrokey GmbH
 # SPDX-License-Identifier: CC0-1.0
 
-export RUST_LOG ?= info
+export RUST_LOG ?= info,cargo_tarpaulin=off
 
 .PHONY: check
 check:
@@ -39,8 +39,12 @@ fuzz-cov:
 		fuzz/target/x86_64-unknown-linux-gnu/release/fuzz_target_1 \
 		> fuzz_coverage.html
 
+.PHONY: tarpaulin
+tarpaulin:
+	cargo tarpaulin --features virtual -o Html -o Xml
+
 .PHONY: ci
-ci: | check test
+ci: | check tarpaulin
 
 .PHONY: clean
 clean:
