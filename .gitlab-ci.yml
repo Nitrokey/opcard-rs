@@ -35,6 +35,7 @@ build:
     - wget $icon_server/checkmark/$CI_COMMIT_REF_NAME/$CI_COMMIT_SHA/$CI_JOB_NAME/$CI_JOB_STATUS/${CI_JOB_URL#*/*/*/}
   coverage: '/^\d+.\d+% coverage/'
   artifacts:
+    when: always
     paths:
       - "scdaemon.log"
       - "cobertura.xml"
