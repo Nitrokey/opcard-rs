@@ -1,0 +1,32 @@
+# Copyright (C) 2022 Nitrokey GmbH
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "opcard-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+heapless = "0.7"
+iso7816 = "0.1"
+trussed = { version = "0.1.0", features = ["virt"] }
+arbitrary = { version = "1", features = ["derive"] }
+hex-literal = "0.3.4"
+
+
+[dependencies.opcard]
+path = ".."
+features = ["virtual"]
+
+[[bin]]
+name = "fuzz_target_1"
+path = "fuzz_targets/fuzz_target_1.rs"
+test = false
+doc = false
+

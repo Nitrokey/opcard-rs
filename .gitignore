@@ -6,3 +6,5 @@ Cargo.lock
 *.swp
 .cache
 /ci/config.mk
+fuzz/coverage
+fuzz_coverage.html

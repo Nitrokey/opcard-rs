@@ -10,6 +10,11 @@ description = "OpenPGP smart card implementation"
 repository = "https://github.com/nitrokey/opcard-rs"
 license = "LGPL-3.0-only"
 
+[workspace]
+members = [
+	"fuzz"
+]
+
 [[example]]
 name = "virtual"
 required-features = ["virtual"]
@@ -17,7 +22,7 @@ required-features = ["virtual"]
 [dependencies]
 heapless = "0.7"
 heapless-bytes = "0.3"
-iso7816 = "0.1"
+iso7816 = "0.1.1"
 log = "0.4"
 serde = { version = "1.0", default-features = false }
 subtle = { version = "2.4.1", default-features = false }
