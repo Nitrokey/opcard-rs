@@ -502,14 +502,13 @@ fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> 
 
 // § 7.2.17
 fn activate_file<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
     *context.state = Default::default();
+    let context = context.load_state()?;
     context
         .state
         .internal
-        .as_ref()
-        .unwrap()
         .save(context.backend.client_mut())
         .map_err(|_err| {
             error!("Failed to store data {_err:?}");

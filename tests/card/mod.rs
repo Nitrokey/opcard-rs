@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Once};
 
+use hex_literal::hex;
 use iso7816::{command::FromSliceError, Command, Status};
 use opcard::Options;
 use openpgp_card::{
@@ -17,6 +18,8 @@ use trussed::{
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
 
+static ACTIVATED_ONCE: Once = Once::new();
+
 #[derive(Debug)]
 pub struct Card<T: trussed::Client + Send + 'static>(Arc<Mutex<opcard::Card<T>>>);
 
@@ -27,7 +30,11 @@ impl<T: trussed::Client + Send + 'static> Card<T> {
 
     pub fn with_options(client: T, options: Options) -> Self {
         let card = opcard::Card::new(client, options);
-        Self(Arc::from(Mutex::from(card)))
+        Self::from_opcard(card)
+    }
+
+    pub fn from_opcard(card: opcard::Card<T>) -> Self {
+        Self(Arc::new(Mutex::new(card)))
     }
 
     pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(&mut self, f: F) -> R {
@@ -108,11 +115,13 @@ impl<T: trussed::Client + Send + 'static> CardTransaction for Transaction<T> {
 }
 
 pub fn with_card_options<F: FnOnce(Card<Client<Ram>>) -> R, R>(options: Options, f: F) -> R {
-    trussed::virt::with_ram_client("opcard", |client| f(Card::with_options(client, options)))
+    trussed::virt::with_ram_client("opcard", |client| {
+        with_activated_card(opcard::Card::new(client, options), f)
+    })
 }
 
 pub fn with_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(f: F) -> R {
-    trussed::virt::with_ram_client("opcard", |client| f(Card::new(client)))
+    with_card_options(Options::default(), f)
 }
 
 pub fn with_tx_options<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(options: Options, f: F) -> R {
@@ -131,4 +140,16 @@ pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
         }
         Err(e) => panic!("Unexpected error {e}"),
     }
+}
+
+fn with_activated_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(
+    mut card: opcard::Card<Client<Ram>>,
+    f: F,
+) -> R {
+    ACTIVATED_ONCE.call_once(|| {
+        let command: iso7816::Command<4> = iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
+        let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
+        card.handle(&command, &mut rep).unwrap();
+    });
+    f(Card::from_opcard(card))
 }
