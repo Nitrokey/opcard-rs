@@ -753,7 +753,7 @@ impl PutDataObject {
 
     fn put_data<const R: usize, T: trussed::Client>(
         self,
-        ctx: Context<'_, R, T>,
+        mut ctx: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
             Self::PrivateUse1 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse1)?,

@@ -164,7 +164,7 @@ pub struct Context<'a, const R: usize, T: trussed::Client> {
 }
 
 impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
-    pub fn load_state(self) -> Result<LoadedContext<'a, R, T>, Status> {
+    pub fn load_state<'s>(&'s mut self) -> Result<LoadedContext<'s, R, T>, Status> {
         Ok(LoadedContext {
             state: self
                 .state
@@ -173,7 +173,7 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
             options: self.options,
             backend: self.backend,
             data: self.data,
-            reply: self.reply,
+            reply: self.reply.lend(),
         })
     }
 

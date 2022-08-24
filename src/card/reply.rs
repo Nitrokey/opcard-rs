@@ -84,6 +84,10 @@ impl<'v, const R: usize> Reply<'v, R> {
             Status::UnspecifiedNonpersistentExecutionError
         })
     }
+
+    pub fn lend(&mut self) -> Reply<'_, R> {
+        Reply(self.0)
+    }
 }
 
 #[cfg(test)]

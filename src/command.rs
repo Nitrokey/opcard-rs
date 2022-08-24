@@ -35,7 +35,7 @@ pub enum Command {
 impl Command {
     pub fn exec<const R: usize, T: trussed::Client>(
         &self,
-        context: Context<'_, R, T>,
+        mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
             Self::Select => select(context),
