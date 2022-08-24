@@ -63,3 +63,7 @@ fuzz:
     paths:
       - "fuzz/artifacts" 
       - "fuzz/corpus"
+  cache:
+    key: fuzz-corpus
+    paths:
+      - "fuzz/corpus"
