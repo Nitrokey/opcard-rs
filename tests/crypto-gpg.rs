@@ -7,6 +7,7 @@ mod virt;
 use std::iter;
 
 use test_log::test;
+use virt::gpg_status;
 
 fn attr_ec_ask() -> impl Iterator<Item = &'static str> {
     iter::repeat(
@@ -62,6 +63,11 @@ fn gpg_gen_key() {
         "test name2",
         "test2@email.com",
         "no comment2",
+        "factory-reset",
+        "y",
+        "yes",
+        "verify",
+        "123456",
         "quit",
     ],
     [r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"]
@@ -139,6 +145,14 @@ fn gpg_gen_key() {
             r"grp:::::::::[0-9A-F]{40}:",
             r"\[GNUPG:\] KEY_CREATED B [0-9A-F]{40}",
             r"\[GNUPG:\] GET_LINE cardedit.prompt",
+            r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
+            r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
+            r"\[GNUPG:\] GET_LINE cardedit.prompt",
+        ])
+        .chain(virt::gpg_inquire_pin())
+        .chain(gpg_status())
+        .chain([
+            r"\[GNUPG:\] GET_LINE cardedit.prompt",
         ]),
         [
             r"gpg: revocation certificate stored as '.*\.rev'",
@@ -146,6 +160,8 @@ fn gpg_gen_key() {
             r"gpg: marginals needed: \d  completes needed: \d  trust model: pgp",
             r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
             r"gpg: revocation certificate stored as '.*\.rev'",
+            r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
+            r"gpg: Note: This command destroys all keys stored on the card!"
         ],
     );
 }
