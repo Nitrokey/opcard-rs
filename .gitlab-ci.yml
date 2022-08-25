@@ -54,11 +54,10 @@ fuzz:
     FUZZ_DURATION: "3600"
   image: registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build:latest
   rules:
-    - if: '$CI_PIPELINE_SHOULD_FUZZ== "true"'
+    - if: '$CI_PIPELINE_SHOULD_FUZZ == "true"'
   tags:
     - docker
   stage: fuzz
-  timeout: 1h
   script:
     - make fuzz FUZZ_JOBS="$FUZZ_JOBS" FUZZ_DURATION="$FUZZ_DURATION"
   artifacts:
