@@ -378,7 +378,9 @@ fn verify<const R: usize, T: trussed::Client>(
                     }
                     Ok(())
                 } else {
-                    Err(Status::VerificationFailed)
+                    Err(Status::RemainingRetries(
+                        context.state.internal.remaining_tries(password.into()),
+                    ))
                 }
             }
         }
