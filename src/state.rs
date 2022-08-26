@@ -280,6 +280,11 @@ impl Internal {
         }
     }
 
+    #[cfg(test)]
+    pub fn test_default() -> Self {
+        Self::default()
+    }
+
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
     }

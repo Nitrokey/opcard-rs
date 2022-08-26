@@ -623,8 +623,8 @@ pub fn uif<const R: usize, T: trussed::Client>(
         return Err(Status::FunctionNotSupported);
     }
 
-    let button_byte = general_feature_management_byte(ctx.options);
     let state_byte = ctx.state.internal.uif(key).as_byte();
+    let button_byte = general_feature_management_byte(ctx.options);
     ctx.reply.expand(&[state_byte, button_byte])
 }
 
@@ -1041,6 +1041,7 @@ fn put_keygen_date<const R: usize, T: trussed::Client>(
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
+    use hex_literal::hex;
 
     #[test]
     fn tags() {
@@ -1130,5 +1131,91 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn constructed_dos_tlv() {
+        trussed::virt::with_ram_client("constructed_dos_tlv", |client| {
+            use crate::state::{self, State};
+            use crate::tlv::*;
+            let mut backend = crate::backend::Backend::new(client);
+            let mut reply: heapless::Vec<u8, 1024> = Default::default();
+            let runtime = Default::default();
+            let internal = state::Internal::test_default();
+            let options = Default::default();
+            let mut state = State {
+                internal: Some(internal),
+                runtime,
+            };
+
+            let context = Context {
+                state: &mut state,
+                backend: &mut backend,
+                data: &[],
+                options: &options,
+                reply: crate::card::reply::Reply(&mut reply),
+            };
+            get_data(
+                context,
+                GetDataMode::Even,
+                Tag(DataObject::ApplicationRelatedData as u16),
+            )
+            .unwrap();
+            let top: &[(DataObject, &[u8])] = &[
+                (DataObject::ApplicationIdentifier, &options.aid()),
+                (DataObject::HistoricalBytes, &options.historical_bytes),
+                (DataObject::ExtendedLengthInformation, &EXTENDED_LENGTH_INFO),
+                (DataObject::GeneralFeatureManagement, &hex!("81 01 20")),
+                //(DataObject::DiscretionaryDataObjects, &hex!("")),
+            ];
+
+            for (tag, data) in top {
+                let res = get_do(&[*tag as u16], &reply).unwrap();
+                assert_eq!(res, *data, "got {res:x?}, expected {data:x?}")
+            }
+
+            let nested: &[(DataObject, &[u8])] = &[
+                (DataObject::ExtendedCapabilities, &EXTENDED_CAPABILITIES),
+                (
+                    DataObject::AlgorithmAttributesSignature,
+                    SignatureAlgorithm::Rsa2k.attributes(),
+                ),
+                (
+                    DataObject::AlgorithmAttributesDecryption,
+                    DecryptionAlgorithm::Rsa2k.attributes(),
+                ),
+                (
+                    DataObject::AlgorithmAttributesAuthentication,
+                    AuthenticationAlgorithm::Rsa2k.attributes(),
+                ),
+                (
+                    DataObject::PwStatusBytes,
+                    &Into::<[u8; 7]>::into(PasswordStatus {
+                        pw1_valid_multiple: false,
+                        max_length_pw1: 127,
+                        max_length_rc: 127,
+                        max_length_pw3: 127,
+                        error_counter_pw1: 3,
+                        error_counter_rc: 3,
+                        error_counter_pw3: 3,
+                    }),
+                ),
+                (DataObject::Fingerprints, &[0; 60]),
+                (DataObject::CAFingerprints, &[0; 60]),
+                (DataObject::KeyGenerationDates, &[0; 12]),
+                (DataObject::KeyInformation, &hex!("010002000300")),
+                (DataObject::UifDec, &hex!("00 20")),
+                (DataObject::UifCds, &hex!("00 20")),
+                (DataObject::UifAut, &hex!("00 20")),
+            ];
+            for (tag, data) in nested {
+                let res = get_do(
+                    &[DataObject::DiscretionaryDataObjects as u16, *tag as u16],
+                    &reply,
+                )
+                .unwrap();
+                assert_eq!(res, *data, "got {res:x?}, expected {data:x?}")
+            }
+        });
     }
 }
