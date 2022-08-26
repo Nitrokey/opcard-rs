@@ -342,7 +342,7 @@ impl GetDataObject {
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
-            Self::HistoricalBytes => context.reply.expand(&context.options.historical_bytes)?,
+            Self::HistoricalBytes => historical_bytes(context)?,
             Self::ApplicationIdentifier => context.reply.expand(&context.options.aid())?,
             Self::PwStatusBytes => pw_status_bytes(context.load_state()?)?,
             Self::ExtendedLengthInformation => context.reply.expand(&EXTENDED_LENGTH_INFO)?,
@@ -510,6 +510,15 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
         }
         ctx.reply.prepend_len(offset)?;
     }
+    Ok(())
+}
+
+pub fn historical_bytes<const R: usize, T: trussed::Client>(
+    mut ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    ctx.reply.expand(&ctx.options.historical_bytes)?;
+    let lifecycle_idx = ctx.reply.len() - 3;
+    ctx.reply[lifecycle_idx] = ctx.state.runtime.lifecycle as u8;
     Ok(())
 }
 
