@@ -53,11 +53,11 @@ mod card;
 mod command;
 mod error;
 mod state;
+mod tlv;
 mod types;
 mod utils;
 #[cfg(feature = "virtual")]
 mod vpicc;
-mod tlv;
 
 #[cfg(feature = "virtual")]
 pub use self::vpicc::VirtualCard;

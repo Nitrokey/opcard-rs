@@ -9,6 +9,8 @@ use openpgp_card::{algorithm::AlgoSimple, KeyType, OpenPgp};
 use openpgp_card_pcsc::PcscBackend;
 use openpgp_card_sequoia::card::Open;
 use openpgp_card_sequoia::util::public_key_material_to_key;
+use sequoia_openpgp::crypto::Decryptor;
+use sequoia_openpgp::crypto::SessionKey;
 use sequoia_openpgp::crypto::Signer;
 use sequoia_openpgp::types::HashAlgorithm;
 
@@ -25,7 +27,7 @@ fn sequoia_gen_key() {
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Decryption, Some(AlgoSimple::NIST256))
             .unwrap();
-        let _pubk =
+        let dec_pubk =
             public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None)
                 .unwrap();
 
@@ -59,6 +61,11 @@ fn sequoia_gen_key() {
         assert!(aut_pubk
             .verify(&signature, HashAlgorithm::SHA256, &data)
             .is_ok());
+
+        let session = SessionKey::new(32);
+        let ciphertext = dec_pubk.encrypt(&session).unwrap();
+        let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+        assert_eq!(session, decryptor.decrypt(&ciphertext, Some(32)).unwrap());
     });
 
     virt::with_vsc(|| {
@@ -71,7 +78,7 @@ fn sequoia_gen_key() {
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Decryption, Some(AlgoSimple::Curve25519))
             .unwrap();
-        let _pubk =
+        let dec_pubk =
             public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None)
                 .unwrap();
 
@@ -105,5 +112,10 @@ fn sequoia_gen_key() {
         assert!(aut_pubk
             .verify(&signature, HashAlgorithm::SHA256, &data)
             .is_ok());
+
+        let session = SessionKey::new(32);
+        let ciphertext = dec_pubk.encrypt(&session).unwrap();
+        let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+        assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
     });
 }

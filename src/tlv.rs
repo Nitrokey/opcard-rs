@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn dos() {
         assert_eq!(
-            get_do(&[02], &hex!("02 02 1DB9 02 02 1DB9")),
+            get_do(&[0x02], &hex!("02 02 1DB9 02 02 1DB9")),
             Some(hex!("1DB9").as_slice())
         );
         assert_eq!(

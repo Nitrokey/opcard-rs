@@ -144,7 +144,7 @@ pub fn decipher<const R: usize, T: trussed::Client>(
 }
 
 fn decrypt_ec<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
     private_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -156,9 +156,15 @@ fn decrypt_ec<const R: usize, T: trussed::Client>(
         warn!("Seriliazed key is not long enough");
         return Err(Status::IncorrectDataParameter);
     }
+
+    if serialized_key[0] != 0x04 {
+        warn!("Seriliazed isn't in raw format");
+        return Err(Status::IncorrectDataParameter);
+    }
+
     let pubk_id = try_syscall!(ctx.backend.client_mut().deserialize_key(
         mechanism,
-        serialized_key,
+        &serialized_key[1..],
         KeySerialization::Raw,
         StorageAttributes::new().set_persistence(Location::Volatile),
     ))
@@ -171,7 +177,9 @@ fn decrypt_ec<const R: usize, T: trussed::Client>(
         mechanism,
         private_key,
         pubk_id,
-        StorageAttributes::new().set_persistence(Location::Volatile),
+        StorageAttributes::new()
+            .set_persistence(Location::Volatile)
+            .set_serializable(true),
     ));
 
     try_syscall!(ctx.backend.client_mut().delete(pubk_id)).map_err(|_err| {
@@ -179,10 +187,28 @@ fn decrypt_ec<const R: usize, T: trussed::Client>(
         Status::UnspecifiedNonpersistentExecutionError
     })?;
 
-    let shared_secret = res.map_err(|_err| {
-        error!("Failed to derive secret {_err:?}");
+    let shared_secret = res
+        .map_err(|_err| {
+            error!("Failed to derive secret {_err:?}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })?
+        .shared_secret;
+
+    let data = try_syscall!(ctx.backend.client_mut().serialize_key(
+        Mechanism::SharedSecret,
+        shared_secret,
+        KeySerialization::Raw,
+    ))
+    .map_err(|_err| {
+        error!("Failed to serialize secret {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .serialized_key;
+
+    try_syscall!(ctx.backend.client_mut().delete(shared_secret)).map_err(|_err| {
+        error!("Failed to delete shared secret{_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?;
 
-    todo!()
+    ctx.reply.expand(&data)
 }
