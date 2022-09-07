@@ -148,23 +148,30 @@ fn decrypt_ec<const R: usize, T: trussed::Client>(
     private_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
-    let serialized_key = get_do(&[0xA6, 0x7F49, 0x86], ctx.data).ok_or_else(|| {
+    let data = get_do(&[0xA6, 0x7F49, 0x86], ctx.data).ok_or_else(|| {
         warn!("Failed to parse serialized key DOs");
         Status::IncorrectDataParameter
     })?;
-    if serialized_key.is_empty() {
+    if data.is_empty() {
         warn!("Seriliazed key is not long enough");
         return Err(Status::IncorrectDataParameter);
     }
 
-    if serialized_key[0] != 0x04 {
-        warn!("Seriliazed isn't in raw format");
-        return Err(Status::IncorrectDataParameter);
-    }
+    let serialized_key = if matches!(mechanism, Mechanism::X255) {
+        // There is no format specifier for x25519
+        data
+    } else {
+        if data[0] != 0x04 {
+            warn!("Seriliazed isn't in raw format");
+            return Err(Status::IncorrectDataParameter);
+        }
+        // Does not panic because of the previous `is_empty` check
+        &data[1..]
+    };
 
     let pubk_id = try_syscall!(ctx.backend.client_mut().deserialize_key(
         mechanism,
-        &serialized_key[1..],
+        serialized_key,
         KeySerialization::Raw,
         StorageAttributes::new().set_persistence(Location::Volatile),
     ))

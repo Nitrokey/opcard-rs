@@ -62,7 +62,8 @@ fn sequoia_gen_key() {
             .verify(&signature, HashAlgorithm::SHA256, &data)
             .is_ok());
 
-        let session = SessionKey::new(32);
+        let mut session = SessionKey::new(19);
+        session[0] = 7;
         let ciphertext = dec_pubk.encrypt(&session).unwrap();
         let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
         assert_eq!(session, decryptor.decrypt(&ciphertext, Some(32)).unwrap());
@@ -113,7 +114,8 @@ fn sequoia_gen_key() {
             .verify(&signature, HashAlgorithm::SHA256, &data)
             .is_ok());
 
-        let session = SessionKey::new(32);
+        let mut session = SessionKey::new(19);
+        session[0] = 7;
         let ciphertext = dec_pubk.encrypt(&session).unwrap();
         let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
         assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
