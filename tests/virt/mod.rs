@@ -97,25 +97,48 @@ pub fn gpg_inquire_pin() -> Vec<&'static str> {
     .into()
 }
 
+#[allow(unused)]
+pub enum GpgCommand<'a> {
+    EditCard,
+    Encrypt { r: &'a str, i: &'a str, o: &'a str },
+    Decrypt { i: &'a str, o: &'a str },
+}
+
+impl GpgCommand<'_> {
+    fn command(&self) -> Command {
+        let mut cmd = Command::new("gpg");
+        cmd.args([
+            "--command-fd=0",
+            "--status-fd=1",
+            "--with-colons",
+            "--pinentry-mode",
+            "loopback",
+            "--expert",
+            "--no-tty",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(Stdio::piped());
+        match self {
+            GpgCommand::EditCard => cmd.arg("--edit-card"),
+            GpgCommand::Encrypt { i, o, r } => {
+                cmd.args(["--encrypt", "--output", o, "--recipient", r, i])
+            }
+            GpgCommand::Decrypt { i, o } => cmd.args(["--decrypt", "--output", o, i]),
+        };
+        cmd
+    }
+}
+
 /// Takes an array of strings that will be passed as input to `gpg --command-fd=0 --status-fd=1 --pinentry-mode loopback --card-edit`
 /// and an array of Regex over the output
 #[allow(unused)]
-pub fn gnupg_test(stdin: &[&str], stdout: &[&str], stderr: &[&str]) {
+pub fn gnupg_test(stdin: &[&str], stdout: &[&str], stderr: &[&str], cmd: GpgCommand) {
     let out_re: Vec<Regex> = stdout.into_iter().map(|s| Regex::new(s).unwrap()).collect();
     let err_re: Vec<Regex> = stderr.into_iter().map(|s| Regex::new(s).unwrap()).collect();
     with_vsc(move || {
-        let mut gpg = Command::new("gpg")
-            .arg("--command-fd=0")
-            .arg("--status-fd=1")
-            .arg("--with-colons")
-            .arg("--pinentry-mode")
-            .arg("loopback")
-            .arg("--expert")
-            .arg("--card-edit")
-            .arg("--no-tty")
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::piped())
+        let mut gpg = cmd
+            .command()
             .spawn()
             .expect("failed to run gpg --card-status");
         let mut gpg_in = gpg.stdin.take().unwrap();
