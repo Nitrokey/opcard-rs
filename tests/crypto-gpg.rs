@@ -43,10 +43,15 @@ fn gpg_255() {
         let file_number: u32 = rand::rngs::OsRng.gen();
         let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
         let encrypted_file = &tmp;
+        let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
+        let sign_file = &tmp;
         let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
         let decrypted_file = &tmp;
         let _dropper = FileDropper {
             temp_file_name: encrypted_file,
+        };
+        let _dropper = FileDropper {
+            temp_file_name: sign_file,
         };
         let _dropper = FileDropper {
             temp_file_name: decrypted_file,
@@ -187,6 +192,51 @@ fn gpg_255() {
                 o: decrypted_file,
             },
         );
+
+        println!("================ FINISHED DECRYPTION ================");
+
+        gnupg_test(
+            &[DEFAULT_PW1],
+            &[
+                vec![
+                    r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
+                    r"\[GNUPG:\] BEGIN_SIGNING H8",
+                    &custom1,
+                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 22 0",
+                ],
+                virt::gpg_inquire_pin(),
+                vec![r"\[GNUPG:\] SIG_CREATED S 22 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<&str>>(),
+            &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
+            Sign {
+                i: "Cargo.toml",
+                o: sign_file,
+                s: temp_email,
+            },
+        );
+
+        println!("================ FINISHED SIGNATURE ================");
+
+        gnupg_test(
+            &[],
+            &[
+                r"\[GNUPG:\] NEWSIG test\d*@email.com",
+                r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
+                r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
+                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 22 8 00 [a-fA-F0-9]{40}",
+                r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+            ],
+            &[
+                r"gpg: Signature made .*",
+                r"gpg:                using EDDSA key [a-fA-F0-9]{40}",
+                r#"gpg:                issuer "test\d*@email.com""#,
+                r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
+            ],
+            Verify { i: sign_file },
+        );
     });
 }
 
@@ -195,10 +245,15 @@ fn gpg_p256() {
         let file_number: u32 = rand::rngs::OsRng.gen();
         let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
         let encrypted_file = &tmp;
+        let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
+        let sign_file = &tmp;
         let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
         let decrypted_file = &tmp;
         let _dropper = FileDropper {
             temp_file_name: encrypted_file,
+        };
+        let _dropper = FileDropper {
+            temp_file_name: sign_file,
         };
         let _dropper = FileDropper {
             temp_file_name: decrypted_file,
@@ -339,6 +394,51 @@ fn gpg_p256() {
                 i: encrypted_file,
                 o: decrypted_file,
             },
+        );
+
+        println!("================ FINISHED DECRYPTION ================");
+
+        gnupg_test(
+            &[DEFAULT_PW1],
+            &[
+                vec![
+                    r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
+                    r"\[GNUPG:\] BEGIN_SIGNING H8",
+                    &custom1,
+                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 19 0",
+                ],
+                virt::gpg_inquire_pin(),
+                vec![r"\[GNUPG:\] SIG_CREATED S 19 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<&str>>(),
+            &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
+            Sign {
+                i: "Cargo.toml",
+                o: sign_file,
+                s: temp_email,
+            },
+        );
+
+        println!("================ FINISHED SIGNATURE ================");
+
+        gnupg_test(
+            &[],
+            &[
+                r"\[GNUPG:\] NEWSIG test\d*@email.com",
+                r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
+                r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
+                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 19 8 00 [a-fA-F0-9]{40}",
+                r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+            ],
+            &[
+                r"gpg: Signature made .*",
+                r"gpg:                using ECDSA key [a-fA-F0-9]{40}",
+                r#"gpg:                issuer "test\d*@email.com""#,
+                r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
+            ],
+            Verify { i: sign_file },
         );
     });
 }

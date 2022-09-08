@@ -102,6 +102,8 @@ pub enum GpgCommand<'a> {
     EditCard,
     Encrypt { r: &'a str, i: &'a str, o: &'a str },
     Decrypt { i: &'a str, o: &'a str },
+    Sign { i: &'a str, s: &'a str, o: &'a str },
+    Verify { i: &'a str },
 }
 
 impl GpgCommand<'_> {
@@ -125,6 +127,10 @@ impl GpgCommand<'_> {
                 cmd.args(["--encrypt", "--output", o, "--recipient", r, i])
             }
             GpgCommand::Decrypt { i, o } => cmd.args(["--decrypt", "--output", o, i]),
+            GpgCommand::Sign { i, s, o } => {
+                cmd.args(["--sign", "--output", o, "--default-key", s, i])
+            }
+            GpgCommand::Verify { i } => cmd.args(["--verify", i]),
         };
         cmd
     }
