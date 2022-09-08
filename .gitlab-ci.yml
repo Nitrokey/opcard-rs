@@ -31,6 +31,8 @@ build:
   tags:
     - docker
   stage: build
+  before_script:
+    - cargo --version
   script:
     - make ci
   after_script:
@@ -58,6 +60,8 @@ fuzz:
   tags:
     - docker
   stage: fuzz
+  before_script:
+    - cargo --version
   script:
     - make fuzz FUZZ_JOBS="$FUZZ_JOBS" FUZZ_DURATION="$FUZZ_DURATION"
   artifacts:
