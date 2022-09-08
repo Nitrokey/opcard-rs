@@ -37,7 +37,7 @@ fn take_do(data: &[u8]) -> Option<(u16, &[u8], &[u8])> {
 // https://www.emvco.com/wp-content/uploads/2017/05/EMV_v4.3_Book_3_Application_Specification_20120607062110791.pdf
 // Annex B1
 fn take_tag(data: &[u8]) -> Option<(u16, &[u8])> {
-    let b1 = *data.get(0)?;
+    let b1 = *data.first()?;
     if (b1 & 0x1f) == 0x1f {
         let b2 = *data.get(1)?;
 
@@ -55,7 +55,7 @@ fn take_tag(data: &[u8]) -> Option<(u16, &[u8])> {
 }
 
 fn take_len(data: &[u8]) -> Option<(usize, &[u8])> {
-    let l1 = *data.get(0)?;
+    let l1 = *data.first()?;
     if l1 <= 0x7F {
         Some((l1 as usize, &data[1..]))
     } else if l1 == 0x81 {
