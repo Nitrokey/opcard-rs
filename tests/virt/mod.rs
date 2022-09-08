@@ -62,7 +62,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 }
 
 #[allow(unused)]
-pub fn gpg_status() -> impl Iterator<Item = &'static str> + Clone {
+pub fn gpg_status() -> Vec<&'static str> {
     [
         r"Reader:Virtual PCD \d\d \d\d:AID:D2760001240103040000000000000000:openpgp-card",
         r"version:0304",
@@ -85,26 +85,22 @@ pub fn gpg_status() -> impl Iterator<Item = &'static str> + Clone {
         r"fpr::::",
         r"fprtime:0:0:0:",
         r"grp:0000000000000000000000000000000000000000:0000000000000000000000000000000000000000:0000000000000000000000000000000000000000:"
-    ].into_iter()
+    ].into()
 }
 
 #[allow(unused)]
-pub fn gpg_inquire_pin() -> impl Iterator<Item = &'static str> + Clone {
+pub fn gpg_inquire_pin() -> Vec<&'static str> {
     [
         r"\[GNUPG:\] INQUIRE_MAXLEN 100",
         r"\[GNUPG:\] GET_HIDDEN passphrase.enter",
     ]
-    .into_iter()
+    .into()
 }
 
 /// Takes an array of strings that will be passed as input to `gpg --command-fd=0 --status-fd=1 --pinentry-mode loopback --card-edit`
 /// and an array of Regex over the output
 #[allow(unused)]
-pub fn gnupg_test(
-    stdin: &[&str],
-    stdout: impl IntoIterator<Item = &'static str>,
-    stderr: impl IntoIterator<Item = &'static str>,
-) {
+pub fn gnupg_test(stdin: &[&str], stdout: &[&str], stderr: &[&str]) {
     let out_re: Vec<Regex> = stdout.into_iter().map(|s| Regex::new(s).unwrap()).collect();
     let err_re: Vec<Regex> = stderr.into_iter().map(|s| Regex::new(s).unwrap()).collect();
     with_vsc(move || {

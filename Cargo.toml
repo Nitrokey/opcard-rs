@@ -45,6 +45,7 @@ regex = "1.6.0"
 stoppable_thread = "0.2.1"
 test-log = "0.2.10"
 trussed = { version = "0.1.0", features = ["virt"] }
+rand = "0.8.5"
 
 [features]
 std = []
