@@ -134,93 +134,90 @@ impl GpgCommand<'_> {
 /// and an array of Regex over the output
 #[allow(unused)]
 pub fn gnupg_test(stdin: &[&str], stdout: &[&str], stderr: &[&str], cmd: GpgCommand) {
-    let out_re: Vec<Regex> = stdout.into_iter().map(|s| Regex::new(s).unwrap()).collect();
-    let err_re: Vec<Regex> = stderr.into_iter().map(|s| Regex::new(s).unwrap()).collect();
-    with_vsc(move || {
-        let mut gpg = cmd
-            .command()
-            .spawn()
-            .expect("failed to run gpg --card-status");
-        let mut gpg_in = gpg.stdin.take().unwrap();
-        let mut gpg_out = gpg.stdout.take().unwrap();
-        let mut gpg_err = gpg.stderr.take().unwrap();
+    let out_re: Vec<Regex> = stdout.iter().map(|s| Regex::new(s).unwrap()).collect();
+    let err_re: Vec<Regex> = stderr.iter().map(|s| Regex::new(s).unwrap()).collect();
+    let mut gpg = cmd
+        .command()
+        .spawn()
+        .expect("failed to run gpg --card-status");
+    let mut gpg_in = gpg.stdin.take().unwrap();
+    let mut gpg_out = gpg.stdout.take().unwrap();
+    let mut gpg_err = gpg.stderr.take().unwrap();
 
-        let out_handle = thread::spawn(move || {
-            let mut panic_message = None;
-            let filter = RegexSet::new(STDOUT_FILTER).unwrap();
-            let mut regexes = out_re.into_iter().enumerate();
-            let o = BufReader::new(gpg_out);
-            for l in o.lines().map(|r| r.unwrap()) {
-                println!("STDOUT: {l}");
+    let out_handle = thread::spawn(move || {
+        let mut panic_message = None;
+        let filter = RegexSet::new(STDOUT_FILTER).unwrap();
+        let mut regexes = out_re.into_iter().enumerate();
+        let o = BufReader::new(gpg_out);
+        for l in o.lines().map(|r| r.unwrap()) {
+            println!("STDOUT: {l}");
 
-                if filter.is_match(&l) {
-                    continue;
-                }
-                match regexes.next() {
-                    Some((id, re)) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
-                        let tmp = format!(r#"Expected in stdout {id}: "{re}", got: "{l}""#);
-                        println!("FAILED HERE: {tmp}");
-                        tmp
-                    }),
-                    None => panic_message.get_or_insert_with(|| {
-                        let tmp = format!(r#"Expected in stdout: EOL, got: "{l}"#);
-                        println!("FAILED HERE: {tmp}");
-                        tmp
-                    }),
-                    _ => continue,
-                };
+            if filter.is_match(&l) {
+                continue;
             }
-            if let Some((id, re)) = regexes.next() {
-                panic!(r#"Expected in stdout {id}: "{re}", got EOL"#);
-            }
-
-            if let Some(m) = panic_message {
-                panic!("{m}");
-            }
-        });
-
-        let err_handle = thread::spawn(move || {
-            let mut panic_message = None;
-            let filter = RegexSet::new(STDERR_FILTER).unwrap();
-            let mut regexes = err_re.into_iter();
-            let o = BufReader::new(gpg_err);
-            for l in o.lines().map(|r| r.unwrap()) {
-                println!("STDERR: {l}");
-
-                if filter.is_match(&l) {
-                    continue;
-                }
-
-                match regexes.next() {
-                    Some(re) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
-                        format!(r#"Expected in stderr: "{re}", got: "{l}""#)
-                    }),
-                    None => panic_message
-                        .get_or_insert_with(|| format!(r#"Expected in stderr: EOL, got: "{l}"#)),
-                    _ => continue,
-                };
-            }
-            if let Some(re) = regexes.next() {
-                panic!(r#"Expected in stderr: "{re}", got EOL"#);
-            }
-
-            if let Some(m) = panic_message {
-                panic!("{m}");
-            }
-        });
-
-        for l in stdin {
-            println!("STDIN: {l}");
-            writeln!(gpg_in, "{l}").unwrap();
-            gpg_in.flush().unwrap();
+            match regexes.next() {
+                Some((id, re)) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
+                    let tmp = format!(r#"Expected in stdout {id}: "{re}", got: "{l}""#);
+                    println!("FAILED HERE: {tmp}");
+                    tmp
+                }),
+                None => panic_message.get_or_insert_with(|| {
+                    let tmp = format!(r#"Expected in stdout: EOL, got: "{l}"#);
+                    println!("FAILED HERE: {tmp}");
+                    tmp
+                }),
+                _ => continue,
+            };
         }
-        drop(gpg_in);
-        let gpg_ret_code = gpg.wait().unwrap();
-        if !gpg_ret_code.success() {
-            panic!("Gpg failed with error code {gpg_ret_code}");
+        if let Some((id, re)) = regexes.next() {
+            panic!(r#"Expected in stdout {id}: "{re}", got EOL"#);
         }
 
-        out_handle.join().unwrap();
-        err_handle.join().unwrap();
+        if let Some(m) = panic_message {
+            panic!("{m}");
+        }
     });
+
+    let err_handle = thread::spawn(move || {
+        let mut panic_message = None;
+        let filter = RegexSet::new(STDERR_FILTER).unwrap();
+        let mut regexes = err_re.into_iter();
+        let o = BufReader::new(gpg_err);
+        for l in o.lines().map(|r| r.unwrap()) {
+            println!("STDERR: {l}");
+
+            if filter.is_match(&l) {
+                continue;
+            }
+
+            match regexes.next() {
+                Some(re) if !re.is_match(&l) => panic_message
+                    .get_or_insert_with(|| format!(r#"Expected in stderr: "{re}", got: "{l}""#)),
+                None => panic_message
+                    .get_or_insert_with(|| format!(r#"Expected in stderr: EOL, got: "{l}"#)),
+                _ => continue,
+            };
+        }
+        if let Some(re) = regexes.next() {
+            panic!(r#"Expected in stderr: "{re}", got EOL"#);
+        }
+
+        if let Some(m) = panic_message {
+            panic!("{m}");
+        }
+    });
+
+    for l in stdin {
+        println!("STDIN: {l}");
+        writeln!(gpg_in, "{l}").unwrap();
+        gpg_in.flush().unwrap();
+    }
+    drop(gpg_in);
+    let gpg_ret_code = gpg.wait().unwrap();
+    if !gpg_ret_code.success() {
+        panic!("Gpg failed with error code {gpg_ret_code}");
+    }
+
+    out_handle.join().unwrap();
+    err_handle.join().unwrap();
 }
