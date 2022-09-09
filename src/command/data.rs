@@ -531,7 +531,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn cardholder_cert<const R: usize, T: trussed::Client>(
+fn cardholder_cert<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     let occ = match ctx.state.runtime.cur_do {
@@ -546,7 +546,7 @@ pub fn cardholder_cert<const R: usize, T: trussed::Client>(
     get_arbitrary_do(ctx, to_load)
 }
 
-pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
+fn pw_status_bytes<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let status = PasswordStatus {
@@ -563,9 +563,7 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&status)
 }
 
-pub fn algo_info<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
     for alg in SignatureAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
@@ -587,7 +585,7 @@ pub fn algo_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
+fn alg_attr_sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
@@ -595,7 +593,7 @@ pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
+fn alg_attr_dec<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
@@ -603,7 +601,7 @@ pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
+fn alg_attr_aut<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
@@ -611,30 +609,28 @@ pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn fingerprints<const R: usize, T: trussed::Client>(
+fn fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.state.internal.fingerprints().0)?;
     Ok(())
 }
 
-pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
+fn ca_fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)?;
     Ok(())
 }
 
-pub fn keygen_dates<const R: usize, T: trussed::Client>(
+fn keygen_dates<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.state.internal.keygen_dates().0)?;
     Ok(())
 }
 
-pub fn key_info<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
     // TODO load from state
     // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
     ctx.reply.expand(&hex!(
@@ -647,7 +643,7 @@ pub fn key_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn uif<const R: usize, T: trussed::Client>(
+fn uif<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
@@ -661,26 +657,26 @@ pub fn uif<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&[state_byte, button_byte])
 }
 
-pub fn cardholder_name<const R: usize, T: trussed::Client>(
+fn cardholder_name<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(ctx.state.internal.cardholder_name())
 }
 
-pub fn cardholder_sex<const R: usize, T: trussed::Client>(
+fn cardholder_sex<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
         .expand(&[ctx.state.internal.cardholder_sex() as u8])
 }
 
-pub fn language_preferences<const R: usize, T: trussed::Client>(
+fn language_preferences<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(ctx.state.internal.language_preferences())
 }
 
-pub fn signature_counter<const R: usize, T: trussed::Client>(
+fn signature_counter<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
@@ -688,7 +684,7 @@ pub fn signature_counter<const R: usize, T: trussed::Client>(
     ctx.reply.expand(resp)
 }
 
-pub fn get_arbitrary_do<const R: usize, T: trussed::Client>(
+fn get_arbitrary_do<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
@@ -829,7 +825,7 @@ impl PutDataObject {
     }
 }
 
-pub fn put_cardholder_cert<const R: usize, T: trussed::Client>(
+fn put_cardholder_cert<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     let occ = match ctx.state.runtime.cur_do {
