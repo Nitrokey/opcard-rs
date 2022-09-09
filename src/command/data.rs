@@ -373,9 +373,7 @@ impl GetDataObject {
             Self::PrivateUse3 => get_arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
             Self::PrivateUse4 => get_arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
             // TODO revisit with support for GET NEXT DAT/ SELECT DATA
-            Self::CardHolderCertificate => {
-                get_arbitrary_do(context, ArbitraryDO::CardHolderCertAut)?
-            }
+            Self::CardHolderCertificate => cardholder_cert(context)?,
             Self::SecureMessagingCertificate => return Err(Status::SecureMessagingNotSupported),
             Self::CardHolderRelatedData
             | Self::ApplicationRelatedData
@@ -447,11 +445,10 @@ const EXTENDED_CAPABILITIES: [u8; 10] = [
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    mut context: Context<'_, R, T>,
     mode: GetDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
-    // TODO: curDO pointer
     if mode != GetDataMode::Even {
         // TODO: implement
         error!("Put data in even mode not yet implemented");
@@ -466,9 +463,16 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     }
     debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
-        GetDataDoType::Simple(obj) => obj.reply(context),
-        GetDataDoType::Constructed(objs) => get_constructed_data(context, objs),
+        GetDataDoType::Simple(obj) => obj.reply(context.lend())?,
+        GetDataDoType::Constructed(objs) => get_constructed_data(context.lend(), objs)?,
     }
+
+    let cur_do = &mut context.state.runtime.cur_do;
+    *cur_do = match cur_do {
+        Some((t, occ)) if *t == tag => Some((tag, *occ)),
+        _ => Some((tag, Occurrence::First)),
+    };
+    Ok(())
 }
 
 fn filtered_objects(
@@ -511,6 +515,21 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
         ctx.reply.prepend_len(offset)?;
     }
     Ok(())
+}
+
+pub fn cardholder_cert<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let occ = match ctx.state.runtime.cur_do {
+        Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
+        _ => Occurrence::First,
+    };
+    let to_load = match occ {
+        Occurrence::First => ArbitraryDO::CardHolderCertAut,
+        Occurrence::Second => ArbitraryDO::CardHolderCertDec,
+        Occurrence::Third => ArbitraryDO::CardHolderCertSig,
+    };
+    get_arbitrary_do(ctx, to_load)
 }
 
 pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
@@ -677,11 +696,10 @@ pub fn get_arbitrary_do<const R: usize, T: trussed::Client>(
 
 // § 7.2.8
 pub fn put_data<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    mut context: Context<'_, R, T>,
     mode: PutDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
-    // TODO: curDO pointer
     if mode != PutDataMode::Even {
         // TODO: implement
         error!("Put data in even mode not yet implemented");
@@ -704,7 +722,14 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     }
 
     debug!("Writing data for tag {:?}", tag);
-    object.put_data(context)
+    object.put_data(context.lend())?;
+
+    let cur_do = &mut context.state.runtime.cur_do;
+    *cur_do = match cur_do {
+        Some((t, occ)) if *t == tag => Some((tag, *occ)),
+        _ => Some((tag, Occurrence::First)),
+    };
+    Ok(())
 }
 
 enum_subset! {
@@ -769,8 +794,7 @@ impl PutDataObject {
             Self::SignGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Sign)?,
             Self::DecGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Dec)?,
             Self::AuthGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Aut)?,
-            // TODO support curDo
-            Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
+            Self::CardHolderCertificate => put_cardholder_cert(ctx)?,
             Self::AlgorithmAttributesSignature => put_alg_attributes_sign(ctx.load_state()?)?,
             Self::AlgorithmAttributesDecryption => put_alg_attributes_dec(ctx.load_state()?)?,
             Self::AlgorithmAttributesAuthentication => put_alg_attributes_aut(ctx.load_state()?)?,
@@ -789,6 +813,21 @@ impl PutDataObject {
         }
         Ok(())
     }
+}
+
+pub fn put_cardholder_cert<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let occ = match ctx.state.runtime.cur_do {
+        Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
+        _ => Occurrence::First,
+    };
+    let to_write = match occ {
+        Occurrence::First => ArbitraryDO::CardHolderCertAut,
+        Occurrence::Second => ArbitraryDO::CardHolderCertDec,
+        Occurrence::Third => ArbitraryDO::CardHolderCertSig,
+    };
+    put_arbitrary_do(ctx, to_write)
 }
 
 fn put_enc_dec_key<const R: usize, T: trussed::Client>(
