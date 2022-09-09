@@ -451,7 +451,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     if mode != GetDataMode::Even {
         // TODO: implement
-        error!("Put data in even mode not yet implemented");
+        error!("Get data in odd mode not yet implemented");
         return Err(Status::FunctionNotSupported);
     }
     let object = GetDataObject::try_from(tag).inspect_err_stable(|_err| {
@@ -473,6 +473,20 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         _ => Some((tag, Occurrence::First)),
     };
     Ok(())
+}
+
+// § 7.2.7
+pub fn get_next_data<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+    tag: Tag,
+) -> Result<(), Status> {
+    let cur_do = &mut context.state.runtime.cur_do;
+    *cur_do = match cur_do {
+        Some((t, Occurrence::First)) if *t == tag => Some((tag, Occurrence::Second)),
+        Some((t, Occurrence::Second)) if *t == tag => Some((tag, Occurrence::Third)),
+        _ => return Err(Status::ConditionsOfUseNotSatisfied),
+    };
+    get_data(context, GetDataMode::Even, tag)
 }
 
 fn filtered_objects(

@@ -41,6 +41,7 @@ impl Command {
         match self {
             Self::Select => select(context),
             Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
+            Self::GetNextData(tag) => data::get_next_data(context, *tag),
             Self::PutData(mode, tag) => data::put_data(context, *mode, *tag),
             Self::Verify(mode, password) => verify(context.load_state()?, *mode, *password),
             Self::ChangeReferenceData(password) => {

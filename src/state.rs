@@ -642,9 +642,7 @@ pub enum ArbitraryDO {
     PrivateUse4,
     LoginData,
     CardHolderCertAut,
-    #[allow(unused)]
     CardHolderCertDec,
-    #[allow(unused)]
     CardHolderCertSig,
 }
 
