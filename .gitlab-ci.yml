@@ -55,6 +55,7 @@ fuzz:
     FUZZ_JOBS: "1"
     FUZZ_DURATION: "3600"
   image: registry.git.nitrokey.com/nitrokey/opcard-rs/opcard-rs-build:latest
+  timeout: 5 hours 30 minutes
   rules:
     - if: '$CI_PIPELINE_SHOULD_FUZZ == "true"'
   tags:
