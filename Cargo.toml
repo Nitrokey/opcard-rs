@@ -60,8 +60,7 @@ log-warn = []
 log-error = []
 
 [patch.crates-io]
-trussed = { git = "https://github.com/sosthene-nitrokey/trussed.git", branch = "key-extract" }
-#trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "3da56d8e41b9de64b852ed2bdcfd623118b09c3d" }
+trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "baab96d27e884c0133f1cc021d37ad93b8f2ecf8" }
 littlefs2-sys = { git = "https://github.com/sosthene-nitrokey/littlefs2-sys.git", branch = "bindgen-runtime-feature" }
 
 [package.metadata.docs.rs]
