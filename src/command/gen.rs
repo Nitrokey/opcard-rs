@@ -221,9 +221,11 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
         try_syscall!(client.serialize_key(curve.mechanism(), public_key, KeySerialization::Raw))
             .map_err(|_err| {
                 error!("Failed to serialize public key: {_err:?}");
+                syscall!(client.delete(public_key));
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
+    syscall!(client.delete(public_key));
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
     curve.serialize_pub(ctx.lend(), &serialized)?;
