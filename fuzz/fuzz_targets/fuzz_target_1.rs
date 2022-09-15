@@ -5,7 +5,23 @@
 use libfuzzer_sys::fuzz_target;
 use opcard_fuzz::Input;
 
+#[cfg(feature = "log")]
+fn init_delog() {
+    static FLUSHER: delog::example::StderrFlusher = delog::example::StderrFlusher {};
+    static RENDERER: delog::render::DefaultRenderer = delog::render::DefaultRenderer {};
+    delog::example::Delogger::init(log::LevelFilter::Info, &FLUSHER, &RENDERER).ok();
+}
+
 fuzz_target!(|input: Input| {
+    // Logger is deactivated by default to reduce output.
+    // The "log" feature is expected to be used for debugging crashes
+    // Initialization errors are ignored because they would always happen
+    // at the second run of the fuzz target
+    #[cfg(feature = "log")]
+    env_logger::builder().is_test(true).try_init().ok();
+    #[cfg(feature = "log")]
+    init_delog();
+
     trussed::virt::with_ram_client("opcard", move |client| {
         let Input {
             commands,
