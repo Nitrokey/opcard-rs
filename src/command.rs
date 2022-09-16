@@ -42,7 +42,6 @@ impl Command {
                 true
             }
             (_, LifeCycle::Initialization) => false,
-            (Self::ActivateFile, LifeCycle::Operational) => false,
             (_, LifeCycle::Operational) => true,
         }
     }
@@ -507,6 +506,10 @@ fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> 
 fn activate_file<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    if context.state.runtime.lifecycle == LifeCycle::Operational {
+        return Ok(());
+    }
+
     factory_reset(context.lend())?;
     *context.state = Default::default();
     let context = context.load_state()?;
