@@ -34,5 +34,5 @@ test = false
 doc = false
 
 [features]
-log = ["env_logger", "trussed/log-all", "delog/example", "dep:log"]
+log = ["env_logger", "trussed/log-all", "delog/std-log", "dep:log"]
 verbose-lfs = ["trussed/verbose-lfs"]
