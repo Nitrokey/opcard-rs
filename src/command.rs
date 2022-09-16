@@ -468,13 +468,15 @@ fn terminate_df<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     if let Ok(ctx) = context.load_state() {
         if ctx.state.runtime.admin_verified || ctx.state.internal.is_locked(Password::Pw3) {
-            factory_reset(context)
+            ctx.state.runtime.lifecycle = LifeCycle::Initialization;
         } else {
-            Err(Status::ConditionsOfUseNotSatisfied)
+            return Err(Status::ConditionsOfUseNotSatisfied);
         }
     } else {
-        factory_reset(context)
+        context.state.runtime.lifecycle = LifeCycle::Initialization;
     }
+
+    Ok(())
 }
 
 fn unspecified_delete_error<E: core::fmt::Debug>(_err: E) -> Status {
@@ -484,7 +486,6 @@ fn unspecified_delete_error<E: core::fmt::Debug>(_err: E) -> Status {
 
 fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> Result<(), Status> {
     *ctx.state = Default::default();
-    ctx.state.runtime.lifecycle = LifeCycle::Initialization;
     try_syscall!(ctx
         .backend
         .client_mut()
@@ -506,6 +507,7 @@ fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> 
 fn activate_file<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    factory_reset(context.lend())?;
     *context.state = Default::default();
     let context = context.load_state()?;
     context
