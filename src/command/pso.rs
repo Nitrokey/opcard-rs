@@ -148,7 +148,9 @@ fn decrypt_ec<const R: usize, T: trussed::Client>(
     private_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
-    let data = get_do(&[0xA6, 0x7F49, 0x86], ctx.data).ok_or_else(|| {
+    // Cipher DO - Public key DO - External public key
+    const DATA_PATH: &[u16] = &[0xA6, 0x7F49, 0x86];
+    let data = get_do(DATA_PATH, ctx.data).ok_or_else(|| {
         warn!("Failed to parse serialized key DOs");
         Status::IncorrectDataParameter
     })?;
