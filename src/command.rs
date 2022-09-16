@@ -42,8 +42,8 @@ impl Command {
                 true
             }
             (_, LifeCycle::Initialization) => false,
-            (Self::ActivateFile, LifeCycle::Operationnal) => false,
-            (_, LifeCycle::Operationnal) => true,
+            (Self::ActivateFile, LifeCycle::Operational) => false,
+            (_, LifeCycle::Operational) => true,
         }
     }
 
@@ -516,6 +516,6 @@ fn activate_file<const R: usize, T: trussed::Client>(
             error!("Failed to store data {_err:?}");
             Status::UnspecifiedPersistentExecutionError
         })?;
-    context.state.runtime.lifecycle = LifeCycle::Operationnal;
+    context.state.runtime.lifecycle = LifeCycle::Operational;
     Ok(())
 }

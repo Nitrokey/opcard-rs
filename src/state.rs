@@ -639,7 +639,7 @@ impl Internal {
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum LifeCycle {
     Initialization = 0x03,
-    Operationnal = 0x05,
+    Operational = 0x05,
 }
 
 impl Default for LifeCycle {

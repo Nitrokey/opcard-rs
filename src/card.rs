@@ -34,8 +34,8 @@ impl<T: trussed::Client> Card<T> {
     pub fn new(mut client: T, options: Options) -> Self {
         let mut state = State::default();
         state.runtime.lifecycle = match state::Internal::exists(&mut client) {
-            // Operationnal allows TERMINATE DF, which *should* be able to fix any loading issue
-            Ok(true) | Err(_) => LifeCycle::Operationnal,
+            // Operational allows TERMINATE DF, which *should* be able to fix any loading issue
+            Ok(true) | Err(_) => LifeCycle::Operational,
             Ok(false) => LifeCycle::Initialization,
         };
         Self {
@@ -72,8 +72,8 @@ impl<T: trussed::Client> Card<T> {
     pub fn reset(&mut self) {
         let mut state = State::default();
         state.runtime.lifecycle = match state::Internal::exists(self.backend.client_mut()) {
-            // Operationnal allows TERMINATE DF, which *should* be able to fix any loading issue
-            Ok(true) | Err(_) => LifeCycle::Operationnal,
+            // Operational allows TERMINATE DF, which *should* be able to fix any loading issue
+            Ok(true) | Err(_) => LifeCycle::Operational,
             Ok(false) => LifeCycle::Initialization,
         };
         self.state = state;
