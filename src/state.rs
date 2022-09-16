@@ -280,6 +280,14 @@ impl Internal {
         }
     }
 
+    pub fn lifecycle<T: trussed::Client>(client: &mut T) -> LifeCycle {
+        match Self::exists(client) {
+            // Operational allows TERMINATE DF, which *should* be able to fix any loading issue
+            Ok(true) | Err(_) => LifeCycle::Operational,
+            Ok(false) => LifeCycle::Initialization,
+        }
+    }
+
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
     }
