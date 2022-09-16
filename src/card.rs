@@ -112,8 +112,9 @@ pub struct Options {
     /// The serial number returned in the AID, see § 4.2.1 of the spec.
     pub serial: [u8; 4],
 
+    // FIXME: Make historical bytes configurable
     /// Historical bytes, see  § 6
-    pub historical_bytes: heapless::Vec<u8, 15>,
+    pub(crate) historical_bytes: heapless::Vec<u8, 15>,
 
     /// Does the card have a button for user input?
     pub button_available: bool,
