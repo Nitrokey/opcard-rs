@@ -10,9 +10,25 @@ use crate::card::LoadedContext;
 use crate::tlv::get_do;
 use crate::types::*;
 
+fn check_uif<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    key: KeyType,
+) -> Result<(), Status> {
+    if ctx.state.internal.uif(key).is_enabled()
+        && !ctx
+            .backend
+            .confirm_user_present()
+            .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
+    {
+        warn!("User presence confirmation timed out");
+        // FIXME SecurityRelatedIssues (0x6600 is not available?)
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+    Ok(())
+}
 // § 7.2.10
 pub fn sign<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx.state.internal.key_id(KeyType::Sign).ok_or_else(|| {
         warn!("Attempt to sign without a key set");
@@ -23,16 +39,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
-    if ctx.state.internal.uif(KeyType::Sign).is_enabled()
-        && !ctx
-            .backend
-            .confirm_user_present()
-            .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
-    {
-        warn!("User presence confirmation timed out");
-        // FIXME SecurityRelatedIssues (0x6600 is not available?)
-        return Err(Status::SecurityStatusNotSatisfied);
-    }
+    check_uif(ctx.lend(), KeyType::Sign)?;
     if !ctx.state.internal.pw1_valid_multiple() {
         ctx.state.runtime.sign_verified = false;
     }
@@ -73,7 +80,7 @@ fn sign_ec<const R: usize, T: trussed::Client>(
 
 // § 7.2.13
 pub fn internal_authenticate<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx.state.internal.key_id(KeyType::Aut).ok_or_else(|| {
         warn!("Attempt to authenticate without a key set");
@@ -84,16 +91,8 @@ pub fn internal_authenticate<const R: usize, T: trussed::Client>(
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
-    if ctx.state.internal.uif(KeyType::Aut).is_enabled()
-        && !ctx
-            .backend
-            .confirm_user_present()
-            .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
-    {
-        warn!("User presence confirmation timed out");
-        // FIXME SecurityRelatedIssues (0x6600 is not available?)
-        return Err(Status::SecurityStatusNotSatisfied);
-    }
+    check_uif(ctx.lend(), KeyType::Aut)?;
+
     match ctx.state.internal.aut_alg() {
         AuthenticationAlgorithm::Ed255 => sign_ec(ctx, key_id, Mechanism::Ed255),
         AuthenticationAlgorithm::EcDsaP256 => {
