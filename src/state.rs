@@ -146,6 +146,13 @@ impl CaFingerprints {
     }
 }
 
+/// Life cycle status byte, see § 6
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum LifeCycle {
+    Initialization = 0x03,
+    Operational = 0x05,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
     // Internal state may not be loaded, or may error when loaded
@@ -181,6 +188,42 @@ impl State {
         Ok(LoadedState {
             internal: self.internal.as_mut().unwrap(),
             runtime: &mut self.runtime,
+        })
+    }
+
+    const LIFECYCLE_PATH: &'static str = "lifecycle.empty";
+    fn lifecycle_path() -> PathBuf {
+        PathBuf::from(Self::LIFECYCLE_PATH)
+    }
+    pub fn lifecycle(client: &mut impl trussed::Client) -> LifeCycle {
+        match try_syscall!(client.entry_metadata(Location::Internal, Self::lifecycle_path())) {
+            Ok(Metadata {
+                metadata: Some(metadata),
+            }) if metadata.is_file() => LifeCycle::Operational,
+            _ => LifeCycle::Initialization,
+        }
+    }
+
+    pub fn terminate_df(client: &mut impl trussed::Client) -> Result<(), Status> {
+        try_syscall!(client.remove_file(Location::Internal, Self::lifecycle_path(),))
+            .map(|_| {})
+            .map_err(|_err| {
+                error!("Failed to write lifecycle: {_err:?}");
+                Status::UnspecifiedPersistentExecutionError
+            })
+    }
+
+    pub fn activate_file(client: &mut impl trussed::Client) -> Result<(), Status> {
+        try_syscall!(client.write_file(
+            Location::Internal,
+            Self::lifecycle_path(),
+            Bytes::new(),
+            None,
+        ))
+        .map(|_| {})
+        .map_err(|_err| {
+            error!("Failed to write lifecycle: {_err:?}");
+            Status::UnspecifiedPersistentExecutionError
         })
     }
 }
@@ -219,6 +262,7 @@ impl Default for Sex {
         Sex::NotKnown
     }
 }
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,
@@ -280,14 +324,6 @@ impl Internal {
         }
     }
 
-    pub fn lifecycle<T: trussed::Client>(client: &mut T) -> LifeCycle {
-        match Self::exists(client) {
-            // Operational allows TERMINATE DF, which *should* be able to fix any loading issue
-            Ok(true) | Err(_) => LifeCycle::Operational,
-            Ok(false) => LifeCycle::Initialization,
-        }
-    }
-
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
     }
@@ -300,26 +336,6 @@ impl Internal {
             })
         } else {
             Ok(Self::default())
-        }
-    }
-
-    pub fn exists<T: trussed::Client>(client: &mut T) -> Result<bool, Error> {
-        match try_syscall!(client.entry_metadata(Location::Internal, Self::path())) {
-            Ok(Metadata {
-                metadata: Some(metadata),
-            }) => {
-                if metadata.is_file() {
-                    Ok(true)
-                } else {
-                    error!("Folder exists with the name of the state");
-                    Err(Error::Loading)
-                }
-            }
-            Ok(Metadata { metadata: None }) => Ok(false),
-            Err(_err) => {
-                error!("State couldn't be read: {_err:?}");
-                Err(Error::Loading)
-            }
         }
     }
 
@@ -643,25 +659,11 @@ impl Internal {
     }
 }
 
-/// Life cycle status byte, see § 6
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub enum LifeCycle {
-    Initialization = 0x03,
-    Operational = 0x05,
-}
-
-impl Default for LifeCycle {
-    fn default() -> Self {
-        Self::Initialization
-    }
-}
-
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Runtime {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
-    pub lifecycle: LifeCycle,
 }
 
 /// DOs that can store arbitrary data from the user

@@ -8,7 +8,7 @@ mod pso;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
-use crate::state::LifeCycle;
+use crate::state::{LifeCycle, State};
 use crate::types::*;
 use trussed::try_syscall;
 use trussed::types::{Location, PathBuf};
@@ -50,10 +50,10 @@ impl Command {
         &self,
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
-        if !self.can_lifecycle_run(context.state.runtime.lifecycle) {
+        if !self.can_lifecycle_run(State::lifecycle(context.backend.client_mut())) {
             warn!(
                 "Command {self:?} called in lifecycle {:?}",
-                context.state.runtime.lifecycle
+                State::lifecycle(context.backend.client_mut())
             );
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
@@ -467,12 +467,12 @@ fn terminate_df<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     if let Ok(ctx) = context.load_state() {
         if ctx.state.runtime.admin_verified || ctx.state.internal.is_locked(Password::Pw3) {
-            ctx.state.runtime.lifecycle = LifeCycle::Initialization;
+            State::terminate_df(context.backend.client_mut())?;
         } else {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
     } else {
-        context.state.runtime.lifecycle = LifeCycle::Initialization;
+        State::terminate_df(context.backend.client_mut())?;
     }
 
     Ok(())
@@ -506,7 +506,7 @@ fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> 
 fn activate_file<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    if context.state.runtime.lifecycle == LifeCycle::Operational {
+    if State::lifecycle(context.backend.client_mut()) == LifeCycle::Operational {
         return Ok(());
     }
 
@@ -521,6 +521,6 @@ fn activate_file<const R: usize, T: trussed::Client>(
             error!("Failed to store data {_err:?}");
             Status::UnspecifiedPersistentExecutionError
         })?;
-    context.state.runtime.lifecycle = LifeCycle::Operational;
+    State::activate_file(context.backend.client_mut())?;
     Ok(())
 }

@@ -9,7 +9,7 @@ use crate::{
     card::{Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
-        ArbitraryDO, PermissionRequirement, Sex, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
+        ArbitraryDO, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
         MAX_PIN_LENGTH,
     },
     types::*,
@@ -518,7 +518,7 @@ pub fn historical_bytes<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.options.historical_bytes)?;
     let lifecycle_idx = ctx.reply.len() - 3;
-    ctx.reply[lifecycle_idx] = ctx.state.runtime.lifecycle as u8;
+    ctx.reply[lifecycle_idx] = State::lifecycle(ctx.backend.client_mut()) as u8;
     Ok(())
 }
 

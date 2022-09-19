@@ -6,7 +6,7 @@ use iso7816::Status;
 
 pub(crate) mod reply;
 
-use crate::state::{self, LoadedState, State};
+use crate::state::{LoadedState, State};
 use crate::utils::InspectErr;
 use crate::{backend::Backend, command::Command};
 use reply::Reply;
@@ -31,9 +31,8 @@ pub struct Card<T: trussed::Client> {
 
 impl<T: trussed::Client> Card<T> {
     /// Creates a new OpenPGP card with the given backend and options.
-    pub fn new(mut client: T, options: Options) -> Self {
-        let mut state = State::default();
-        state.runtime.lifecycle = state::Internal::lifecycle(&mut client);
+    pub fn new(client: T, options: Options) -> Self {
+        let state = State::default();
         Self {
             backend: Backend::new(client),
             options,
@@ -66,8 +65,7 @@ impl<T: trussed::Client> Card<T> {
 
     /// Resets the state of the card.
     pub fn reset(&mut self) {
-        let mut state = State::default();
-        state.runtime.lifecycle = state::Internal::lifecycle(self.backend.client_mut());
+        let state = State::default();
         self.state = state;
     }
 }
