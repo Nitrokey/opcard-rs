@@ -3,6 +3,9 @@
 
 export RUST_LOG ?= info,cargo_tarpaulin=off
 
+FUZZ_JOBS?=$(shell nproc)
+FUZZ_DURATION?="0"
+
 .PHONY: check
 check:
 	cargo check --all-features --all-targets
@@ -24,7 +27,7 @@ test:
 
 .PHONY: fuzz
 fuzz: fuzz-corpus
-	cargo +nightly fuzz run --jobs $$(nproc) fuzz_target_1 fuzz/corpus
+	cargo +nightly fuzz run --jobs ${FUZZ_JOBS} fuzz_target_1 fuzz/corpus -- -max_total_time=${FUZZ_DURATION}
 
 .PHONY: fuzz-corpus
 fuzz-corpus:

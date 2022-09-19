@@ -98,9 +98,7 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
         curve.mechanism(),
-        StorageAttributes {
-            persistence: Location::Internal
-        }
+        StorageAttributes::new().set_persistence(Location::Internal)
     ))
     .map_err(|_err| {
         error!("Failed to generate key: {_err:?}");
@@ -212,18 +210,18 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
         curve.mechanism(),
         key_id,
         None,
-        StorageAttributes {
-            persistence: Location::Volatile
-        }
+        StorageAttributes::new().set_persistence(Location::Volatile)
     ))
     .key;
     let serialized =
         try_syscall!(client.serialize_key(curve.mechanism(), public_key, KeySerialization::Raw))
             .map_err(|_err| {
                 error!("Failed to serialize public key: {_err:?}");
+                syscall!(client.delete(public_key));
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
+    syscall!(client.delete(public_key));
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
     curve.serialize_pub(ctx.lend(), &serialized)?;

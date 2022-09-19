@@ -9,6 +9,7 @@ use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
 use crate::state::{LifeCycle, State};
+use crate::tlv;
 use crate::types::*;
 use trussed::try_syscall;
 use trussed::types::{Location, PathBuf};
@@ -16,7 +17,7 @@ use trussed::types::{Location, PathBuf};
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
     Select,
-    SelectData(Instance),
+    SelectData(Occurrence),
     GetData(GetDataMode, Tag),
     GetNextData(Tag),
     Verify(VerifyMode, PasswordMode),
@@ -60,15 +61,19 @@ impl Command {
         match self {
             Self::Select => select(context),
             Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
+            Self::GetNextData(tag) => data::get_next_data(context, *tag),
             Self::PutData(mode, tag) => data::put_data(context, *mode, *tag),
             Self::Verify(mode, password) => verify(context.load_state()?, *mode, *password),
             Self::ChangeReferenceData(password) => {
                 change_reference_data(context.load_state()?, *password)
             }
             Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
+            Self::InternalAuthenticate => pso::internal_authenticate(context.load_state()?),
+            Self::Decipher => pso::decipher(context.load_state()?),
             Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
             Self::TerminateDf => terminate_df(context),
             Self::ActivateFile => activate_file(context),
+            Self::SelectData(occurrence) => select_data(context, *occurrence),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
                 Err(Status::FunctionNotSupported)
@@ -122,9 +127,9 @@ impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
                 Ok(Self::ResetRetryCounter(mode))
             }
             0xA5 => {
-                let instance = Instance::try_from(command.p1)?;
+                let occurrence = Occurrence::try_from(command.p1)?;
                 require(command.p2, 0x04)?;
-                Ok(Self::SelectData(instance))
+                Ok(Self::SelectData(occurrence))
             }
             0xCA => Ok(Self::GetData(GetDataMode::Even, Tag::from(command))),
             0xCB => Ok(Self::GetData(GetDataMode::Odd, Tag::from(command))),
@@ -300,36 +305,6 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
             0xB8 => Ok(Self::Dec),
             _ => Err(Status::IncorrectP1OrP2Parameter),
         }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct Instance(u8);
-
-impl TryFrom<u8> for Instance {
-    type Error = Status;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value <= 0x03 {
-            Ok(Self(value))
-        } else {
-            Err(Status::IncorrectP1OrP2Parameter)
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Tag(u16);
-
-impl From<(u8, u8)> for Tag {
-    fn from((p1, p2): (u8, u8)) -> Self {
-        Self(u16::from_be_bytes([p1, p2]))
-    }
-}
-
-impl<const C: usize> From<&iso7816::Command<C>> for Tag {
-    fn from(command: &iso7816::Command<C>) -> Self {
-        Self::from((command.p1, command.p2))
     }
 }
 
@@ -522,5 +497,22 @@ fn activate_file<const R: usize, T: trussed::Client>(
             Status::UnspecifiedPersistentExecutionError
         })?;
     State::activate_file(context.backend.client_mut())?;
+    Ok(())
+}
+
+// § 7.2.5
+fn select_data<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+    occurrence: Occurrence,
+) -> Result<(), Status> {
+    let tag: Tag = match tlv::get_do(&[0x60, 0x5C], ctx.data) {
+        Some([b1, b2]) => (*b1, *b2).into(),
+        Some([b1]) => (*b1).into(),
+        _ => {
+            warn!("Select Data with incorrect data path");
+            return Err(Status::IncorrectDataParameter);
+        }
+    };
+    ctx.state.runtime.cur_do = Some((tag, occurrence));
     Ok(())
 }

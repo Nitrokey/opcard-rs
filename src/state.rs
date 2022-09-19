@@ -324,6 +324,11 @@ impl Internal {
         }
     }
 
+    #[cfg(test)]
+    pub fn test_default() -> Self {
+        Self::default()
+    }
+
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
     }
@@ -664,6 +669,7 @@ pub struct Runtime {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
+    pub cur_do: Option<(Tag, Occurrence)>,
 }
 
 /// DOs that can store arbitrary data from the user
@@ -680,9 +686,7 @@ pub enum ArbitraryDO {
     PrivateUse4,
     LoginData,
     CardHolderCertAut,
-    #[allow(unused)]
     CardHolderCertDec,
-    #[allow(unused)]
     CardHolderCertSig,
 }
 

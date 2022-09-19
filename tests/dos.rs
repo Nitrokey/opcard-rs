@@ -28,7 +28,7 @@ fn get_data() {
         tx.set_sex(Sex::NotApplicable).unwrap();
         tx.set_url(b"This is an URL").unwrap();
         tx.set_name(b"This is a name").unwrap();
-        tx.set_cardholder_certificate(vec![1u8; 127]).unwrap();
+        tx.set_cardholder_certificate(vec![1; 127]).unwrap();
         tx.set_ca_fingerprint_1([1u8; 20].into()).unwrap();
         assert_eq!(tx.url().unwrap(), b"This is an URL");
         let appdata = tx.application_related_data().unwrap();
@@ -65,7 +65,7 @@ fn get_data() {
         assert_eq!(holderdata.lang().unwrap(), &[Lang::Value(*b"en")]);
 
         let cardholder_cert = tx.cardholder_certificate().unwrap();
-        assert_eq!(cardholder_cert, &[1u8; 127]);
+        assert_eq!(cardholder_cert, &[1; 127]);
 
         uif_aut.set_touch_policy(TouchPolicy::On);
         tx.set_uif_pso_cds(&uif_aut).unwrap();
@@ -109,5 +109,24 @@ fn get_data() {
 
         let uif_aut = appdata.uif_pso_aut().unwrap().unwrap();
         assert_eq!(uif_aut.touch_policy(), TouchPolicy::Fixed);
+
+        for i in 0..3 {
+            tx.select_data(i, &[0x7f, 0x21], false).unwrap();
+            tx.set_cardholder_certificate(format!("{i}").into())
+                .unwrap();
+        }
+
+        tx.select_data(0, &[0x7f, 0x21], false).unwrap();
+        assert_eq!(tx.cardholder_certificate().unwrap(), "0".as_bytes());
+        assert_eq!(tx.next_cardholder_certificate().unwrap(), "1".as_bytes());
+        assert_eq!(tx.next_cardholder_certificate().unwrap(), "2".as_bytes());
+
+        for i in 0..3 {
+            tx.select_data(i, &[0x7f, 0x21], false).unwrap();
+            assert_eq!(
+                tx.cardholder_certificate().unwrap(),
+                format!("{i}").as_bytes()
+            );
+        }
     });
 }
