@@ -89,16 +89,11 @@ fn gpg_255() {
                 temp_email,
                 "no comment",
                 DEFAULT_PW1,
-                "factory-reset",
-                "y",
-                "yes",
-                "verify",
-                DEFAULT_PW1,
                 "quit",
             ],
             &[
                 vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(),
+                virt::gpg_status(virt::KeyType::Rsa,false),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -132,14 +127,6 @@ fn gpg_255() {
                     r"grp:::::::::[0-9A-F]{40}:",
                     r"\[GNUPG:\] KEY_CREATED B [0-9A-F]{40}",
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
-                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                ],
-                virt::gpg_inquire_pin(),
-                virt::gpg_status(),
-                vec![
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
                 ]
             ].into_iter().flatten().collect::<Vec<&str>>(),
             &[
@@ -147,8 +134,6 @@ fn gpg_255() {
                 r"gpg: checking the trustdb",
                 r"gpg: marginals needed: \d  completes needed: \d  trust model: pgp",
                 r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
-                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
-                r"gpg: Note: This command destroys all keys stored on the card!"
             ],
             EditCard,
         );
@@ -252,6 +237,39 @@ fn gpg_255() {
             ],
             Verify { i: sign_file },
         );
+        gnupg_test(
+            &[
+                "admin",
+                "factory-reset",
+                "y",
+                "yes",
+                "verify",
+                DEFAULT_PW1,
+                "quit",
+            ],
+            &[
+                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
+                virt::gpg_status(virt::KeyType::Cv25519, true),
+                vec![
+                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
+                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
+                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                ],
+                virt::gpg_inquire_pin(),
+                virt::gpg_status(virt::KeyType::Rsa, false),
+                vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<&str>>(),
+            &[
+                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
+                r"gpg: Note: This command destroys all keys stored on the card!",
+            ],
+            EditCard,
+        );
     });
 }
 
@@ -306,17 +324,11 @@ fn gpg_p256() {
                 temp_email,
                 "no comment",
                 DEFAULT_PW1,
-                "factory-reset",
-                "y",
-                "yes",
-                "verify",
-                DEFAULT_PW1,
-                "quit",
                 "quit",
             ],
             &[
                 vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(),
+                virt::gpg_status(virt::KeyType::Rsa,false),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -350,14 +362,6 @@ fn gpg_p256() {
                     r"grp:::::::::[0-9A-F]{40}:",
                     r"\[GNUPG:\] KEY_CREATED B [0-9A-F]{40}",
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
-                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                ],
-                virt::gpg_inquire_pin(),
-                virt::gpg_status(),
-                vec![
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
                 ]
             ].into_iter().flatten().collect::<Vec<&str>>(),
             &[
@@ -365,8 +369,6 @@ fn gpg_p256() {
                 r"gpg: checking the trustdb",
                 r"gpg: marginals needed: \d  completes needed: \d  trust model: pgp",
                 r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
-                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
-                r"gpg: Note: This command destroys all keys stored on the card!"
             ],
             EditCard,
         );
@@ -470,6 +472,40 @@ fn gpg_p256() {
                 r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
             ],
             Verify { i: sign_file },
+        );
+
+        gnupg_test(
+            &[
+                "admin",
+                "factory-reset",
+                "y",
+                "yes",
+                "verify",
+                DEFAULT_PW1,
+                "quit",
+            ],
+            &[
+                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
+                virt::gpg_status(virt::KeyType::P256, true),
+                vec![
+                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
+                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
+                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                ],
+                virt::gpg_inquire_pin(),
+                virt::gpg_status(virt::KeyType::Rsa, false),
+                vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<&str>>(),
+            &[
+                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
+                r"gpg: Note: This command destroys all keys stored on the card!",
+            ],
+            EditCard,
         );
     });
 }
