@@ -62,7 +62,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 }
 
 #[allow(unused)]
-pub fn gpg_status() -> impl Iterator<Item = &'static str> + Clone {
+pub fn gpg_status() -> Vec<&'static str> {
     [
         r"Reader:Virtual PCD \d\d \d\d:AID:D2760001240103040000000000000000:openpgp-card",
         r"version:0304",
@@ -85,123 +85,145 @@ pub fn gpg_status() -> impl Iterator<Item = &'static str> + Clone {
         r"fpr::::",
         r"fprtime:0:0:0:",
         r"grp:0000000000000000000000000000000000000000:0000000000000000000000000000000000000000:0000000000000000000000000000000000000000:"
-    ].into_iter()
+    ].into()
 }
 
 #[allow(unused)]
-pub fn gpg_inquire_pin() -> impl Iterator<Item = &'static str> + Clone {
+pub fn gpg_inquire_pin() -> Vec<&'static str> {
     [
         r"\[GNUPG:\] INQUIRE_MAXLEN 100",
         r"\[GNUPG:\] GET_HIDDEN passphrase.enter",
     ]
-    .into_iter()
+    .into()
+}
+
+#[allow(unused)]
+pub enum GpgCommand<'a> {
+    EditCard,
+    Encrypt { r: &'a str, i: &'a str, o: &'a str },
+    Decrypt { i: &'a str, o: &'a str },
+    Sign { i: &'a str, s: &'a str, o: &'a str },
+    Verify { i: &'a str },
+}
+
+impl GpgCommand<'_> {
+    fn command(&self) -> Command {
+        let mut cmd = Command::new("gpg");
+        cmd.args([
+            "--command-fd=0",
+            "--status-fd=1",
+            "--with-colons",
+            "--pinentry-mode",
+            "loopback",
+            "--expert",
+            "--no-tty",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(Stdio::piped());
+        match self {
+            GpgCommand::EditCard => cmd.arg("--edit-card"),
+            GpgCommand::Encrypt { i, o, r } => {
+                cmd.args(["--encrypt", "--output", o, "--recipient", r, i])
+            }
+            GpgCommand::Decrypt { i, o } => cmd.args(["--decrypt", "--output", o, i]),
+            GpgCommand::Sign { i, s, o } => {
+                cmd.args(["--sign", "--output", o, "--default-key", s, i])
+            }
+            GpgCommand::Verify { i } => cmd.args(["--verify", i]),
+        };
+        cmd
+    }
 }
 
 /// Takes an array of strings that will be passed as input to `gpg --command-fd=0 --status-fd=1 --pinentry-mode loopback --card-edit`
 /// and an array of Regex over the output
 #[allow(unused)]
-pub fn gnupg_test(
-    stdin: &[&str],
-    stdout: impl IntoIterator<Item = &'static str>,
-    stderr: impl IntoIterator<Item = &'static str>,
-) {
-    let out_re: Vec<Regex> = stdout.into_iter().map(|s| Regex::new(s).unwrap()).collect();
-    let err_re: Vec<Regex> = stderr.into_iter().map(|s| Regex::new(s).unwrap()).collect();
-    with_vsc(move || {
-        let mut gpg = Command::new("gpg")
-            .arg("--command-fd=0")
-            .arg("--status-fd=1")
-            .arg("--with-colons")
-            .arg("--pinentry-mode")
-            .arg("loopback")
-            .arg("--expert")
-            .arg("--card-edit")
-            .arg("--no-tty")
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::piped())
-            .spawn()
-            .expect("failed to run gpg --card-status");
-        let mut gpg_in = gpg.stdin.take().unwrap();
-        let mut gpg_out = gpg.stdout.take().unwrap();
-        let mut gpg_err = gpg.stderr.take().unwrap();
+pub fn gnupg_test(stdin: &[&str], stdout: &[&str], stderr: &[&str], cmd: GpgCommand) {
+    let out_re: Vec<Regex> = stdout.iter().map(|s| Regex::new(s).unwrap()).collect();
+    let err_re: Vec<Regex> = stderr.iter().map(|s| Regex::new(s).unwrap()).collect();
+    let mut gpg = cmd
+        .command()
+        .spawn()
+        .expect("failed to run gpg --card-status");
+    let mut gpg_in = gpg.stdin.take().unwrap();
+    let mut gpg_out = gpg.stdout.take().unwrap();
+    let mut gpg_err = gpg.stderr.take().unwrap();
 
-        let out_handle = thread::spawn(move || {
-            let mut panic_message = None;
-            let filter = RegexSet::new(STDOUT_FILTER).unwrap();
-            let mut regexes = out_re.into_iter().enumerate();
-            let o = BufReader::new(gpg_out);
-            for l in o.lines().map(|r| r.unwrap()) {
-                println!("STDOUT: {l}");
+    let out_handle = thread::spawn(move || {
+        let mut panic_message = None;
+        let filter = RegexSet::new(STDOUT_FILTER).unwrap();
+        let mut regexes = out_re.into_iter().enumerate();
+        let o = BufReader::new(gpg_out);
+        for l in o.lines().map(|r| r.unwrap()) {
+            println!("STDOUT: {l}");
 
-                if filter.is_match(&l) {
-                    continue;
-                }
-                match regexes.next() {
-                    Some((id, re)) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
-                        let tmp = format!(r#"Expected in stdout {id}: "{re}", got: "{l}""#);
-                        println!("FAILED HERE: {tmp}");
-                        tmp
-                    }),
-                    None => panic_message.get_or_insert_with(|| {
-                        let tmp = format!(r#"Expected in stdout: EOL, got: "{l}"#);
-                        println!("FAILED HERE: {tmp}");
-                        tmp
-                    }),
-                    _ => continue,
-                };
+            if filter.is_match(&l) {
+                continue;
             }
-            if let Some((id, re)) = regexes.next() {
-                panic!(r#"Expected in stdout {id}: "{re}", got EOL"#);
-            }
-
-            if let Some(m) = panic_message {
-                panic!("{m}");
-            }
-        });
-
-        let err_handle = thread::spawn(move || {
-            let mut panic_message = None;
-            let filter = RegexSet::new(STDERR_FILTER).unwrap();
-            let mut regexes = err_re.into_iter();
-            let o = BufReader::new(gpg_err);
-            for l in o.lines().map(|r| r.unwrap()) {
-                println!("STDERR: {l}");
-
-                if filter.is_match(&l) {
-                    continue;
-                }
-
-                match regexes.next() {
-                    Some(re) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
-                        format!(r#"Expected in stderr: "{re}", got: "{l}""#)
-                    }),
-                    None => panic_message
-                        .get_or_insert_with(|| format!(r#"Expected in stderr: EOL, got: "{l}"#)),
-                    _ => continue,
-                };
-            }
-            if let Some(re) = regexes.next() {
-                panic!(r#"Expected in stderr: "{re}", got EOL"#);
-            }
-
-            if let Some(m) = panic_message {
-                panic!("{m}");
-            }
-        });
-
-        for l in stdin {
-            println!("STDIN: {l}");
-            writeln!(gpg_in, "{l}").unwrap();
-            gpg_in.flush().unwrap();
+            match regexes.next() {
+                Some((id, re)) if !re.is_match(&l) => panic_message.get_or_insert_with(|| {
+                    let tmp = format!(r#"Expected in stdout {id}: "{re}", got: "{l}""#);
+                    println!("FAILED HERE: {tmp}");
+                    tmp
+                }),
+                None => panic_message.get_or_insert_with(|| {
+                    let tmp = format!(r#"Expected in stdout: EOL, got: "{l}"#);
+                    println!("FAILED HERE: {tmp}");
+                    tmp
+                }),
+                _ => continue,
+            };
         }
-        drop(gpg_in);
-        let gpg_ret_code = gpg.wait().unwrap();
-        if !gpg_ret_code.success() {
-            panic!("Gpg failed with error code {gpg_ret_code}");
+        if let Some((id, re)) = regexes.next() {
+            panic!(r#"Expected in stdout {id}: "{re}", got EOL"#);
         }
 
-        out_handle.join().unwrap();
-        err_handle.join().unwrap();
+        if let Some(m) = panic_message {
+            panic!("{m}");
+        }
     });
+
+    let err_handle = thread::spawn(move || {
+        let mut panic_message = None;
+        let filter = RegexSet::new(STDERR_FILTER).unwrap();
+        let mut regexes = err_re.into_iter();
+        let o = BufReader::new(gpg_err);
+        for l in o.lines().map(|r| r.unwrap()) {
+            println!("STDERR: {l}");
+
+            if filter.is_match(&l) {
+                continue;
+            }
+
+            match regexes.next() {
+                Some(re) if !re.is_match(&l) => panic_message
+                    .get_or_insert_with(|| format!(r#"Expected in stderr: "{re}", got: "{l}""#)),
+                None => panic_message
+                    .get_or_insert_with(|| format!(r#"Expected in stderr: EOL, got: "{l}"#)),
+                _ => continue,
+            };
+        }
+        if let Some(re) = regexes.next() {
+            panic!(r#"Expected in stderr: "{re}", got EOL"#);
+        }
+
+        if let Some(m) = panic_message {
+            panic!("{m}");
+        }
+    });
+
+    for l in stdin {
+        println!("STDIN: {l}");
+        writeln!(gpg_in, "{l}").unwrap();
+        gpg_in.flush().unwrap();
+    }
+    drop(gpg_in);
+    let gpg_ret_code = gpg.wait().unwrap();
+    if !gpg_ret_code.success() {
+        panic!("Gpg failed with error code {gpg_ret_code}");
+    }
+
+    out_handle.join().unwrap();
+    err_handle.join().unwrap();
 }

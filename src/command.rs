@@ -46,6 +46,8 @@ impl Command {
                 change_reference_data(context.load_state()?, *password)
             }
             Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
+            Self::InternalAuthenticate => pso::internal_authenticate(context.load_state()?),
+            Self::Decipher => pso::decipher(context.load_state()?),
             Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
