@@ -273,3 +273,45 @@ impl Uif {
         matches!(self, Uif::Enabled | Uif::PermanentlyEnabled)
     }
 }
+
+/// Instace of a curDO pointer. Guaranteed to be <3
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum Occurrence {
+    First = 0,
+    Second = 1,
+    Third = 2,
+}
+
+impl TryFrom<u8> for Occurrence {
+    type Error = Status;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Occurrence::First),
+            1 => Ok(Occurrence::Second),
+            2 => Ok(Occurrence::Third),
+            _ => Err(Status::IncorrectP1OrP2Parameter),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Tag(pub u16);
+
+impl From<(u8, u8)> for Tag {
+    fn from((p1, p2): (u8, u8)) -> Self {
+        Self(u16::from_be_bytes([p1, p2]))
+    }
+}
+
+impl From<u8> for Tag {
+    fn from(p1: u8) -> Self {
+        Self(p1.into())
+    }
+}
+
+impl<const C: usize> From<&iso7816::Command<C>> for Tag {
+    fn from(command: &iso7816::Command<C>) -> Self {
+        Self::from((command.p1, command.p2))
+    }
+}

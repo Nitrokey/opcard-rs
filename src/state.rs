@@ -625,6 +625,7 @@ pub struct Runtime {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
+    pub cur_do: Option<(Tag, Occurrence)>,
 }
 
 /// DOs that can store arbitrary data from the user
@@ -641,9 +642,7 @@ pub enum ArbitraryDO {
     PrivateUse4,
     LoginData,
     CardHolderCertAut,
-    #[allow(unused)]
     CardHolderCertDec,
-    #[allow(unused)]
     CardHolderCertSig,
 }
 

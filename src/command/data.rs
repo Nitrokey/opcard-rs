@@ -373,9 +373,7 @@ impl GetDataObject {
             Self::PrivateUse3 => get_arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
             Self::PrivateUse4 => get_arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
             // TODO revisit with support for GET NEXT DAT/ SELECT DATA
-            Self::CardHolderCertificate => {
-                get_arbitrary_do(context, ArbitraryDO::CardHolderCertAut)?
-            }
+            Self::CardHolderCertificate => cardholder_cert(context)?,
             Self::SecureMessagingCertificate => return Err(Status::SecureMessagingNotSupported),
             Self::CardHolderRelatedData
             | Self::ApplicationRelatedData
@@ -447,14 +445,13 @@ const EXTENDED_CAPABILITIES: [u8; 10] = [
 
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    mut context: Context<'_, R, T>,
     mode: GetDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
-    // TODO: curDO pointer
     if mode != GetDataMode::Even {
         // TODO: implement
-        error!("Put data in even mode not yet implemented");
+        error!("Get data in odd mode not yet implemented");
         return Err(Status::FunctionNotSupported);
     }
     let object = GetDataObject::try_from(tag).inspect_err_stable(|_err| {
@@ -466,9 +463,30 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     }
     debug!("Returning data for tag {:?}", tag);
     match object.simple_or_constructed() {
-        GetDataDoType::Simple(obj) => obj.reply(context),
-        GetDataDoType::Constructed(objs) => get_constructed_data(context, objs),
+        GetDataDoType::Simple(obj) => obj.reply(context.lend())?,
+        GetDataDoType::Constructed(objs) => get_constructed_data(context.lend(), objs)?,
     }
+
+    let cur_do = &mut context.state.runtime.cur_do;
+    *cur_do = match cur_do {
+        Some((t, occ)) if *t == tag => Some((tag, *occ)),
+        _ => Some((tag, Occurrence::First)),
+    };
+    Ok(())
+}
+
+// § 7.2.7
+pub fn get_next_data<const R: usize, T: trussed::Client>(
+    context: Context<'_, R, T>,
+    tag: Tag,
+) -> Result<(), Status> {
+    let cur_do = &mut context.state.runtime.cur_do;
+    *cur_do = match cur_do {
+        Some((t, Occurrence::First)) if *t == tag => Some((tag, Occurrence::Second)),
+        Some((t, Occurrence::Second)) if *t == tag => Some((tag, Occurrence::Third)),
+        _ => return Err(Status::ConditionsOfUseNotSatisfied),
+    };
+    get_data(context, GetDataMode::Even, tag)
 }
 
 fn filtered_objects(
@@ -513,7 +531,22 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
+fn cardholder_cert<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let occ = match ctx.state.runtime.cur_do {
+        Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
+        _ => Occurrence::First,
+    };
+    let to_load = match occ {
+        Occurrence::First => ArbitraryDO::CardHolderCertAut,
+        Occurrence::Second => ArbitraryDO::CardHolderCertDec,
+        Occurrence::Third => ArbitraryDO::CardHolderCertSig,
+    };
+    get_arbitrary_do(ctx, to_load)
+}
+
+fn pw_status_bytes<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let status = PasswordStatus {
@@ -530,9 +563,7 @@ pub fn pw_status_bytes<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&status)
 }
 
-pub fn algo_info<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
     for alg in SignatureAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
@@ -554,7 +585,7 @@ pub fn algo_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
+fn alg_attr_sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
@@ -562,7 +593,7 @@ pub fn alg_attr_sign<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
+fn alg_attr_dec<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
@@ -570,7 +601,7 @@ pub fn alg_attr_dec<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
+fn alg_attr_aut<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
@@ -578,30 +609,28 @@ pub fn alg_attr_aut<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn fingerprints<const R: usize, T: trussed::Client>(
+fn fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.state.internal.fingerprints().0)?;
     Ok(())
 }
 
-pub fn ca_fingerprints<const R: usize, T: trussed::Client>(
+fn ca_fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)?;
     Ok(())
 }
 
-pub fn keygen_dates<const R: usize, T: trussed::Client>(
+fn keygen_dates<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.state.internal.keygen_dates().0)?;
     Ok(())
 }
 
-pub fn key_info<const R: usize, T: trussed::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
     // TODO load from state
     // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
     ctx.reply.expand(&hex!(
@@ -614,7 +643,7 @@ pub fn key_info<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn uif<const R: usize, T: trussed::Client>(
+fn uif<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
@@ -628,26 +657,26 @@ pub fn uif<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&[state_byte, button_byte])
 }
 
-pub fn cardholder_name<const R: usize, T: trussed::Client>(
+fn cardholder_name<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(ctx.state.internal.cardholder_name())
 }
 
-pub fn cardholder_sex<const R: usize, T: trussed::Client>(
+fn cardholder_sex<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply
         .expand(&[ctx.state.internal.cardholder_sex() as u8])
 }
 
-pub fn language_preferences<const R: usize, T: trussed::Client>(
+fn language_preferences<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(ctx.state.internal.language_preferences())
 }
 
-pub fn signature_counter<const R: usize, T: trussed::Client>(
+fn signature_counter<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
@@ -655,7 +684,7 @@ pub fn signature_counter<const R: usize, T: trussed::Client>(
     ctx.reply.expand(resp)
 }
 
-pub fn get_arbitrary_do<const R: usize, T: trussed::Client>(
+fn get_arbitrary_do<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
@@ -677,11 +706,10 @@ pub fn get_arbitrary_do<const R: usize, T: trussed::Client>(
 
 // § 7.2.8
 pub fn put_data<const R: usize, T: trussed::Client>(
-    context: Context<'_, R, T>,
+    mut context: Context<'_, R, T>,
     mode: PutDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
-    // TODO: curDO pointer
     if mode != PutDataMode::Even {
         // TODO: implement
         error!("Put data in even mode not yet implemented");
@@ -704,7 +732,14 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     }
 
     debug!("Writing data for tag {:?}", tag);
-    object.put_data(context)
+    object.put_data(context.lend())?;
+
+    let cur_do = &mut context.state.runtime.cur_do;
+    *cur_do = match cur_do {
+        Some((t, occ)) if *t == tag => Some((tag, *occ)),
+        _ => Some((tag, Occurrence::First)),
+    };
+    Ok(())
 }
 
 enum_subset! {
@@ -769,8 +804,7 @@ impl PutDataObject {
             Self::SignGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Sign)?,
             Self::DecGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Dec)?,
             Self::AuthGenerationDate => put_keygen_date(ctx.load_state()?, KeyType::Aut)?,
-            // TODO support curDo
-            Self::CardHolderCertificate => put_arbitrary_do(ctx, ArbitraryDO::CardHolderCertAut)?,
+            Self::CardHolderCertificate => put_cardholder_cert(ctx)?,
             Self::AlgorithmAttributesSignature => put_alg_attributes_sign(ctx.load_state()?)?,
             Self::AlgorithmAttributesDecryption => put_alg_attributes_dec(ctx.load_state()?)?,
             Self::AlgorithmAttributesAuthentication => put_alg_attributes_aut(ctx.load_state()?)?,
@@ -789,6 +823,21 @@ impl PutDataObject {
         }
         Ok(())
     }
+}
+
+fn put_cardholder_cert<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    let occ = match ctx.state.runtime.cur_do {
+        Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
+        _ => Occurrence::First,
+    };
+    let to_write = match occ {
+        Occurrence::First => ArbitraryDO::CardHolderCertAut,
+        Occurrence::Second => ArbitraryDO::CardHolderCertDec,
+        Occurrence::Third => ArbitraryDO::CardHolderCertSig,
+    };
+    put_arbitrary_do(ctx, to_write)
 }
 
 fn put_enc_dec_key<const R: usize, T: trussed::Client>(
