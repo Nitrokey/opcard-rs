@@ -41,7 +41,7 @@ fn get_data() {
         );
         assert_eq!(
             appdata.historical_bytes().unwrap(),
-            HistoricalBytes::try_from(hex!("0031F573C00160009000").as_slice()).unwrap()
+            HistoricalBytes::try_from(hex!("0031F573C00160059000").as_slice()).unwrap()
         );
 
         let uif_cds = appdata.uif_pso_cds().unwrap().unwrap();

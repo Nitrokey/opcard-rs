@@ -100,5 +100,9 @@ fn verify() {
         card.with_tx(|mut tx| {
             assert_checks!(tx, Some(0), Some(0), Some(0));
         });
+        card.with_tx(|mut tx| {
+            tx.factory_reset().unwrap();
+            assert_checks!(tx, Some(3), Some(3), Some(3));
+        });
     })
 }

@@ -32,10 +32,11 @@ pub struct Card<T: trussed::Client> {
 impl<T: trussed::Client> Card<T> {
     /// Creates a new OpenPGP card with the given backend and options.
     pub fn new(client: T, options: Options) -> Self {
+        let state = State::default();
         Self {
             backend: Backend::new(client),
             options,
-            state: Default::default(),
+            state,
         }
     }
 
@@ -64,7 +65,8 @@ impl<T: trussed::Client> Card<T> {
 
     /// Resets the state of the card.
     pub fn reset(&mut self) {
-        self.state = Default::default();
+        let state = State::default();
+        self.state = state;
     }
 }
 
@@ -108,8 +110,9 @@ pub struct Options {
     /// The serial number returned in the AID, see § 4.2.1 of the spec.
     pub serial: [u8; 4],
 
+    // FIXME: Make historical bytes configurable
     /// Historical bytes, see  § 6
-    pub historical_bytes: heapless::Vec<u8, 15>,
+    pub(crate) historical_bytes: heapless::Vec<u8, 15>,
 
     /// Does the card have a button for user input?
     pub button_available: bool,
@@ -164,7 +167,7 @@ pub struct Context<'a, const R: usize, T: trussed::Client> {
 }
 
 impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
-    pub fn load_state(self) -> Result<LoadedContext<'a, R, T>, Status> {
+    pub fn load_state(&mut self) -> Result<LoadedContext<'_, R, T>, Status> {
         Ok(LoadedContext {
             state: self
                 .state
@@ -173,7 +176,7 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
             options: self.options,
             backend: self.backend,
             data: self.data,
-            reply: self.reply,
+            reply: self.reply.lend(),
         })
     }
 

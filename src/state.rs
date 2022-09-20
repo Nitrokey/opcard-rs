@@ -146,6 +146,13 @@ impl CaFingerprints {
     }
 }
 
+/// Life cycle status byte, see § 6
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum LifeCycle {
+    Initialization = 0x03,
+    Operational = 0x05,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
     // Internal state may not be loaded, or may error when loaded
@@ -181,6 +188,42 @@ impl State {
         Ok(LoadedState {
             internal: self.internal.as_mut().unwrap(),
             runtime: &mut self.runtime,
+        })
+    }
+
+    const LIFECYCLE_PATH: &'static str = "lifecycle.empty";
+    fn lifecycle_path() -> PathBuf {
+        PathBuf::from(Self::LIFECYCLE_PATH)
+    }
+    pub fn lifecycle(client: &mut impl trussed::Client) -> LifeCycle {
+        match try_syscall!(client.entry_metadata(Location::Internal, Self::lifecycle_path())) {
+            Ok(Metadata {
+                metadata: Some(metadata),
+            }) if metadata.is_file() => LifeCycle::Operational,
+            _ => LifeCycle::Initialization,
+        }
+    }
+
+    pub fn terminate_df(client: &mut impl trussed::Client) -> Result<(), Status> {
+        try_syscall!(client.remove_file(Location::Internal, Self::lifecycle_path(),))
+            .map(|_| {})
+            .map_err(|_err| {
+                error!("Failed to write lifecycle: {_err:?}");
+                Status::UnspecifiedPersistentExecutionError
+            })
+    }
+
+    pub fn activate_file(client: &mut impl trussed::Client) -> Result<(), Status> {
+        try_syscall!(client.write_file(
+            Location::Internal,
+            Self::lifecycle_path(),
+            Bytes::new(),
+            None,
+        ))
+        .map(|_| {})
+        .map_err(|_err| {
+            error!("Failed to write lifecycle: {_err:?}");
+            Status::UnspecifiedPersistentExecutionError
         })
     }
 }
@@ -219,6 +262,7 @@ impl Default for Sex {
         Sex::NotKnown
     }
 }
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,

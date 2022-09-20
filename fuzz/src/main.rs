@@ -36,6 +36,7 @@ enum Command {
     SetAttrEd25519Aut,
     SetAttrX25519,
     PsoCds(Vec<u8>),
+    ActivateFile,
 }
 
 impl Command {
@@ -94,6 +95,7 @@ impl Command {
                 res.push(0);
                 res
             }
+            Self::ActivateFile => Vec::from(hex!("00 44 0000").as_slice()),
         }
     }
 }
@@ -141,6 +143,7 @@ fn write_corpus(commands: &[Command], file: &str) {
 fn main() {
     write_corpus(
         &[
+            Command::ActivateFile,
             Command::VerifyPw1,
             Command::VerifyPw1Sign,
             Command::VerifyPw3,
@@ -149,6 +152,7 @@ fn main() {
     );
     write_corpus(
         &[
+            Command::ActivateFile,
             Command::VerifyPw3,
             Command::SetAttrEc256Sign,
             Command::Generate(KeyType::Sign),
@@ -160,6 +164,7 @@ fn main() {
 
     write_corpus(
         &[
+            Command::ActivateFile,
             Command::VerifyPw3,
             Command::SetAttrEd25519Sign,
             Command::Generate(KeyType::Sign),
@@ -171,6 +176,7 @@ fn main() {
 
     write_corpus(
         &[
+            Command::ActivateFile,
             Command::VerifyPw1Sign,
             Command::SetAttrEd25519Sign,
             Command::SetAttrEd25519Aut,
@@ -187,6 +193,7 @@ fn main() {
 
     write_corpus(
         &[
+            Command::ActivateFile,
             Command::VerifyPw1Sign,
             Command::SetAttrEc256Sign,
             Command::SetAttrEc256Aut,
@@ -202,13 +209,19 @@ fn main() {
     );
     write_corpus(
         &[
+            Command::ActivateFile,
             Command::ChangeDefaultPw1(Vec::from(b"234567".as_slice())),
             Command::ChangeDefaultPw3(Vec::from(b"23456789".as_slice())),
         ],
         "change-pw",
     );
     write_corpus(
-        &[Command::CheckPw1Sign, Command::CheckPw1, Command::CheckPw3],
+        &[
+            Command::ActivateFile,
+            Command::CheckPw1Sign,
+            Command::CheckPw1,
+            Command::CheckPw3,
+        ],
         "check-pw",
     );
 }

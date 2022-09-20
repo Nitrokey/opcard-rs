@@ -9,7 +9,7 @@ use crate::{
     card::{Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
-        ArbitraryDO, PermissionRequirement, Sex, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
+        ArbitraryDO, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
         MAX_PIN_LENGTH,
     },
     types::*,
@@ -342,7 +342,7 @@ impl GetDataObject {
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
-            Self::HistoricalBytes => context.reply.expand(&context.options.historical_bytes)?,
+            Self::HistoricalBytes => historical_bytes(context)?,
             Self::ApplicationIdentifier => context.reply.expand(&context.options.aid())?,
             Self::PwStatusBytes => pw_status_bytes(context.load_state()?)?,
             Self::ExtendedLengthInformation => context.reply.expand(&EXTENDED_LENGTH_INFO)?,
@@ -528,6 +528,15 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
         }
         ctx.reply.prepend_len(offset)?;
     }
+    Ok(())
+}
+
+pub fn historical_bytes<const R: usize, T: trussed::Client>(
+    mut ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    ctx.reply.expand(&ctx.options.historical_bytes)?;
+    let lifecycle_idx = ctx.reply.len() - 3;
+    ctx.reply[lifecycle_idx] = State::lifecycle(ctx.backend.client_mut()) as u8;
     Ok(())
 }
 
@@ -788,7 +797,7 @@ impl PutDataObject {
 
     fn put_data<const R: usize, T: trussed::Client>(
         self,
-        ctx: Context<'_, R, T>,
+        mut ctx: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
             Self::PrivateUse1 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse1)?,
@@ -1204,6 +1213,10 @@ mod tests {
                 options: &options,
                 reply: crate::card::reply::Reply(&mut reply),
             };
+
+            let mut historical_bytes = options.historical_bytes.clone();
+            historical_bytes[7] = 3;
+
             get_data(
                 context,
                 GetDataMode::Even,
@@ -1212,7 +1225,7 @@ mod tests {
             .unwrap();
             let top: &[(DataObject, &[u8])] = &[
                 (DataObject::ApplicationIdentifier, &options.aid()),
-                (DataObject::HistoricalBytes, &options.historical_bytes),
+                (DataObject::HistoricalBytes, &historical_bytes),
                 (DataObject::ExtendedLengthInformation, &EXTENDED_LENGTH_INFO),
                 (DataObject::GeneralFeatureManagement, &hex!("81 01 20")),
                 //(DataObject::DiscretionaryDataObjects, &hex!("")),

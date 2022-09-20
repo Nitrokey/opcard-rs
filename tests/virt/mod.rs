@@ -12,6 +12,7 @@ use std::{
     time::Duration,
 };
 
+use hex_literal::hex;
 use regex::{Regex, RegexSet};
 use stoppable_thread::spawn;
 
@@ -34,7 +35,11 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
         trussed::virt::with_ram_client("opcard", |client| {
-            let card = opcard::Card::new(client, opcard::Options::default());
+            let mut card = opcard::Card::new(client, opcard::Options::default());
+            let command: iso7816::Command<4> =
+                iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
+            let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
+            card.handle(&command, &mut rep).unwrap();
             let mut virtual_card = opcard::VirtualCard::new(card);
             let mut result = Ok(());
             while !stopped.get() && result.is_ok() {
@@ -62,7 +67,46 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 }
 
 #[allow(unused)]
-pub fn gpg_status() -> Vec<&'static str> {
+pub enum KeyType {
+    Rsa,
+    Cv25519,
+    P256,
+}
+
+#[allow(unused)]
+pub fn gpg_status(key: KeyType, has_keys: bool) -> Vec<&'static str> {
+    let (first, sec, third) = match key {
+        KeyType::Cv25519 => (
+            r"keyattr:1:22:Ed25519:",
+            r"keyattr:2:18:Curve25519:",
+            r"keyattr:3:22:Ed25519:",
+        ),
+        KeyType::P256 => (
+            r"keyattr:1:19:NIST P-256:",
+            r"keyattr:2:18:NIST P-256:",
+            r"keyattr:3:19:NIST P-256:",
+        ),
+        KeyType::Rsa => (
+            r"keyattr:1:1:2048:",
+            r"keyattr:2:1:2048:",
+            r"keyattr:3:1:2048:",
+        ),
+    };
+
+    let (fpr, fprtimes, grp) = if has_keys {
+        (
+            r"fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            r"fprtime:\d*:\d*:\d*:",
+            r"grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+        )
+    } else {
+        (
+            r"fpr::::",
+            r"fprtime:0:0:0:",
+            r"grp:[0]{40}:[0]{40}:[0]{40}:",
+        )
+    };
+
     [
         r"Reader:Virtual PCD \d\d \d\d:AID:D2760001240103040000000000000000:openpgp-card",
         r"version:0304",
@@ -74,18 +118,19 @@ pub fn gpg_status() -> Vec<&'static str> {
         r"url::",
         r"login::",
         r"forcepin:1:::",
-        r"keyattr:1:1:2048:",
-        r"keyattr:2:1:2048:",
-        r"keyattr:3:1:2048:",
+        first,
+        sec,
+        third,
         r"maxpinlen:127:127:127:",
         r"pinretry:3:3:3:",
         r"sigcount:0:::",
         r"kdf:off:",
         r"cafpr::::",
-        r"fpr::::",
-        r"fprtime:0:0:0:",
-        r"grp:0000000000000000000000000000000000000000:0000000000000000000000000000000000000000:0000000000000000000000000000000000000000:"
-    ].into()
+        fpr,
+        fprtimes,
+        grp,
+    ]
+    .into()
 }
 
 #[allow(unused)]

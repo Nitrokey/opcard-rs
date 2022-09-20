@@ -8,8 +8,11 @@ mod pso;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
+use crate::state::{LifeCycle, State};
 use crate::tlv;
 use crate::types::*;
+use trussed::try_syscall;
+use trussed::types::{Location, PathBuf};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -34,10 +37,27 @@ pub enum Command {
 }
 
 impl Command {
+    fn can_lifecycle_run(&self, lifecycle: LifeCycle) -> bool {
+        match (self, lifecycle) {
+            (Self::Select | Self::ActivateFile | Self::TerminateDf, LifeCycle::Initialization) => {
+                true
+            }
+            (_, LifeCycle::Initialization) => false,
+            (_, LifeCycle::Operational) => true,
+        }
+    }
+
     pub fn exec<const R: usize, T: trussed::Client>(
         &self,
-        context: Context<'_, R, T>,
+        mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
+        if !self.can_lifecycle_run(State::lifecycle(context.backend.client_mut())) {
+            warn!(
+                "Command {self:?} called in lifecycle {:?}",
+                State::lifecycle(context.backend.client_mut())
+            );
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         match self {
             Self::Select => select(context),
             Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
@@ -51,6 +71,8 @@ impl Command {
             Self::InternalAuthenticate => pso::internal_authenticate(context.load_state()?),
             Self::Decipher => pso::decipher(context.load_state()?),
             Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
+            Self::TerminateDf => terminate_df(context),
+            Self::ActivateFile => activate_file(context),
             Self::SelectData(occurrence) => select_data(context, *occurrence),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
@@ -330,7 +352,9 @@ fn verify<const R: usize, T: trussed::Client>(
                     }
                     Ok(())
                 } else {
-                    Err(Status::VerificationFailed)
+                    Err(Status::RemainingRetries(
+                        context.state.internal.remaining_tries(password.into()),
+                    ))
                 }
             }
         }
@@ -410,6 +434,70 @@ fn gen_keypair<const R: usize, T: trussed::Client>(
         KeyType::Dec => gen::dec(context),
         KeyType::Aut => gen::aut(context),
     }
+}
+
+// § 7.2.16
+fn terminate_df<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    if let Ok(ctx) = context.load_state() {
+        if ctx.state.runtime.admin_verified || ctx.state.internal.is_locked(Password::Pw3) {
+            State::terminate_df(context.backend.client_mut())?;
+        } else {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
+    } else {
+        State::terminate_df(context.backend.client_mut())?;
+    }
+
+    Ok(())
+}
+
+fn unspecified_delete_error<E: core::fmt::Debug>(_err: E) -> Status {
+    error!("Failed to delete data {_err:?}");
+    Status::UnspecifiedPersistentExecutionError
+}
+
+fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> Result<(), Status> {
+    *ctx.state = Default::default();
+    try_syscall!(ctx
+        .backend
+        .client_mut()
+        .remove_dir_all(Location::Internal, PathBuf::new()))
+    .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx.backend.client_mut().delete_all(Location::Internal))
+        .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx
+        .backend
+        .client_mut()
+        .remove_dir_all(Location::Volatile, PathBuf::new()))
+    .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx.backend.client_mut().delete_all(Location::Volatile))
+        .map_err(unspecified_delete_error)?;
+    Ok(())
+}
+
+// § 7.2.17
+fn activate_file<const R: usize, T: trussed::Client>(
+    mut context: Context<'_, R, T>,
+) -> Result<(), Status> {
+    if State::lifecycle(context.backend.client_mut()) == LifeCycle::Operational {
+        return Ok(());
+    }
+
+    factory_reset(context.lend())?;
+    *context.state = Default::default();
+    let context = context.load_state()?;
+    context
+        .state
+        .internal
+        .save(context.backend.client_mut())
+        .map_err(|_err| {
+            error!("Failed to store data {_err:?}");
+            Status::UnspecifiedPersistentExecutionError
+        })?;
+    State::activate_file(context.backend.client_mut())?;
+    Ok(())
 }
 
 // § 7.2.5
