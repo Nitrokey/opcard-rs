@@ -178,7 +178,7 @@ enum_u16! {
         PrivateUse2 = 0x0102,
         PrivateUse3 = 0x0103,
         PrivateUse4 = 0x0104,
-        ExtendedHeaderList = 0x004D,
+        ExtendedHeaderList = 0x3FFF,
         ApplicationIdentifier = 0x004F,
         LoginData = 0x005E,
         Url = 0x5F50,
@@ -718,14 +718,17 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     mode: PutDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
-    if mode != PutDataMode::Even {
-        // TODO: implement
-        error!("Put data in even mode not yet implemented");
-        return Err(Status::FunctionNotSupported);
-    }
     let object = PutDataObject::try_from(tag).inspect_err_stable(|_err| {
         warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
     })?;
+
+    if !matches!(
+        (object, mode),
+        (PutDataObject::ExtendedHeaderList, PutDataMode::Odd) | (_, PutDataMode::Even)
+    ) {
+        warn!("Invalid put data object {object:?} for mode {mode:?}");
+        return Err(Status::IncorrectP1OrP2Parameter);
+    }
 
     match object.write_perm() {
         PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
