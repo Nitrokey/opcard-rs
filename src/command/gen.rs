@@ -3,7 +3,7 @@
 
 use hex_literal::hex;
 use iso7816::Status;
-use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
+use trussed::types::{KeyId, KeySerialization, Location, StorageAttributes};
 use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
@@ -12,32 +12,14 @@ use crate::utils::InspectErr;
 
 const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
 
-#[derive(Debug, Copy, Clone)]
-enum CurveAlgo {
-    EcDhP256,
-    EcDsaP256,
-    X255,
-    Ed255,
-}
-
-impl CurveAlgo {
-    fn mechanism(self) -> Mechanism {
-        match self {
-            Self::EcDsaP256 | Self::EcDhP256 => Mechanism::P256,
-            Self::X255 => Mechanism::X255,
-            Self::Ed255 => Mechanism::Ed255,
-        }
-    }
-
-    fn serialize_pub<const R: usize, T: trussed::Client>(
-        self,
-        ctx: LoadedContext<'_, R, T>,
-        public_key: &[u8],
-    ) -> Result<(), Status> {
-        match self {
-            Self::EcDsaP256 | Self::EcDhP256 => serialize_p256(ctx, public_key),
-            Self::X255 | Self::Ed255 => serialize_25519(ctx, public_key),
-        }
+fn serialize_pub<const R: usize, T: trussed::Client>(
+    algo: CurveAlgo,
+    ctx: LoadedContext<'_, R, T>,
+    public_key: &[u8],
+) -> Result<(), Status> {
+    match algo {
+        CurveAlgo::EcDsaP256 | CurveAlgo::EcDhP256 => serialize_p256(ctx, public_key),
+        CurveAlgo::X255 | CurveAlgo::Ed255 => serialize_25519(ctx, public_key),
     }
 }
 
@@ -224,6 +206,6 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
     syscall!(client.delete(public_key));
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
-    curve.serialize_pub(ctx.lend(), &serialized)?;
+    serialize_pub(curve, ctx.lend(), &serialized)?;
     ctx.reply.prepend_len(offset)
 }

@@ -4,8 +4,10 @@
 use hex_literal::hex;
 use iso7816::Status;
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use trussed::types::Mechanism;
 
 use crate::error::Error;
+use crate::tlv::get_do;
 
 /// Creates an enum with an `iter_all` associated function giving an iterator over all variants
 macro_rules! iterable_enum {
@@ -227,13 +229,27 @@ pub enum KeyType {
 }
 
 impl KeyType {
-    #[allow(unused)]
-    pub fn try_from_crt(v: &[u8]) -> Result<Self, Status> {
-        match v {
-            hex!("B6 00") | hex!("B6 03 84 01 01") => Ok(KeyType::Sign),
-            hex!("B8 00") | hex!("B8 03 84 01 02") => Ok(KeyType::Dec),
-            hex!("A4 00") | hex!("A4 03 84 01 03") => Ok(KeyType::Aut),
-            _ => Err(Status::KeyReferenceNotFound),
+    pub fn try_from_crt(data: &[u8]) -> Result<Self, Status> {
+        if let Some(d) = get_do(&[0xB6], data) {
+            if !matches!(d, [] | hex!("84 01 01")) {
+                warn!("Incorrect CRT for Sign key");
+                return Err(Status::IncorrectDataParameter);
+            }
+            Ok(KeyType::Sign)
+        } else if let Some(d) = get_do(&[0xB8], data) {
+            if !matches!(d, [] | hex!("84 01 02")) {
+                warn!("Incorrect CRT for DEC key");
+                return Err(Status::IncorrectDataParameter);
+            }
+            Ok(KeyType::Dec)
+        } else if let Some(d) = get_do(&[0xA4], data) {
+            if !matches!(d, [] | hex!("84 01 03")) {
+                warn!("Incorrect CRT for AUT key");
+                return Err(Status::IncorrectDataParameter);
+            }
+            Ok(KeyType::Aut)
+        } else {
+            Err(Status::IncorrectDataParameter)
         }
     }
 }
@@ -313,5 +329,23 @@ impl From<u8> for Tag {
 impl<const C: usize> From<&iso7816::Command<C>> for Tag {
     fn from(command: &iso7816::Command<C>) -> Self {
         Self::from((command.p1, command.p2))
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum CurveAlgo {
+    EcDhP256,
+    EcDsaP256,
+    X255,
+    Ed255,
+}
+
+impl CurveAlgo {
+    pub fn mechanism(self) -> Mechanism {
+        match self {
+            Self::EcDsaP256 | Self::EcDhP256 => Mechanism::P256,
+            Self::X255 => Mechanism::X255,
+            Self::Ed255 => Mechanism::Ed255,
+        }
     }
 }

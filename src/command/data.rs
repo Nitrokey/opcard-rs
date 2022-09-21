@@ -759,6 +759,7 @@ enum_subset! {
         PrivateUse3,
         PrivateUse4,
         LoginData,
+        ExtendedHeaderList,
         Url,
         CardHolderName,
         CardHolderSex,
@@ -804,6 +805,9 @@ impl PutDataObject {
             Self::PrivateUse3 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse3)?,
             Self::PrivateUse4 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse4)?,
             Self::LoginData => put_arbitrary_do(ctx, ArbitraryDO::LoginData)?,
+            Self::ExtendedHeaderList => {
+                super::private_key_template::put_private_key_template(ctx.load_state()?)?
+            }
             Self::Url => put_arbitrary_do(ctx, ArbitraryDO::Url)?,
             Self::KdfDo => put_arbitrary_do(ctx, ArbitraryDO::KdfDo)?,
             Self::SignFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Sign)?,

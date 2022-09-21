@@ -616,6 +616,15 @@ impl Internal {
         self.sign_count
     }
 
+    pub fn set_sign_count(
+        &mut self,
+        count: usize,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.sign_count = count;
+        self.save(client)
+    }
+
     pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
         match ty {
             KeyType::Sign => self.signing_key,
