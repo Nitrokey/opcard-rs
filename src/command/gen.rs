@@ -27,7 +27,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.sign_alg();
-    info!("Generating dec key with algorithm: {algo:?}");
+    info!("Generating sign key with algorithm: {algo:?}");
     match algo {
         SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => {
