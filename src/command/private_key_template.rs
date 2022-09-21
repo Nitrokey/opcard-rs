@@ -2,18 +2,21 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::Status;
-use trussed::syscall;
-use trussed::types::KeyId;
+use trussed::types::{KeyId, KeySerialization, Location};
+use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
 use crate::tlv::get_do;
 use crate::types::*;
 
+const PRIVATE_KEY_TEMPLATE_DO: u16 = 0x4D;
+const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
+
 // § 4.4.3.12
 pub fn put_private_key_template<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let data = get_do(&[0x4D], ctx.data).ok_or_else(|| {
+    let data = get_do(&[PRIVATE_KEY_TEMPLATE_DO], ctx.data).ok_or_else(|| {
         warn!("Got put private key template with 4D DO");
         Status::IncorrectDataParameter
     })?;
@@ -114,9 +117,29 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
 }
 
 fn put_ec<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
     curve: CurveAlgo,
 ) -> Result<Option<KeyId>, Status> {
     // FIXME: handle deletion
-    todo!()
+    let private_key_data = get_do(
+        &[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO],
+        ctx.data,
+    )
+    .ok_or_else(|| {
+        warn!("Missing key data");
+        Status::IncorrectDataParameter
+    })?;
+
+    let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
+        curve.mechanism(),
+        private_key_data,
+        Location::Internal,
+        KeySerialization::Raw
+    ))
+    .map_err(|_err| {
+        warn!("Failed to store key: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+    Ok(Some(key))
 }
