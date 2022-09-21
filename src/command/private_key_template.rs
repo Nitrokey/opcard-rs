@@ -17,11 +17,14 @@ pub fn put_private_key_template<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let data = get_do(&[PRIVATE_KEY_TEMPLATE_DO], ctx.data).ok_or_else(|| {
-        warn!("Got put private key template with 4D DO");
+        warn!("Got put private key template without 4D DO");
         Status::IncorrectDataParameter
     })?;
 
-    match KeyType::try_from_crt(data)? {
+    let key_type = KeyType::try_from_crt(data)?;
+    debug!("Importing {key_type:?} key");
+
+    match key_type {
         KeyType::Sign => {
             put_sign(ctx.lend())?;
             ctx.state
@@ -120,6 +123,7 @@ fn put_ec<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     curve: CurveAlgo,
 ) -> Result<Option<KeyId>, Status> {
+    debug!("Importing key for algo {curve:?}");
     // FIXME: handle deletion
     let private_key_data = get_do(
         &[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO],
