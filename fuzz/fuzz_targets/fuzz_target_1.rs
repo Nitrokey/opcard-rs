@@ -18,14 +18,14 @@ fuzz_target!(|input: Input| {
             commands,
             manufacturer,
             serial,
-            mut historical_bytes,
+            // mut historical_bytes,
             //button_available,
         } = input;
-        historical_bytes.truncate(15);
+        //historical_bytes.truncate(15);
         let mut options = opcard::Options::default();
         options.manufacturer = manufacturer;
         options.serial = serial;
-        options.historical_bytes = heapless::Vec::from_slice(&historical_bytes).unwrap();
+        //options.historical_bytes = heapless::Vec::from_slice(&historical_bytes).unwrap();
         //options.button_available = button_available;
         let mut card = opcard::Card::new(client, options);
         let mut reply = heapless::Vec::<u8, { 3 * 1024 }>::new();
