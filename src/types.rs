@@ -221,7 +221,6 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
 }
 
 #[derive(Clone, Debug, Copy)]
-#[allow(unused)]
 pub enum KeyType {
     Sign,
     Dec,
