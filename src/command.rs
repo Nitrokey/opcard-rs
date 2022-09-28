@@ -311,6 +311,7 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
 // § 7.2.1
 fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
+        context.state.runtime.cur_do = None;
         Ok(())
     } else {
         info!("Selected application {:x?} not found", context.data);

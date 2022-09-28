@@ -372,7 +372,6 @@ impl GetDataObject {
             Self::PrivateUse2 => get_arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
             Self::PrivateUse3 => get_arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
             Self::PrivateUse4 => get_arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
-            // TODO revisit with support for GET NEXT DAT/ SELECT DATA
             Self::CardHolderCertificate => cardholder_cert(context)?,
             Self::SecureMessagingCertificate => return Err(Status::SecureMessagingNotSupported),
             Self::CardHolderRelatedData
