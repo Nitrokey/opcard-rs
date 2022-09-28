@@ -113,7 +113,7 @@ pub fn decipher<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx.state.internal.key_id(KeyType::Dec).ok_or_else(|| {
-        warn!("Attempt to authenticat without a key set");
+        warn!("Attempt to decrypt without a key set");
         Status::KeyReferenceNotFound
     })?;
     if !ctx.state.runtime.other_verified {
