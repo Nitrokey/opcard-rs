@@ -709,12 +709,35 @@ impl Internal {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KeyRef {
+    Dec,
+    Aut,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyRefs {
+    // We can't use `KeyType` because the Signing key cannot be reassigned
+    pub pso_decipher: KeyRef,
+    pub internal_aut: KeyRef,
+}
+
+impl Default for KeyRefs {
+    fn default() -> KeyRefs {
+        KeyRefs {
+            pso_decipher: KeyRef::Dec,
+            internal_aut: KeyRef::Aut,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Runtime {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
     pub cur_do: Option<(Tag, Occurrence)>,
+    pub keyrefs: KeyRefs,
 }
 
 /// DOs that can store arbitrary data from the user
