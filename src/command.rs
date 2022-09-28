@@ -650,6 +650,7 @@ fn manage_security_environment<const R: usize, T: trussed::Client>(
             return Err(Status::IncorrectDataParameter);
         }
     };
+    info!("MANAGE SECURITY ENVIRONMENT: mode = {mode:?}, ref = {key_ref:?}");
 
     match mode {
         ManageSecurityEnvironmentMode::Dec => ctx.state.runtime.keyrefs.pso_decipher = key_ref,
@@ -657,6 +658,5 @@ fn manage_security_environment<const R: usize, T: trussed::Client>(
             ctx.state.runtime.keyrefs.internal_aut = key_ref
         }
     }
-
-    todo!()
+    Ok(())
 }
