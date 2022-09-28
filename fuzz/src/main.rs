@@ -122,7 +122,7 @@ fn as_corpus(commands: &[Command]) -> Vec<u8> {
     res.push(0);
 
     // Historical bytes
-    res.push(0);
+    // res.push(0);
 
     let mut unstructured = arbitrary::Unstructured::new(&res);
     let parsed = Input::arbitrary(&mut unstructured).unwrap();

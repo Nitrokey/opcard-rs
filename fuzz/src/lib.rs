@@ -8,6 +8,6 @@ pub struct Input {
     pub commands: Vec<Vec<u8>>,
     pub manufacturer: [u8; 2],
     pub serial: [u8; 4],
-    pub historical_bytes: Vec<u8>,
+    //pub historical_bytes: Vec<u8>,
     //pub button_available: bool,
 }

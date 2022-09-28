@@ -43,9 +43,7 @@ fn take_tag(data: &[u8]) -> Option<(u16, &[u8])> {
 
         if (b2 & 0b10000000) != 0 {
             // OpenPGP doesn't have any DO with a tag longer than 2 bytes
-            if cfg!(debug_assertions) {
-                panic!("Got a tag larger than 2 bytes: {data:x?}");
-            }
+            warn!("Got a tag larger than 2 bytes: {data:x?}");
             return None;
         }
         Some((u16::from_be_bytes([b1, b2]), &data[2..]))
@@ -62,12 +60,8 @@ fn take_len(data: &[u8]) -> Option<(usize, &[u8])> {
         Some((*data.get(1)? as usize, &data[2..]))
     } else {
         if l1 != 0x82 {
-            if cfg!(debug_assertions) {
-                panic!("Got an unexpected length tag: {l1:x}. data: {data:x?}");
-            } else {
-                warn!("Got an unexpected length tag: {l1:x}");
-                return None;
-            }
+            warn!("Got an unexpected length tag: {l1:x}");
+            return None;
         }
         let l2 = *data.get(1)?;
         let l3 = *data.get(2)?;
