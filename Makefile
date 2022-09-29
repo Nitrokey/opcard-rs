@@ -6,6 +6,8 @@ export RUST_LOG ?= info,cargo_tarpaulin=off
 FUZZ_JOBS?=$(shell nproc)
 FUZZ_DURATION?="0"
 
+.NOTPARALLEL:
+
 .PHONY: check
 check:
 	cargo check --all-features --all-targets --workspace
