@@ -8,9 +8,10 @@ mod pso;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
-use crate::state::{LifeCycle, State};
+use crate::state::{LifeCycle, State, MAX_GENERIC_LENGTH};
 use crate::tlv;
 use crate::types::*;
+use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::types::{Location, PathBuf};
 use trussed::{syscall, try_syscall};
 
@@ -523,10 +524,19 @@ fn get_challenge<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
     expected: usize,
 ) -> Result<(), Status> {
-    if expected > crate::state::MAX_GENERIC_LENGTH {
+    if expected > MAX_GENERIC_LENGTH {
         return Err(Status::WrongLength);
     }
 
-    ctx.reply
-        .expand(&syscall!(ctx.backend.client_mut().random_bytes(expected)).bytes)
+    while ctx.reply.len() < expected {
+        ctx.reply.expand(
+            &syscall!(ctx
+                .backend
+                .client_mut()
+                .random_bytes((expected - ctx.reply.len()).min(MAX_MESSAGE_LENGTH)))
+            .bytes,
+        )?
+    }
+
+    Ok(())
 }

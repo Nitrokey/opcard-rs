@@ -20,5 +20,13 @@ fn command_response() {
         assert_eq!(rep.len(), 10);
         // Sanity check that it's not uninitialized or something
         assert_ne!(rep, [0; 10]);
+
+        let get_challenge: iso7816::Command<5> =
+            iso7816::Command::try_from(&hex!("00 84 0000 00 0400")).unwrap();
+        let mut rep: heapless::Vec<u8, 1024> = heapless::Vec::new();
+        card.handle(&get_challenge, &mut rep).unwrap();
+        assert_eq!(rep.len(), 1024);
+        // Sanity check that it's not uninitialized or something
+        assert_ne!(rep, [0; 1024]);
     })
 }
