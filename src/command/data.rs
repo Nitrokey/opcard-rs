@@ -442,6 +442,8 @@ const EXTENDED_CAPABILITIES: [u8; 10] = [
     0x01, // Manage security environment (MSE) Command supported
 ];
 
+const EF_ATR_INFO_TAG: u16 = 0x2f01;
+const EF_DIR_TAG: u16 = 0x2f00;
 const EF_DIR: &[u8] = &hex!(
     "
     61 11
@@ -453,13 +455,21 @@ const EF_DIR: &[u8] = &hex!(
 /// See ISO7816-4 § 7.4.2, case where the physical interface does not allow the card to answer to reset
 pub fn get_data_odd<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
+    tag: Tag,
 ) -> Result<(), Status> {
     if ctx.data != &hex!("5C00") {
         warn!("Invalid GET DATA with ODD INS");
         return Err(Status::IncorrectDataParameter);
     }
-    ef_dir(ctx.lend())?;
-    ef_atr_info(ctx)
+
+    if tag.0 == EF_DIR_TAG {
+        ef_dir(ctx.lend())
+    } else if tag.0 == EF_ATR_INFO_TAG {
+        ef_atr_info(ctx)
+    } else {
+        warn!("Get data with odd INS and invalid tag: {tag:x?}");
+        Err(Status::IncorrectP1OrP2Parameter)
+    }
 }
 
 pub fn ef_dir<const R: usize, T: trussed::Client>(
@@ -492,7 +502,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
     tag: Tag,
 ) -> Result<(), Status> {
     if mode == GetDataMode::Odd {
-        return get_data_odd(context);
+        return get_data_odd(context, tag);
     }
 
     let object = GetDataObject::try_from(tag).inspect_err_stable(|_err| {
