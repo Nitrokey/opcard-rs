@@ -442,17 +442,59 @@ const EXTENDED_CAPABILITIES: [u8; 10] = [
     0x01, // Manage security environment (MSE) Command supported
 ];
 
+const EF_DIR: &[u8] = &hex!(
+    "
+    61 11
+    4F 06 D27600012401 
+    50 07 4F70656e504750
+"
+);
+
+/// See ISO7816-4 § 7.4.2, case where the physical interface does not allow the card to answer to reset
+pub fn get_data_odd<const R: usize, T: trussed::Client>(
+    mut ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    if ctx.data != &hex!("5C00") {
+        warn!("Invalid GET DATA with ODD INS");
+        return Err(Status::IncorrectDataParameter);
+    }
+    ef_dir(ctx.lend())?;
+    ef_atr_info(ctx)
+}
+
+pub fn ef_dir<const R: usize, T: trussed::Client>(
+    mut ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    ctx.reply.expand(EF_DIR)
+}
+
+pub fn ef_atr_info<const R: usize, T: trussed::Client>(
+    mut ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
+    historical_bytes(ctx.lend())?;
+
+    ctx.reply
+        .expand(GetDataObject::ExtendedLengthInformation.tag())?;
+    ctx.reply.append_len(EXTENDED_LENGTH_INFO.len())?;
+    ctx.reply.expand(&EXTENDED_LENGTH_INFO)?;
+
+    ctx.reply
+        .expand(GetDataObject::GeneralFeatureManagement.tag())?;
+    let data = general_feature_management(ctx.options);
+    ctx.reply.append_len(data.len())?;
+    ctx.reply.expand(&data)
+}
+
 // § 7.2.6
 pub fn get_data<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
     mode: GetDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
-    if mode != GetDataMode::Even {
-        // TODO: implement
-        error!("Get data in odd mode not yet implemented");
-        return Err(Status::FunctionNotSupported);
+    if mode == GetDataMode::Odd {
+        return get_data_odd(context);
     }
+
     let object = GetDataObject::try_from(tag).inspect_err_stable(|_err| {
         warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
     })?;
@@ -1307,5 +1349,16 @@ mod tests {
                 assert_eq!(res, *data, "got {res:x?}, expected {data:x?}")
             }
         });
+    }
+
+    #[test]
+    fn ef_dir_format() {
+        use crate::tlv::*;
+        assert_eq!(get_do(&[0x61], EF_DIR).unwrap().len() + 2, EF_DIR.len());
+        assert_eq!(
+            get_do(&[0x61, 0x4F], EF_DIR).unwrap(),
+            &hex!("D27600012401")
+        );
+        assert_eq!(get_do(&[0x61, 0x50], EF_DIR).unwrap(), b"OpenPGP");
     }
 }
