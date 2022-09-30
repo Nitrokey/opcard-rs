@@ -687,6 +687,10 @@ impl Internal {
         Ok(new)
     }
 
+    pub fn aes_key(&self) -> &Option<KeyId> {
+        &self.aes_key
+    }
+
     pub fn set_aes_key_id(
         &mut self,
         mut new: Option<KeyId>,
