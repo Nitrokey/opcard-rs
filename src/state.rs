@@ -281,6 +281,7 @@ pub struct Internal {
     signing_key: Option<(KeyId, KeyOrigin)>,
     confidentiality_key: Option<(KeyId, KeyOrigin)>,
     aut_key: Option<(KeyId, KeyOrigin)>,
+    aes_key: Option<KeyId>,
     sign_alg: SignatureAlgorithm,
     dec_alg: DecryptionAlgorithm,
     aut_alg: AuthenticationAlgorithm,
@@ -321,10 +322,11 @@ impl Internal {
             sign_count: 0,
             signing_key: None,
             confidentiality_key: None,
+            aut_key: None,
+            aes_key: None,
             sign_alg: SignatureAlgorithm::default(),
             dec_alg: DecryptionAlgorithm::default(),
             aut_alg: AuthenticationAlgorithm::default(),
-            aut_key: None,
             fingerprints: Fingerprints::default(),
             ca_fingerprints: CaFingerprints::default(),
             keygen_dates: KeyGenDates::default(),
@@ -681,6 +683,16 @@ impl Internal {
             KeyType::Dec => swap(&mut self.confidentiality_key, &mut new),
             KeyType::Aut => swap(&mut self.aut_key, &mut new),
         }
+        self.save(client)?;
+        Ok(new)
+    }
+
+    pub fn set_aes_key_id(
+        &mut self,
+        mut new: Option<KeyId>,
+        client: &mut impl trussed::Client,
+    ) -> Result<Option<KeyId>, Error> {
+        swap(&mut self.aes_key, &mut new);
         self.save(client)?;
         Ok(new)
     }

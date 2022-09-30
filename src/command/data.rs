@@ -4,6 +4,10 @@
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
+use trussed::{
+    syscall, try_syscall,
+    types::{KeySerialization, Location, Mechanism},
+};
 
 use crate::{
     card::{Context, LoadedContext, Options},
@@ -866,9 +870,40 @@ fn put_cardholder_cert<const R: usize, T: trussed::Client>(
     put_arbitrary_do(ctx, to_write)
 }
 
+const AES256_KEY_LEN: usize = 32;
+
 fn put_enc_dec_key<const R: usize, T: trussed::Client>(
-    _ctx: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
+    if ctx.data.len() != AES256_KEY_LEN {
+        warn!("Attempt at importing an AES of length not {AES256_KEY_LEN}");
+        return Err(Status::ConditionsOfUseNotSatisfied);
+    }
+
+    let new_key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
+        Mechanism::Aes256Cbc,
+        ctx.data,
+        Location::Internal,
+        KeySerialization::Raw,
+    ))
+    .map_err(|_err| {
+        error!("Failed to import AES key: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+
+    let old_key = ctx
+        .state
+        .internal
+        .set_aes_key_id(Some(new_key), ctx.backend.client_mut())
+        .map_err(|_err| {
+            error!("Failed to set new key: {_err:?}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })?;
+    if let Some(old_key) = old_key {
+        syscall!(ctx.backend.client_mut().delete(old_key));
+    }
+
     // TODO: implement
     error!("Put data in even mode not yet implemented");
     Err(Status::FunctionNotSupported)
