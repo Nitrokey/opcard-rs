@@ -77,6 +77,7 @@ impl Command {
             Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
             Self::InternalAuthenticate => pso::internal_authenticate(context.load_state()?),
             Self::Decipher => pso::decipher(context.load_state()?),
+            Self::Encipher => pso::encipher(context.load_state()?),
             Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
             Self::TerminateDf => terminate_df(context),
             Self::ActivateFile => activate_file(context),

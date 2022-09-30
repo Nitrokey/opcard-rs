@@ -198,34 +198,6 @@ pub fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
     ))
 }
 
-fn decipher_aes<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
-    let key_id = ctx.state.internal.aes_key().ok_or_else(|| {
-        warn!("Attempt to decipher with AES and no key set");
-        Status::ConditionsOfUseNotSatisfied
-    })?;
-
-    if (ctx.data.len() - 1) % 16 != 0 {
-        warn!("Attempt to decipher with AES with length not a multiple of block size");
-        return Err(Status::IncorrectDataParameter);
-    }
-
-    let plaintext = syscall!(ctx.backend.client_mut().decrypt(
-        Mechanism::Aes256Cbc,
-        key_id,
-        &ctx.data[1..],
-        &[], // No AAD
-        &[], // Zero IV
-        &[]  // No authentication tag
-    ))
-    .plaintext
-    .ok_or_else(|| {
-        warn!("Failed decryption");
-        Status::UnspecifiedCheckingError
-    })?;
-    ctx.reply.expand(&plaintext)
-}
 // § 7.2.11
 pub fn decipher<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
@@ -327,4 +299,62 @@ fn decrypt_ec<const R: usize, T: trussed::Client>(
     })?;
 
     ctx.reply.expand(&data)
+}
+
+fn decipher_aes<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let key_id = ctx.state.internal.aes_key().ok_or_else(|| {
+        warn!("Attempt to decipher with AES and no key set");
+        Status::ConditionsOfUseNotSatisfied
+    })?;
+
+    if (ctx.data.len() - 1) % 16 != 0 {
+        warn!("Attempt to decipher with AES with length not a multiple of block size");
+        return Err(Status::IncorrectDataParameter);
+    }
+
+    let plaintext = syscall!(ctx.backend.client_mut().decrypt(
+        Mechanism::Aes256Cbc,
+        key_id,
+        &ctx.data[1..],
+        &[], // No AAD
+        &[], // Zero IV
+        &[]  // No authentication tag
+    ))
+    .plaintext
+    .ok_or_else(|| {
+        warn!("Failed decryption");
+        Status::UnspecifiedCheckingError
+    })?;
+    ctx.reply.expand(&plaintext)
+}
+
+pub fn encipher<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    if !ctx.state.runtime.other_verified {
+        warn!("Attempt to ensipher without PW1 verified");
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+
+    let key_id = ctx.state.internal.aes_key().ok_or_else(|| {
+        warn!("Attempt to decipher with AES and no key set");
+        Status::ConditionsOfUseNotSatisfied
+    })?;
+
+    if ctx.data.len() % 16 != 0 {
+        warn!("Attempt to encipher with AES with length not a multiple of block size");
+        return Err(Status::IncorrectDataParameter);
+    }
+
+    let plaintext = syscall!(ctx.backend.client_mut().encrypt(
+        Mechanism::Aes256Cbc,
+        key_id,
+        &ctx.data[..],
+        &[],
+        None
+    ))
+    .ciphertext;
+    ctx.reply.expand(&plaintext)
 }
