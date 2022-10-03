@@ -10,7 +10,7 @@ use crate::{
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
         ArbitraryDO, KeyOrigin, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH,
-        MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH,
+        MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH, MIN_LENGTH_RESET_CODE,
     },
     types::*,
     utils::InspectErr,
@@ -877,7 +877,20 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
 fn put_reseting_code<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
+    if ctx.data.len() < MIN_LENGTH_RESET_CODE || ctx.data.len() > MAX_PIN_LENGTH {
+        warn!(
+            "Attempt to set invalid size of resetting code: {}",
+            ctx.data.len()
+        );
+        return Err(Status::IncorrectDataParameter);
+    }
+    ctx.state
+        .internal
+        .change_pin(ctx.backend.client_mut(), ctx.data, Password::ResetCode)
+        .map_err(|_err| {
+            error!("Failed to change resetting code: {_err}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })
 }
 
 fn put_uif<const R: usize, T: trussed::Client>(
