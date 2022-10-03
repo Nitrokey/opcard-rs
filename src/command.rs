@@ -9,7 +9,11 @@ mod pso;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
-use crate::state::{LifeCycle, State, MAX_GENERIC_LENGTH, MAX_PIN_LENGTH};
+use crate::error::Error;
+use crate::state::{
+    LifeCycle, State, MAX_GENERIC_LENGTH, MAX_PIN_LENGTH, MIN_LENGTH_ADMIN_PIN,
+    MIN_LENGTH_RESET_CODE, MIN_LENGTH_USER_PIN,
+};
 use crate::tlv;
 use crate::types::*;
 use trussed::config::MAX_MESSAGE_LENGTH;
@@ -185,6 +189,7 @@ impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
 pub enum Password {
     Pw1,
     Pw3,
+    ResetCode,
 }
 
 impl From<PasswordMode> for Password {
@@ -379,11 +384,10 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     context: LoadedContext<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
-    const MIN_LENGTH_ADMIN_PIN: usize = 8;
-    const MIN_LENGTH_USER_PIN: usize = 6;
     let min_len = match password {
         Password::Pw1 => MIN_LENGTH_USER_PIN,
         Password::Pw3 => MIN_LENGTH_ADMIN_PIN,
+        Password::ResetCode => unreachable!(),
     };
 
     if context.data.len() < 2 * min_len {
@@ -512,7 +516,7 @@ fn reset_retry_conter<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     match mode {
         ResetRetryCounterMode::Verify => reset_retry_conter_with_p3(ctx),
-        ResetRetryCounterMode::ResettingCode => todo!(),
+        ResetRetryCounterMode::ResettingCode => reset_retry_conter_with_code(ctx),
     }
 }
 
@@ -536,6 +540,50 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
         .change_pin(ctx.backend.client_mut(), ctx.data, Password::Pw1)
         .map_err(|_err| {
             error!("Failed to change PIN: {_err}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })
+}
+
+fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let code_len = ctx.state.internal.reset_code_len().ok_or_else(|| {
+        warn!("Attempt to use reset when not set");
+        Status::SecurityStatusNotSatisfied
+    })?;
+    if ctx.data.len() < MIN_LENGTH_RESET_CODE + MIN_LENGTH_USER_PIN {
+        warn!("Attempt to reset with too small new pin");
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+    let (old, new) = if ctx.data.len() < code_len {
+        (ctx.data, [].as_slice())
+    } else {
+        ctx.data.split_at(code_len)
+    };
+
+    let res = ctx
+        .state
+        .internal
+        .verify_pin(ctx.backend.client_mut(), old, Password::ResetCode);
+    match res {
+        Err(Error::TooManyTries) => return Err(Status::OperationBlocked),
+        Err(Error::InvalidPin) => {
+            return Err(Status::MoreAvailable(
+                ctx.state.internal.remaining_tries(Password::ResetCode),
+            ))
+        }
+        Err(_err) => {
+            error!("Failed to check reset code: {_err:?}");
+            return Err(Status::UnspecifiedNonpersistentExecutionError);
+        }
+        Ok(()) => {}
+    }
+
+    ctx.state
+        .internal
+        .change_pin(ctx.backend.client_mut(), new, Password::ResetCode)
+        .map_err(|_err| {
+            error!("Failed to change PIN: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })
 }

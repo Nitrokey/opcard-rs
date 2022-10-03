@@ -875,11 +875,9 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
 }
 
 fn put_reseting_code<const R: usize, T: trussed::Client>(
-    _ctx: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO: implement
-    error!("Put data in even mode not yet implemented");
-    Err(Status::FunctionNotSupported)
+    todo!()
 }
 
 fn put_uif<const R: usize, T: trussed::Client>(
