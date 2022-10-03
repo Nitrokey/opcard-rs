@@ -103,6 +103,54 @@ fn verify() {
         card.with_tx(|mut tx| {
             tx.factory_reset().unwrap();
             assert_checks!(tx, Some(3), Some(3), Some(3));
+            tx.verify_pw3(b"12345678").unwrap();
+            tx.set_resetting_code(b"1234567890").unwrap();
+            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            assert_checks!(tx, Some(0), Some(0), None);
+            tx.reset_retry_counter_pw1(b"new code", None).unwrap();
+            assert_checks!(tx, Some(3), Some(3), None);
+            tx.verify_pw1_user(b"new code").unwrap();
+        });
+        card.reset();
+        card.with_tx(|mut tx| {
+            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            assert_checks!(tx, Some(0), Some(0), Some(3));
+            tx.reset_retry_counter_pw1(b"123456", Some(b"1234567890"))
+                .unwrap();
+            assert_checks!(tx, Some(3), Some(3), Some(3));
+            tx.verify_pw1_user(b"123456").unwrap();
+        });
+        card.reset();
+        card.with_tx(|mut tx| {
+            assert!(tx.reset_retry_counter_pw1(b"new code", None).is_err());
+            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert_eq!(
+                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                Some(2)
+            );
+            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert_eq!(
+                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                Some(1)
+            );
+            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert_eq!(
+                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                Some(0)
+            );
+            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert_eq!(
+                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                Some(0)
+            );
+            assert!(tx.verify_pw1_user(b"new code").is_err());
+            tx.reset_retry_counter_pw1(b"123456", Some(b"1234567890"))
+                .unwrap_err();
+            assert!(tx.verify_pw1_user(b"new code").is_err());
         });
     })
 }

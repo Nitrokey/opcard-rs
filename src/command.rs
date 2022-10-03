@@ -566,9 +566,8 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
         .internal
         .verify_pin(ctx.backend.client_mut(), old, Password::ResetCode);
     match res {
-        Err(Error::TooManyTries) => return Err(Status::OperationBlocked),
-        Err(Error::InvalidPin) => {
-            return Err(Status::MoreAvailable(
+        Err(Error::TooManyTries) | Err(Error::InvalidPin) => {
+            return Err(Status::RemainingRetries(
                 ctx.state.internal.remaining_tries(Password::ResetCode),
             ))
         }
@@ -581,7 +580,7 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
 
     ctx.state
         .internal
-        .change_pin(ctx.backend.client_mut(), new, Password::ResetCode)
+        .change_pin(ctx.backend.client_mut(), new, Password::Pw1)
         .map_err(|_err| {
             error!("Failed to change PIN: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
