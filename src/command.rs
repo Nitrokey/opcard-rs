@@ -9,7 +9,7 @@ mod pso;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
-use crate::state::{LifeCycle, State, MAX_GENERIC_LENGTH};
+use crate::state::{LifeCycle, State, MAX_GENERIC_LENGTH, MAX_PIN_LENGTH};
 use crate::tlv;
 use crate::types::*;
 use trussed::config::MAX_MESSAGE_LENGTH;
@@ -77,6 +77,7 @@ impl Command {
             Self::ActivateFile => activate_file(context),
             Self::SelectData(occurrence) => select_data(context, *occurrence),
             Self::GetChallenge(length) => get_challenge(context, *length),
+            Self::ResetRetryCounter(mode) => reset_retry_conter(context.load_state()?, *mode),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
                 Err(Status::FunctionNotSupported)
@@ -245,7 +246,7 @@ impl TryFrom<u8> for VerifyMode {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum ResetRetryCounterMode {
     ResettingCode,
     Verify,
@@ -502,6 +503,41 @@ fn activate_file<const R: usize, T: trussed::Client>(
         })?;
     State::activate_file(context.backend.client_mut())?;
     Ok(())
+}
+
+// § 7.2.4
+fn reset_retry_conter<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    mode: ResetRetryCounterMode,
+) -> Result<(), Status> {
+    match mode {
+        ResetRetryCounterMode::Verify => reset_retry_conter_with_p3(ctx),
+        ResetRetryCounterMode::ResettingCode => todo!(),
+    }
+}
+
+fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    if ctx.data.len() < 6 || ctx.data.len() > MAX_PIN_LENGTH {
+        warn!(
+            "Attempt to change PIN with incorrect lenght: {}",
+            ctx.data.len()
+        );
+        return Err(Status::IncorrectDataParameter);
+    }
+
+    if !ctx.state.runtime.admin_verified {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+
+    ctx.state
+        .internal
+        .change_pin(ctx.backend.client_mut(), ctx.data, Password::Pw1)
+        .map_err(|_err| {
+            error!("Failed to change PIN: {_err}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })
 }
 
 // § 7.2.5
