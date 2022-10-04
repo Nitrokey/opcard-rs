@@ -876,7 +876,10 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() != AES256_KEY_LEN {
-        warn!("Attempt at importing an AES of length not {AES256_KEY_LEN}");
+        warn!(
+            "Attempt at importing an AES of length not {AES256_KEY_LEN}: {}",
+            ctx.data.len()
+        );
         return Err(Status::ConditionsOfUseNotSatisfied);
     }
 
@@ -904,9 +907,7 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
         syscall!(ctx.backend.client_mut().delete(old_key));
     }
 
-    // TODO: implement
-    error!("Put data in even mode not yet implemented");
-    Err(Status::FunctionNotSupported)
+    Ok(())
 }
 
 fn put_resetting_code<const R: usize, T: trussed::Client>(
