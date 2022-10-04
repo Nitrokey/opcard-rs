@@ -7,6 +7,7 @@ use trussed::types::{KeyId, KeySerialization, Location, StorageAttributes};
 use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
+use crate::state::KeyOrigin;
 use crate::types::*;
 use crate::utils::InspectErr;
 
@@ -87,10 +88,10 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
-    if let Some(old_key) = ctx
+    if let Some((old_key, _)) = ctx
         .state
         .internal
-        .set_key_id(key, Some(key_id), client)
+        .set_key_id(key, Some((key_id, KeyOrigin::Generated)), client)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
         // Deletion is not a fatal error

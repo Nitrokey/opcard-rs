@@ -6,6 +6,7 @@ use trussed::types::{KeyId, KeySerialization, Location};
 use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
+use crate::state::KeyOrigin;
 use crate::tlv::get_do;
 use crate::types::*;
 
@@ -52,7 +53,8 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
             warn!("Key import for RSA not supported");
             return Err(Status::FunctionNotSupported);
         }
-    };
+    }
+    .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
         .state
         .internal
@@ -61,7 +63,7 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some(k) = old_key_id {
+    if let Some((k, _)) = old_key_id {
         syscall!(ctx.backend.client_mut().delete(k));
     }
     Ok(())
@@ -78,7 +80,8 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
             warn!("Key import for RSA not supported");
             return Err(Status::FunctionNotSupported);
         }
-    };
+    }
+    .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
         .state
         .internal
@@ -87,7 +90,7 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some(k) = old_key_id {
+    if let Some((k, _)) = old_key_id {
         syscall!(ctx.backend.client_mut().delete(k));
     }
     Ok(())
@@ -104,7 +107,8 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
             warn!("Key import for RSA not supported");
             return Err(Status::FunctionNotSupported);
         }
-    };
+    }
+    .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
         .state
         .internal
@@ -113,7 +117,7 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some(k) = old_key_id {
+    if let Some((k, _)) = old_key_id {
         syscall!(ctx.backend.client_mut().delete(k));
     }
     Ok(())
