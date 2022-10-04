@@ -351,10 +351,11 @@ pub fn encipher<const R: usize, T: trussed::Client>(
     let plaintext = syscall!(ctx.backend.client_mut().encrypt(
         Mechanism::Aes256Cbc,
         key_id,
-        &ctx.data[..],
+        ctx.data,
         &[],
         None
     ))
     .ciphertext;
+    ctx.reply.expand(&[0x02])?;
     ctx.reply.expand(&plaintext)
 }
