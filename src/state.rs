@@ -641,6 +641,15 @@ impl Internal {
         .map(|(key_id, _)| key_id)
     }
 
+    pub fn key_origin(&self, ty: KeyType) -> Option<KeyOrigin> {
+        match ty {
+            KeyType::Sign => self.signing_key,
+            KeyType::Dec => self.confidentiality_key,
+            KeyType::Aut => self.aut_key,
+        }
+        .map(|(_, origin)| origin)
+    }
+
     /// If the key id was already set, return the old key_id
     pub fn set_key_id(
         &mut self,
