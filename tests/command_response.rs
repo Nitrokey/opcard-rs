@@ -39,8 +39,9 @@ fn command_response() {
             iso7816::Command::try_from(hex!("00200082 06 313233343536").as_slice()).unwrap();
         card.handle(&user_pin_cmd, &mut rep).unwrap();
 
-        let mut set_aes_key = Vec::from(hex!("0C DA 00D5 20 "));
-        set_aes_key.extend_from_slice(&[0; 32]);
+        let set_aes_key = Vec::from(hex!(
+            "0C DA 00D5 20 FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211"
+        ));
         let import_cmd: iso7816::Command<32> = iso7816::Command::try_from(&set_aes_key).unwrap();
         card.handle(&import_cmd, &mut rep).unwrap();
 
@@ -48,7 +49,7 @@ fn command_response() {
         let encrypt_cmd: iso7816::Command<16> = iso7816::Command::try_from(&encrypt_aes).unwrap();
         let mut rep: heapless::Vec<u8, 17> = heapless::Vec::new();
         card.handle(&encrypt_cmd, &mut rep).unwrap();
-        assert_eq!(rep, hex!("02 1c060f4c9e7ea8d6ca961a2d64c05c18"));
+        assert_eq!(rep, hex!("02 d9d2ca17e160427aee649db6912dbfad"));
 
         let mut decrypt_aes = Vec::from(hex!("00 2A 80 86 11"));
         decrypt_aes.extend_from_slice(&rep);
