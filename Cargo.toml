@@ -62,7 +62,7 @@ log-error = []
 [patch.crates-io]
 trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "c728c0ea57fa9de5fa4980d380cdb01be0fed755" }
 littlefs2-sys = { git = "https://github.com/sosthene-nitrokey/littlefs2-sys.git", branch = "bindgen-runtime-feature" }
-interchange = { git = "https://github.com/sosthene-nitrokey/interchange.git", branch = "sync" }
+interchange = { git = "https://github.com/trussed-dev/interchange.git", rev = "fe5633466640e1e9a8c06d9b5dd1d0af08c272af" }
 
 [package.metadata.docs.rs]
 all-features = true
