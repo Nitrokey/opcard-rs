@@ -481,8 +481,6 @@ pub fn ef_dir<const R: usize, T: trussed::Client>(
 pub fn ef_atr_info<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    get_historical_bytes(ctx.lend())?;
-
     ctx.reply
         .expand(GetDataObject::ExtendedLengthInformation.tag())?;
     ctx.reply.append_len(EXTENDED_LENGTH_INFO.len())?;
