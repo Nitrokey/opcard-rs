@@ -37,10 +37,10 @@ vpicc = { version = "0.1.0", optional = true }
 
 [dev-dependencies]
 env_logger = "0.9"
-openpgp-card = "0.2.7"
-openpgp-card-sequoia = "0.0.15"
+openpgp-card = "0.3"
+openpgp-card-sequoia = "0.0.20"
 sequoia-openpgp = "1.10.0"
-openpgp-card-pcsc = "0.2.1"
+openpgp-card-pcsc = "0.3"
 regex = "1.6.0"
 stoppable_thread = "0.2.1"
 test-log = "0.2.10"
@@ -60,8 +60,9 @@ log-warn = []
 log-error = []
 
 [patch.crates-io]
-trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "baab96d27e884c0133f1cc021d37ad93b8f2ecf8" }
+trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "c728c0ea57fa9de5fa4980d380cdb01be0fed755" }
 littlefs2-sys = { git = "https://github.com/sosthene-nitrokey/littlefs2-sys.git", branch = "bindgen-runtime-feature" }
+interchange = { git = "https://github.com/trussed-dev/interchange.git", rev = "fe5633466640e1e9a8c06d9b5dd1d0af08c272af" }
 
 [package.metadata.docs.rs]
 all-features = true

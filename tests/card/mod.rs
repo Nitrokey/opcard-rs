@@ -19,9 +19,9 @@ const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
 
 #[derive(Debug)]
-pub struct Card<T: trussed::Client + Send + 'static>(Arc<Mutex<opcard::Card<T>>>);
+pub struct Card<T: trussed::Client + Send + Sync + 'static>(Arc<Mutex<opcard::Card<T>>>);
 
-impl<T: trussed::Client + Send + 'static> Card<T> {
+impl<T: trussed::Client + Send + Sync + 'static> Card<T> {
     pub fn new(client: T) -> Self {
         Self::with_options(client, Options::default())
     }
@@ -36,7 +36,8 @@ impl<T: trussed::Client + Send + 'static> Card<T> {
     }
 
     pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(&mut self, f: F) -> R {
-        let mut openpgp = OpenPgp::new(self);
+        let dyn_b: Box<(dyn CardBackend + Send + Sync + 'static)> = Box::new(Self(self.0.clone()));
+        let mut openpgp = OpenPgp::new(dyn_b);
         let tx = openpgp.transaction().expect("failed to create transaction");
         f(tx)
     }
@@ -46,8 +47,8 @@ impl<T: trussed::Client + Send + 'static> Card<T> {
     }
 }
 
-impl<T: trussed::Client + Send + 'static> CardBackend for Card<T> {
-    fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync>, Error> {
+impl<T: trussed::Client + Send + Sync + 'static> CardBackend for Card<T> {
+    fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync + Sync>, Error> {
         // TODO: use reference instead of cloning
         Ok(Box::new(Transaction {
             card: self.0.clone(),
@@ -57,12 +58,12 @@ impl<T: trussed::Client + Send + 'static> CardBackend for Card<T> {
 }
 
 #[derive(Debug)]
-pub struct Transaction<T: trussed::Client + Send + 'static> {
+pub struct Transaction<T: trussed::Client + Send + Sync + 'static> {
     card: Arc<Mutex<opcard::Card<T>>>,
     buffer: heapless::Vec<u8, RESPONSE_LEN>,
 }
 
-impl<T: trussed::Client + Send + 'static> Transaction<T> {
+impl<T: trussed::Client + Send + Sync + 'static> Transaction<T> {
     fn handle(&mut self, command: &[u8]) -> Result<(), Status> {
         self.buffer.clear();
         let command = Command::<REQUEST_LEN>::try_from(command).map_err(|err| match err {
@@ -77,7 +78,7 @@ impl<T: trussed::Client + Send + 'static> Transaction<T> {
     }
 }
 
-impl<T: trussed::Client + Send + 'static> CardTransaction for Transaction<T> {
+impl<T: trussed::Client + Send + Sync + 'static> CardTransaction for Transaction<T> {
     fn transmit(&mut self, command: &[u8], _buf_size: usize) -> Result<Vec<u8>, Error> {
         let status = self.handle(command).err().unwrap_or_default();
         let status: [u8; 2] = status.into();

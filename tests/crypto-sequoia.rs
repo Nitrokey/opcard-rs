@@ -20,7 +20,7 @@ use test_log::test;
 fn sequoia_gen_key() {
     virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
-        let mut pgp = OpenPgp::new(&mut cards[0]);
+        let mut pgp = OpenPgp::new(cards.pop().unwrap());
         let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
         open.verify_admin(b"12345678").unwrap();
         let mut admin = open.admin_card().unwrap();
@@ -71,7 +71,7 @@ fn sequoia_gen_key() {
 
     virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
-        let mut pgp = OpenPgp::new(&mut cards[0]);
+        let mut pgp = OpenPgp::new(cards.pop().unwrap());
         let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
         open.verify_admin(b"12345678").unwrap();
         let mut admin = open.admin_card().unwrap();
