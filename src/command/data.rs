@@ -9,7 +9,7 @@ use crate::{
     card::{Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
-        ArbitraryDO, KeyOrigin, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH,
+        ArbitraryDO, KeyOrigin, LifeCycle, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH,
         MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH, MIN_LENGTH_RESET_CODE,
     },
     types::*,
@@ -342,7 +342,7 @@ impl GetDataObject {
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
         match self {
-            Self::HistoricalBytes => historical_bytes(context)?,
+            Self::HistoricalBytes => get_historical_bytes(context)?,
             Self::ApplicationIdentifier => context.reply.expand(&context.options.aid())?,
             Self::PwStatusBytes => pw_status_bytes(context.load_state()?)?,
             Self::ExtendedLengthInformation => context.reply.expand(&EXTENDED_LENGTH_INFO)?,
@@ -457,7 +457,7 @@ pub fn get_data_odd<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
     tag: Tag,
 ) -> Result<(), Status> {
-    if ctx.data != &hex!("5C00") {
+    if ctx.data != hex!("5C00") {
         warn!("Invalid GET DATA with ODD INS");
         return Err(Status::IncorrectDataParameter);
     }
@@ -481,7 +481,7 @@ pub fn ef_dir<const R: usize, T: trussed::Client>(
 pub fn ef_atr_info<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    historical_bytes(ctx.lend())?;
+    get_historical_bytes(ctx.lend())?;
 
     ctx.reply
         .expand(GetDataObject::ExtendedLengthInformation.tag())?;
@@ -582,13 +582,42 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn historical_bytes<const R: usize, T: trussed::Client>(
+fn historical_bytes(chaining: bool, extended: bool, lifecycle: LifeCycle) -> [u8; 10] {
+    let mut base = hex!(
+        "
+        00
+        31 F5
+        73 C0 01 E0
+        00
+        9000
+        "
+    );
+    const NO_CHAINING_MASK: u8 = 0b01111111;
+    const NO_EXTENDED_MASK: u8 = 0b11011111;
+    const NO_EXTENDED_MASK2: u8 = 0b11101111;
+
+    if !chaining {
+        base[6] &= NO_CHAINING_MASK
+    }
+
+    if !extended {
+        base[6] &= NO_EXTENDED_MASK;
+        base[2] &= NO_EXTENDED_MASK2;
+    }
+
+    base[7] = lifecycle as u8;
+
+    base
+}
+
+pub fn get_historical_bytes<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    ctx.reply.expand(&ctx.options.historical_bytes)?;
-    let lifecycle_idx = ctx.reply.len() - 3;
-    ctx.reply[lifecycle_idx] = State::lifecycle(ctx.backend.client_mut()) as u8;
-    Ok(())
+    ctx.reply.expand(&historical_bytes(
+        ctx.options.chaining_supported,
+        ctx.options.extended_len_supported,
+        State::lifecycle(ctx.backend.client_mut()),
+    ))
 }
 
 fn cardholder_cert<const R: usize, T: trussed::Client>(
@@ -1294,8 +1323,7 @@ mod tests {
                 reply: crate::card::reply::Reply(&mut reply),
             };
 
-            let mut historical_bytes = options.historical_bytes.clone();
-            historical_bytes[7] = 5;
+            let historical_bytes = historical_bytes(true, true, LifeCycle::Operational);
 
             get_data(
                 context,
@@ -1313,7 +1341,11 @@ mod tests {
 
             for (tag, data) in top {
                 let res = get_do(&[*tag as u16], &reply).unwrap();
-                assert_eq!(res, *data, "got {res:x?}, expected {data:x?}")
+                assert_eq!(
+                    res, *data,
+                    "\ngot:     {res:x?}\n\
+                    expected {data:x?}"
+                )
             }
 
             let nested: &[(DataObject, &[u8])] = &[
@@ -1370,5 +1402,29 @@ mod tests {
             &hex!("D27600012401")
         );
         assert_eq!(get_do(&[0x61, 0x50], EF_DIR).unwrap(), b"OpenPGP");
+    }
+
+    #[test]
+    fn historical() {
+        assert_eq!(
+            historical_bytes(true, true, LifeCycle::Operational),
+            hex!("0031F573C001E0059000"),
+        );
+        assert_eq!(
+            historical_bytes(true, true, LifeCycle::Initialization),
+            hex!("0031F573C001E0039000"),
+        );
+        assert_eq!(
+            historical_bytes(true, false, LifeCycle::Initialization),
+            hex!("0031E573C001C0039000"),
+        );
+        assert_eq!(
+            historical_bytes(false, false, LifeCycle::Initialization),
+            hex!("0031E573C00140039000"),
+        );
+        assert_eq!(
+            historical_bytes(false, true, LifeCycle::Initialization),
+            hex!("0031F573C00160039000"),
+        );
     }
 }

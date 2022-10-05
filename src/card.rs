@@ -1,7 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use hex_literal::hex;
 use iso7816::Status;
 
 pub(crate) mod reply;
@@ -102,7 +101,7 @@ impl<T: trussed::Client, const C: usize, const R: usize> apdu_dispatch::App<C, R
 }
 
 /// Options for the OpenPGP card.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Options {
     /// The manufacturer ID returned in the AID, see § 4.2.1 of the spec.
@@ -110,12 +109,14 @@ pub struct Options {
     /// The serial number returned in the AID, see § 4.2.1 of the spec.
     pub serial: [u8; 4],
 
-    // FIXME: Make historical bytes configurable
-    /// Historical bytes, see  § 6
-    pub(crate) historical_bytes: heapless::Vec<u8, 15>,
-
     /// Does the card have a button for user input?
     pub button_available: bool,
+
+    /// Is command chaining supported before the Card recieves the commands
+    pub chaining_supported: bool,
+
+    /// Are extended length supported
+    pub extended_len_supported: bool,
 }
 
 impl Options {
@@ -151,8 +152,9 @@ impl Default for Options {
             manufacturer: Default::default(),
             serial: Default::default(),
             // TODO: Copied from Nitrokey Pro
-            historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
+            chaining_supported: true,
+            extended_len_supported: true,
         }
     }
 }
@@ -224,6 +226,7 @@ impl<'a, const R: usize, T: trussed::Client> LoadedContext<'a, R, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hex_literal::hex;
 
     /// Testing the concatenation of arrays used in aid
     #[test]
