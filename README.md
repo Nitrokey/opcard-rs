@@ -10,6 +10,10 @@ v3.4][spec].
 
 [spec]: https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.4.pdf
 
+## ⚠️ Security Warning
+
+This card is **alpha** software and should currently not be used outside of testing.
+
 ## Features
 
 `opcard` is in early development and does not yet have any features.
