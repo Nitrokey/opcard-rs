@@ -49,7 +49,7 @@ tarpaulin:
 	cargo tarpaulin --features virtual -o Html -o Xml
 
 .PHONY: ci
-ci: | check tarpaulin
+ci: check tarpaulin
 
 .PHONY: clean
 clean:
