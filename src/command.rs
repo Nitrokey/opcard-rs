@@ -8,11 +8,12 @@ mod pso;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
-use crate::state::{LifeCycle, State};
+use crate::state::{LifeCycle, State, MAX_GENERIC_LENGTH};
 use crate::tlv;
 use crate::types::*;
-use trussed::try_syscall;
+use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::types::{Location, PathBuf};
+use trussed::{syscall, try_syscall};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -30,7 +31,7 @@ pub enum Command {
     Encipher,
     InternalAuthenticate,
     GetResponse,
-    GetChallenge,
+    GetChallenge(usize),
     TerminateDf,
     ActivateFile,
     ManageSecurityEnvironment(ManageSecurityEnvironmentMode),
@@ -74,6 +75,7 @@ impl Command {
             Self::TerminateDf => terminate_df(context),
             Self::ActivateFile => activate_file(context),
             Self::SelectData(occurrence) => select_data(context, *occurrence),
+            Self::GetChallenge(length) => get_challenge(context, *length),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
                 Err(Status::FunctionNotSupported)
@@ -157,7 +159,7 @@ impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
             }
             0x84 => {
                 require_p1_p2(command, 0x00, 0x00)?;
-                Ok(Self::GetChallenge)
+                Ok(Self::GetChallenge(command.expected()))
             }
             0xE6 => {
                 require_p1_p2(command, 0x00, 0x00)?;
@@ -515,5 +517,27 @@ fn select_data<const R: usize, T: trussed::Client>(
         }
     };
     ctx.state.runtime.cur_do = Some((tag, occurrence));
+    Ok(())
+}
+
+// § 7.2.15
+fn get_challenge<const R: usize, T: trussed::Client>(
+    mut ctx: Context<'_, R, T>,
+    expected: usize,
+) -> Result<(), Status> {
+    if expected > MAX_GENERIC_LENGTH {
+        return Err(Status::WrongLength);
+    }
+
+    while ctx.reply.len() < expected {
+        ctx.reply.expand(
+            &syscall!(ctx
+                .backend
+                .client_mut()
+                .random_bytes((expected - ctx.reply.len()).min(MAX_MESSAGE_LENGTH)))
+            .bytes,
+        )?
+    }
+
     Ok(())
 }
