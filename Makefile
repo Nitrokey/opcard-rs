@@ -23,7 +23,6 @@ fix:
 .PHONY: test
 test:
 	cargo test --features virtual
-	cargo test --features virtual --no-fail-fast -- --ignored || true
 
 .PHONY: fuzz
 fuzz: fuzz-corpus
