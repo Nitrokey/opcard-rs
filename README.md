@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC0-1.0
 `opcard` is a Rust implementation of the [OpenPGP smart card specification
 v3.4][spec].
 
-[spec]: https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.4.pdf
+[spec]: https://github.com/Nitrokey/openpgp-card/raw/master/OpenPGP%20Card%20Specification%203.4.pdf
 
 ## ⚠️ Security Warning
 
