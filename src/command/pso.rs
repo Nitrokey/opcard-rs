@@ -171,11 +171,40 @@ pub fn decipher<const R: usize, T: trussed::Client>(
     match ctx.state.internal.dec_alg() {
         DecryptionAlgorithm::X255 => decrypt_ec(ctx, key_id, Mechanism::X255),
         DecryptionAlgorithm::EcDhP256 => decrypt_ec(ctx, key_id, Mechanism::P256),
+        DecryptionAlgorithm::Rsa2k => decrypt_rsa(ctx, key_id, Mechanism::Rsa2kPkcs),
         _ => {
             error!("Unimplemented operation");
             Err(Status::ConditionsOfUseNotSatisfied)
         }
     }
+}
+
+fn decrypt_rsa<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+    private_key: KeyId,
+    mechanism: Mechanism,
+) -> Result<(), Status> {
+    if ctx.data.is_empty() {
+        return Err(Status::IncorrectDataParameter);
+    }
+    let plaintext = try_syscall!(ctx.backend.client_mut().decrypt(
+        mechanism,
+        private_key,
+        &ctx.data[1..],
+        &[],
+        &[],
+        &[]
+    ))
+    .map_err(|_err| {
+        error!("Failed to decrypt data: {_err:?}");
+        Status::IncorrectDataParameter
+    })?
+    .plaintext
+    .ok_or_else(|| {
+        warn!("No plaintext");
+        return Status::IncorrectDataParameter;
+    })?;
+    ctx.reply.expand(&plaintext)
 }
 
 fn decrypt_ec<const R: usize, T: trussed::Client>(
