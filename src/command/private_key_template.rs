@@ -128,7 +128,6 @@ fn put_ec<const R: usize, T: trussed::Client>(
     curve: CurveAlgo,
 ) -> Result<Option<KeyId>, Status> {
     debug!("Importing key for algo {curve:?}");
-    // FIXME: handle deletion
     let private_key_data = get_do(
         &[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO],
         ctx.data,
