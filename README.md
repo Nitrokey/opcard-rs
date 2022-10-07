@@ -27,8 +27,10 @@ missing features for a first stable release.
 
 ## Installation
 
+Currently only available for the Nitrokey 3 A mini.
+
 Download the latest compiled [release](https://github.com/Nitrokey/opcard-rs/releases) zip file.
-Plug your Nitrokey 3A and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
+Plug your Nitrokey 3AM and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
 `nitropy nk3 update <path/to/release/zip/file>`
 
 ## License
