@@ -10,6 +10,14 @@ use crate::card::LoadedContext;
 use crate::tlv::get_do;
 use crate::types::*;
 
+fn rsa_hash_len(mechanism: Mechanism) -> usize {
+    match mechanism {
+        // SHA256
+        Mechanism::Rsa2kPkcs => 32,
+        _ => unreachable!(),
+    }
+}
+
 fn check_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
@@ -26,6 +34,7 @@ fn check_uif<const R: usize, T: trussed::Client>(
     }
     Ok(())
 }
+
 // § 7.2.10
 pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
@@ -52,6 +61,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
             }
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
+        SignatureAlgorithm::Rsa2k => sign_rsa(ctx, key_id, Mechanism::Rsa2kPkcs),
         _ => {
             error!("Unimplemented operation");
             Err(Status::ConditionsOfUseNotSatisfied)
@@ -68,6 +78,31 @@ fn sign_ec<const R: usize, T: trussed::Client>(
         mechanism,
         key_id,
         ctx.data,
+        SignatureSerialization::Raw
+    ))
+    .map_err(|_err| {
+        error!("Failed to sign data: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .signature;
+    ctx.reply.expand(&signature)
+}
+
+fn sign_rsa<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+    key_id: KeyId,
+    mechanism: Mechanism,
+) -> Result<(), Status> {
+    let hash = get_do(&[0x30, 0x04], ctx.data).ok_or_else(|| Status::IncorrectDataParameter)?;
+    if hash.len() != rsa_hash_len(mechanism) {
+        warn!("RSA invalid hash length: {}", hash.len());
+        return Err(Status::IncorrectDataParameter);
+    }
+
+    let signature = try_syscall!(ctx.backend.client_mut().sign(
+        mechanism,
+        key_id,
+        hash,
         SignatureSerialization::Raw
     ))
     .map_err(|_err| {
@@ -101,6 +136,7 @@ pub fn internal_authenticate<const R: usize, T: trussed::Client>(
             }
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
+        AuthenticationAlgorithm::Rsa2k => sign_rsa(ctx, key_id, Mechanism::Rsa2kPkcs),
         _ => {
             error!("Unimplemented operation");
             Err(Status::ConditionsOfUseNotSatisfied)
