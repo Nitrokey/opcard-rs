@@ -12,11 +12,18 @@ v3.4][spec].
 
 ## ⚠️ Security Warning
 
-This card is **alpha** software and should currently not be used outside of testing.
+This card is **alpha** software and should currently not be used outside of
+testing.  Updates may lead to data loss and the security of the keys and PINs
+is not guaranteed.
 
 ## Features
 
-`opcard` is in early development and does not yet have any features.
+`opcard` currently supports the basic OpenPGP functionality (key generation,
+key import, signing, decrypting, card administration) for Curve25519 and NIST
+P-256.  See the [issues for the v1.0.0 milestone][v1.0.0 milestone] for all
+missing features for a first stable release.
+
+[v1.0.0 milestone]: https://github.com/Nitrokey/opcard-rs/milestone/2
 
 ## License
 
