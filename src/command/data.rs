@@ -736,10 +736,7 @@ pub fn put_data<const R: usize, T: trussed::Client>(
         warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
     })?;
 
-    if !matches!(
-        (object, mode),
-        (PutDataObject::ExtendedHeaderList, PutDataMode::Odd) | (_, PutDataMode::Even)
-    ) {
+    if mode == PutDataMode::Odd && object != PutDataObject::ExtendedHeaderList {
         warn!("Invalid put data object {object:?} for mode {mode:?}");
         return Err(Status::IncorrectP1OrP2Parameter);
     }
@@ -769,7 +766,7 @@ pub fn put_data<const R: usize, T: trussed::Client>(
 
 enum_subset! {
     /// Data objects available for PUT DATA
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq)]
     enum PutDataObject: DataObject {
         PrivateUse1,
         PrivateUse2,
