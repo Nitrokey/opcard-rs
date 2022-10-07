@@ -9,8 +9,8 @@ use crate::{
     card::{Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
-        ArbitraryDO, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH, MAX_GENERIC_LENGTH_BE,
-        MAX_PIN_LENGTH,
+        ArbitraryDO, KeyOrigin, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH,
+        MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH,
     },
     types::*,
     utils::InspectErr,
@@ -178,7 +178,7 @@ enum_u16! {
         PrivateUse2 = 0x0102,
         PrivateUse3 = 0x0103,
         PrivateUse4 = 0x0104,
-        ExtendedHeaderList = 0x004D,
+        ExtendedHeaderList = 0x3FFF,
         ApplicationIdentifier = 0x004F,
         LoginData = 0x005E,
         Url = 0x5F50,
@@ -357,7 +357,7 @@ impl GetDataObject {
             Self::Fingerprints => fingerprints(context.load_state()?)?,
             Self::CAFingerprints => ca_fingerprints(context.load_state()?)?,
             Self::KeyGenerationDates => keygen_dates(context.load_state()?)?,
-            Self::KeyInformation => key_info(context)?,
+            Self::KeyInformation => key_info(context.load_state()?)?,
             Self::UifCds => uif(context.load_state()?, KeyType::Sign)?,
             Self::UifDec => uif(context.load_state()?, KeyType::Dec)?,
             Self::UifAut => uif(context.load_state()?, KeyType::Aut)?,
@@ -638,16 +638,30 @@ fn keygen_dates<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
-    // TODO load from state
+fn key_info_byte(data: Option<KeyOrigin>) -> u8 {
+    match data {
+        None => 0,
+        Some(KeyOrigin::Generated) => 1,
+        Some(KeyOrigin::Imported) => 2,
+    }
+}
+
+fn key_info<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
     // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
-    ctx.reply.expand(&hex!(
-        "
-        01 00 // Sign key not present
-        02 00 // Dec key not present
-        03 00 // Aut key not present
-    "
-    ))?;
+    ctx.reply.expand(&[
+        0x01,
+        key_info_byte(ctx.state.internal.key_origin(KeyType::Sign)),
+    ])?;
+    ctx.reply.expand(&[
+        0x02,
+        key_info_byte(ctx.state.internal.key_origin(KeyType::Dec)),
+    ])?;
+    ctx.reply.expand(&[
+        0x03,
+        key_info_byte(ctx.state.internal.key_origin(KeyType::Aut)),
+    ])?;
     Ok(())
 }
 
@@ -718,14 +732,14 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     mode: PutDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
-    if mode != PutDataMode::Even {
-        // TODO: implement
-        error!("Put data in even mode not yet implemented");
-        return Err(Status::FunctionNotSupported);
-    }
     let object = PutDataObject::try_from(tag).inspect_err_stable(|_err| {
         warn!("Unsupported data tag {:x?}: {:?}", tag, _err);
     })?;
+
+    if mode == PutDataMode::Odd && object != PutDataObject::ExtendedHeaderList {
+        warn!("Invalid put data object {object:?} for mode {mode:?}");
+        return Err(Status::IncorrectP1OrP2Parameter);
+    }
 
     match object.write_perm() {
         PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
@@ -752,13 +766,14 @@ pub fn put_data<const R: usize, T: trussed::Client>(
 
 enum_subset! {
     /// Data objects available for PUT DATA
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq)]
     enum PutDataObject: DataObject {
         PrivateUse1,
         PrivateUse2,
         PrivateUse3,
         PrivateUse4,
         LoginData,
+        ExtendedHeaderList,
         Url,
         CardHolderName,
         CardHolderSex,
@@ -804,6 +819,9 @@ impl PutDataObject {
             Self::PrivateUse3 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse3)?,
             Self::PrivateUse4 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse4)?,
             Self::LoginData => put_arbitrary_do(ctx, ArbitraryDO::LoginData)?,
+            Self::ExtendedHeaderList => {
+                super::private_key_template::put_private_key_template(ctx.load_state()?)?
+            }
             Self::Url => put_arbitrary_do(ctx, ArbitraryDO::Url)?,
             Self::KdfDo => put_arbitrary_do(ctx, ArbitraryDO::KdfDo)?,
             Self::SignFingerprint => put_fingerprint(ctx.load_state()?, KeyType::Sign)?,

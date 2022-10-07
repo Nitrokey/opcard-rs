@@ -263,6 +263,13 @@ impl Default for Sex {
     }
 }
 
+#[derive(Clone, Copy, Deserialize, Serialize, Debug, PartialEq, Eq)]
+pub enum KeyOrigin {
+    /// From GENERATE ASYMETRIC KEYPAIR
+    Generated,
+    Imported,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Internal {
     user_pin_tries: u8,
@@ -270,9 +277,9 @@ pub struct Internal {
     pw1_valid_multiple: bool,
     user_pin: Bytes<MAX_PIN_LENGTH>,
     admin_pin: Bytes<MAX_PIN_LENGTH>,
-    signing_key: Option<KeyId>,
-    confidentiality_key: Option<KeyId>,
-    aut_key: Option<KeyId>,
+    signing_key: Option<(KeyId, KeyOrigin)>,
+    confidentiality_key: Option<(KeyId, KeyOrigin)>,
+    aut_key: Option<(KeyId, KeyOrigin)>,
     sign_alg: SignatureAlgorithm,
     dec_alg: DecryptionAlgorithm,
     aut_alg: AuthenticationAlgorithm,
@@ -616,21 +623,40 @@ impl Internal {
         self.sign_count
     }
 
+    pub fn set_sign_count(
+        &mut self,
+        count: usize,
+        client: &mut impl trussed::Client,
+    ) -> Result<(), Error> {
+        self.sign_count = count;
+        self.save(client)
+    }
+
     pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
         match ty {
             KeyType::Sign => self.signing_key,
             KeyType::Dec => self.confidentiality_key,
             KeyType::Aut => self.aut_key,
         }
+        .map(|(key_id, _)| key_id)
+    }
+
+    pub fn key_origin(&self, ty: KeyType) -> Option<KeyOrigin> {
+        match ty {
+            KeyType::Sign => self.signing_key,
+            KeyType::Dec => self.confidentiality_key,
+            KeyType::Aut => self.aut_key,
+        }
+        .map(|(_, origin)| origin)
     }
 
     /// If the key id was already set, return the old key_id
     pub fn set_key_id(
         &mut self,
         ty: KeyType,
-        mut new: Option<KeyId>,
+        mut new: Option<(KeyId, KeyOrigin)>,
         client: &mut impl trussed::Client,
-    ) -> Result<Option<KeyId>, Error> {
+    ) -> Result<Option<(KeyId, KeyOrigin)>, Error> {
         match ty {
             KeyType::Sign => swap(&mut self.signing_key, &mut new),
             KeyType::Dec => swap(&mut self.confidentiality_key, &mut new),
@@ -651,7 +677,7 @@ impl Internal {
             KeyType::Aut => self.aut_key.take(),
         };
 
-        if let Some(key_id) = key {
+        if let Some((key_id, _)) = key {
             self.save(client)?;
             try_syscall!(client.delete(key_id)).map_err(|_err| {
                 error!("Failed to delete key {_err:?}");

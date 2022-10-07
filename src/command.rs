@@ -3,6 +3,7 @@
 
 mod data;
 mod gen;
+mod private_key_template;
 mod pso;
 
 use iso7816::Status;

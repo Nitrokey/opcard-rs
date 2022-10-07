@@ -25,11 +25,18 @@
 
 // TODO: add CLI
 
+use hex_literal::hex;
+
 fn main() {
     env_logger::init();
 
     trussed::virt::with_ram_client("opcard", |client| {
-        let card = opcard::Card::new(client, opcard::Options::default());
+        let mut card = opcard::Card::new(client, opcard::Options::default());
+        card.handle(
+            &iso7816::Command::<10>::try_from(&hex!("00 44 00 00")).unwrap(),
+            &mut heapless::Vec::<u8, 2>::new(),
+        )
+        .unwrap();
         let mut virtual_card = opcard::VirtualCard::new(card);
         let vpicc = vpicc::connect().expect("failed to connect to vpicc");
         vpicc

@@ -27,6 +27,9 @@ const STDERR_FILTER: &[&str] = &[
     r"gpg: .*: trustdb created",
     r"gpg: key [0-9A-F]{16} marked as ultimately trusted",
     r"gpg: directory '.*/openpgp-revocs.d' created",
+    r"gpg \(GnuPG\) \d*.\d*.\d*; Copyright \(C\) \d* .*",
+    r"This is free software: you are free to change and redistribute it.",
+    r"There is NO WARRANTY, to the extent permitted by law.",
 ];
 
 pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
@@ -68,44 +71,54 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 
 #[allow(unused)]
 pub enum KeyType {
-    Rsa,
+    RsaNone,
     Cv25519,
+    Cv25519NoAut,
     P256,
+    P256NoAut,
 }
 
 #[allow(unused)]
-pub fn gpg_status(key: KeyType, has_keys: bool) -> Vec<&'static str> {
-    let (first, sec, third) = match key {
+pub fn gpg_status(key: KeyType) -> Vec<&'static str> {
+    let (first, sec, third, fpr, grp) = match key {
         KeyType::Cv25519 => (
             r"keyattr:1:22:Ed25519:",
             r"keyattr:2:18:Curve25519:",
             r"keyattr:3:22:Ed25519:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+        ),
+        KeyType::Cv25519NoAut => (
+            r"keyattr:1:22:Ed25519:",
+            r"keyattr:2:18:Curve25519:",
+            r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
         ),
         KeyType::P256 => (
             r"keyattr:1:19:NIST P-256:",
             r"keyattr:2:18:NIST P-256:",
             r"keyattr:3:19:NIST P-256:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
         ),
-        KeyType::Rsa => (
+        KeyType::P256NoAut => (
+            r"keyattr:1:19:NIST P-256:",
+            r"keyattr:2:18:NIST P-256:",
+            r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
+        ),
+        KeyType::RsaNone => (
             r"keyattr:1:1:2048:",
             r"keyattr:2:1:2048:",
             r"keyattr:3:1:2048:",
+            "fpr::::",
+            "grp:[0]{40}:[0]{40}:[0]{40}:",
         ),
     };
 
-    let (fpr, fprtimes, grp) = if has_keys {
-        (
-            r"fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
-            r"fprtime:\d*:\d*:\d*:",
-            r"grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
-        )
-    } else {
-        (
-            r"fpr::::",
-            r"fprtime:0:0:0:",
-            r"grp:[0]{40}:[0]{40}:[0]{40}:",
-        )
-    };
+    let fprtimes = r"fprtime:\d*:\d*:\d*:";
 
     [
         r"Reader:Virtual PCD \d\d \d\d:AID:D2760001240103040000000000000000:openpgp-card",
@@ -149,6 +162,9 @@ pub enum GpgCommand<'a> {
     Decrypt { i: &'a str, o: &'a str },
     Sign { i: &'a str, s: &'a str, o: &'a str },
     Verify { i: &'a str },
+    Generate,
+    EditKey { o: &'a str },
+    DeleteSecretKey { o: &'a str },
 }
 
 impl GpgCommand<'_> {
@@ -176,6 +192,9 @@ impl GpgCommand<'_> {
                 cmd.args(["--sign", "--output", o, "--default-key", s, i])
             }
             GpgCommand::Verify { i } => cmd.args(["--verify", i]),
+            GpgCommand::Generate => cmd.args(["--full-gen-key"]),
+            GpgCommand::EditKey { o } => cmd.args(["--edit-key", o]),
+            GpgCommand::DeleteSecretKey { o } => cmd.args(["--yes", "--delete-secret-keys", o]),
         };
         cmd
     }
@@ -237,7 +256,7 @@ pub fn gnupg_test(stdin: &[&str], stdout: &[&str], stderr: &[&str], cmd: GpgComm
         for l in o.lines().map(|r| r.unwrap()) {
             println!("STDERR: {l}");
 
-            if filter.is_match(&l) {
+            if filter.is_match(&l) || l.is_empty() {
                 continue;
             }
 

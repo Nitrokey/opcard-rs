@@ -3,41 +3,24 @@
 
 use hex_literal::hex;
 use iso7816::Status;
-use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
+use trussed::types::{KeyId, KeySerialization, Location, StorageAttributes};
 use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
+use crate::state::KeyOrigin;
 use crate::types::*;
 use crate::utils::InspectErr;
 
 const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
 
-#[derive(Debug, Copy, Clone)]
-enum CurveAlgo {
-    EcDhP256,
-    EcDsaP256,
-    X255,
-    Ed255,
-}
-
-impl CurveAlgo {
-    fn mechanism(self) -> Mechanism {
-        match self {
-            Self::EcDsaP256 | Self::EcDhP256 => Mechanism::P256,
-            Self::X255 => Mechanism::X255,
-            Self::Ed255 => Mechanism::Ed255,
-        }
-    }
-
-    fn serialize_pub<const R: usize, T: trussed::Client>(
-        self,
-        ctx: LoadedContext<'_, R, T>,
-        public_key: &[u8],
-    ) -> Result<(), Status> {
-        match self {
-            Self::EcDsaP256 | Self::EcDhP256 => serialize_p256(ctx, public_key),
-            Self::X255 | Self::Ed255 => serialize_25519(ctx, public_key),
-        }
+fn serialize_pub<const R: usize, T: trussed::Client>(
+    algo: CurveAlgo,
+    ctx: LoadedContext<'_, R, T>,
+    public_key: &[u8],
+) -> Result<(), Status> {
+    match algo {
+        CurveAlgo::EcDsaP256 | CurveAlgo::EcDhP256 => serialize_p256(ctx, public_key),
+        CurveAlgo::X255 | CurveAlgo::Ed255 => serialize_25519(ctx, public_key),
     }
 }
 
@@ -45,7 +28,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.internal.sign_alg();
-    info!("Generating dec key with algorithm: {algo:?}");
+    info!("Generating sign key with algorithm: {algo:?}");
     match algo {
         SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => {
@@ -105,10 +88,10 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
-    if let Some(old_key) = ctx
+    if let Some((old_key, _)) = ctx
         .state
         .internal
-        .set_key_id(key, Some(key_id), client)
+        .set_key_id(key, Some((key_id, KeyOrigin::Generated)), client)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
         // Deletion is not a fatal error
@@ -224,6 +207,6 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
     syscall!(client.delete(public_key));
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
-    curve.serialize_pub(ctx.lend(), &serialized)?;
+    serialize_pub(curve, ctx.lend(), &serialized)?;
     ctx.reply.prepend_len(offset)
 }
