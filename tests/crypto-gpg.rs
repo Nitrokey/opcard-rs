@@ -200,7 +200,7 @@ fn gpg_255() {
             &[
                 vec![
                     r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
-                    r"\[GNUPG:\] BEGIN_SIGNING H8",
+                    r"\[GNUPG:\] BEGIN_SIGNING H\d*",
                     &custom1,
                     r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 22 0",
                 ],
@@ -436,7 +436,7 @@ fn gpg_p256() {
             &[
                 vec![
                     r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
-                    r"\[GNUPG:\] BEGIN_SIGNING H8",
+                    r"\[GNUPG:\] BEGIN_SIGNING H\d*",
                     &custom1,
                     r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 19 0",
                 ],
@@ -658,12 +658,12 @@ fn gpg_rsa() {
             &[
                 vec![
                     r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
-                    r"\[GNUPG:\] BEGIN_SIGNING H8",
+                    r"\[GNUPG:\] BEGIN_SIGNING H\d*",
                     &custom1,
                     r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
                 ],
                 virt::gpg_inquire_pin(),
-                vec![r"\[GNUPG:\] SIG_CREATED S 1 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+                vec![r"\[GNUPG:\] SIG_CREATED S 1 \d* 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
             ]
             .into_iter()
             .flatten()
@@ -684,7 +684,7 @@ fn gpg_rsa() {
                 r"\[GNUPG:\] NEWSIG test\d*@email.com",
                 r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
                 r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
-                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 1 8 00 [a-fA-F0-9]{40}",
+                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 1 \d* 00 [a-fA-F0-9]{40}",
                 r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
             ],
             &[

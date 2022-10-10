@@ -20,6 +20,7 @@ const STDOUT_FILTER: &[&str] = &[
     r"\[GNUPG:\] KEY_CONSIDERED [0-9A-F]{40} \d",
     r"\[GNUPG:\] ENCRYPTION_COMPLIANCE_MODE \d*",
     r"\[GNUPG:\] DECRYPTION_COMPLIANCE_MODE \d*",
+    r"\[GNUPG:\] VERIFICATION_COMPLIANCE_MODE \d*",
     r"\[GNUPG:\] GOT_IT",
 ];
 
