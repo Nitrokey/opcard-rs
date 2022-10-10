@@ -10,14 +10,6 @@ use crate::card::LoadedContext;
 use crate::tlv::get_do;
 use crate::types::*;
 
-fn rsa_hash_len(mechanism: Mechanism) -> usize {
-    match mechanism {
-        // SHA256
-        Mechanism::Rsa2kPkcs => 32,
-        _ => unreachable!(),
-    }
-}
-
 fn check_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
@@ -93,16 +85,10 @@ fn sign_rsa<const R: usize, T: trussed::Client>(
     key_id: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
-    let hash = get_do(&[0x30, 0x04], ctx.data).ok_or(Status::IncorrectDataParameter)?;
-    if hash.len() != rsa_hash_len(mechanism) {
-        warn!("RSA invalid hash length: {}", hash.len());
-        return Err(Status::IncorrectDataParameter);
-    }
-
     let signature = try_syscall!(ctx.backend.client_mut().sign(
         mechanism,
         key_id,
-        hash,
+        ctx.data,
         SignatureSerialization::Raw
     ))
     .map_err(|_err| {
