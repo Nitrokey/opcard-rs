@@ -18,6 +18,7 @@ use stoppable_thread::spawn;
 
 const STDOUT_FILTER: &[&str] = &[
     r"\[GNUPG:\] KEY_CONSIDERED [0-9A-F]{40} \d",
+    r"\[GNUPG:\] ENCRYPTION_COMPLIANCE_MODE \d*",
     r"\[GNUPG:\] GOT_IT",
 ];
 
@@ -72,6 +73,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 #[allow(unused)]
 pub enum KeyType {
     RsaNone,
+    Rsa,
     Cv25519,
     Cv25519NoAut,
     P256,
@@ -108,6 +110,13 @@ pub fn gpg_status(key: KeyType) -> Vec<&'static str> {
             r"keyattr:3:1:2048:",
             "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
             "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
+        ),
+        KeyType::Rsa => (
+            r"keyattr:1:1:2048:",
+            r"keyattr:2:1:2048:",
+            r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
         ),
         KeyType::RsaNone => (
             r"keyattr:1:1:2048:",
