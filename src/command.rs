@@ -523,7 +523,7 @@ fn reset_retry_conter<const R: usize, T: trussed::Client>(
 fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if ctx.data.len() < 6 || ctx.data.len() > MAX_PIN_LENGTH {
+    if ctx.data.len() < MIN_LENGTH_USER_PIN || ctx.data.len() > MAX_PIN_LENGTH {
         warn!(
             "Attempt to change PIN with incorrect lenght: {}",
             ctx.data.len()

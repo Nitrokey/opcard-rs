@@ -210,7 +210,7 @@ enum_u16! {
         KeyInformation = 0x00DE,
         SMkEnc = 0x00D1,
         SMkMac = 0x00D2,
-        ResetingCode = 0x00D3,
+        ResettingCode = 0x00D3,
         PSOEncDecKey = 0x00D5,
         SMEncMac = 0x00F4,
         UifCds = 0x00D6,
@@ -792,7 +792,7 @@ enum_subset! {
         SignGenerationDate,
         DecGenerationDate,
         AuthGenerationDate,
-        ResetingCode,
+        ResettingCode,
         PSOEncDecKey,
         UifCds,
         UifDec,
@@ -841,7 +841,7 @@ impl PutDataObject {
             Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             Self::CaFingerprint2 => put_ca_fingerprint(ctx.load_state()?, KeyType::Dec)?,
             Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
-            Self::ResetingCode => put_reseting_code(ctx.load_state()?)?,
+            Self::ResettingCode => put_resetting_code(ctx.load_state()?)?,
             Self::PSOEncDecKey => put_enc_dec_key(ctx.load_state()?)?,
             Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
             Self::UifDec => put_uif(ctx.load_state()?, KeyType::Dec)?,
@@ -874,7 +874,7 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
     Err(Status::FunctionNotSupported)
 }
 
-fn put_reseting_code<const R: usize, T: trussed::Client>(
+fn put_resetting_code<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() < MIN_LENGTH_RESET_CODE || ctx.data.len() > MAX_PIN_LENGTH {
