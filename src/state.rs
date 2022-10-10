@@ -466,6 +466,7 @@ impl Internal {
         value: &[u8],
         password: Password,
     ) -> Result<(), Error> {
+        let new_pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
         let (pin, tries) = match password {
             Password::Pw1 => (&mut self.user_pin, &mut self.user_pin_tries),
             Password::Pw3 => (&mut self.admin_pin, &mut self.admin_pin_tries),
@@ -478,7 +479,7 @@ impl Internal {
                 )
             }
         };
-        *pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
+        *pin = new_pin;
         *tries = 0;
         self.save(client)
     }
