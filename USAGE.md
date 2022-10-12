@@ -6,6 +6,12 @@ SPDX-License-Identifier: CC0-1.0
 Opcard User Guide
 =================
 
+## ⚠️ Security Warning
+
+This is **alpha** software and should currently not be used outside of
+testing. Updates may lead to data loss and the security of the keys and PINs
+is not guaranteed.
+
 ## Installation
 
 Currently only available for the Nitrokey 3A Mini.
