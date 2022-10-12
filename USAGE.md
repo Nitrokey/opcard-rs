@@ -19,7 +19,7 @@ Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/
 Currently, Opcard only supports curve25519 and P-256 curves.
 To edit the card, run `gpg --edit-card --expert` (`--expert` is required for P-256).
 GPG should show you information about the card.
-Enable adminitration commands with `admin` and edit the key types with `key-attr`.
+Enable administration commands with `admin` and edit the key types with `key-attr`.
 Select `ECC` (`RSA` support is coming soon) and then choose either `Curve 25519` or `NIST P-256`.
 
 The card will prompt you for the admin password (`12345678` by default).
