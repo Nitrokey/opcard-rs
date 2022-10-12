@@ -1232,7 +1232,7 @@ mod tests {
             };
 
             let mut historical_bytes = options.historical_bytes.clone();
-            historical_bytes[7] = 3;
+            historical_bytes[7] = 5;
 
             get_data(
                 context,
