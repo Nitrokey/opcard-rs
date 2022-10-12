@@ -4,7 +4,6 @@
 
 use std::sync::{Arc, Mutex};
 
-use hex_literal::hex;
 use iso7816::{command::FromSliceError, Command, Status};
 use opcard::Options;
 use openpgp_card::{
@@ -115,7 +114,7 @@ impl<T: trussed::Client + Send + Sync + 'static> CardTransaction for Transaction
 
 pub fn with_card_options<F: FnOnce(Card<Client<Ram>>) -> R, R>(options: Options, f: F) -> R {
     trussed::virt::with_ram_client("opcard", |client| {
-        with_activated_card(opcard::Card::new(client, options), f)
+        f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }
 
@@ -139,14 +138,4 @@ pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
         }
         Err(e) => panic!("Unexpected error {e}"),
     }
-}
-
-fn with_activated_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(
-    mut card: opcard::Card<Client<Ram>>,
-    f: F,
-) -> R {
-    let command: iso7816::Command<4> = iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
-    let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
-    card.handle(&command, &mut rep).unwrap();
-    f(Card::from_opcard(card))
 }

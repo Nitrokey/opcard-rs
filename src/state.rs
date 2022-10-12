@@ -197,23 +197,12 @@ impl State {
     }
     pub fn lifecycle(client: &mut impl trussed::Client) -> LifeCycle {
         match try_syscall!(client.entry_metadata(Location::Internal, Self::lifecycle_path())) {
-            Ok(Metadata {
-                metadata: Some(metadata),
-            }) if metadata.is_file() => LifeCycle::Operational,
-            _ => LifeCycle::Initialization,
+            Ok(Metadata { metadata: Some(_) }) => LifeCycle::Initialization,
+            _ => LifeCycle::Operational,
         }
     }
 
     pub fn terminate_df(client: &mut impl trussed::Client) -> Result<(), Status> {
-        try_syscall!(client.remove_file(Location::Internal, Self::lifecycle_path(),))
-            .map(|_| {})
-            .map_err(|_err| {
-                error!("Failed to write lifecycle: {_err:?}");
-                Status::UnspecifiedPersistentExecutionError
-            })
-    }
-
-    pub fn activate_file(client: &mut impl trussed::Client) -> Result<(), Status> {
         try_syscall!(client.write_file(
             Location::Internal,
             Self::lifecycle_path(),
@@ -225,6 +214,13 @@ impl State {
             error!("Failed to write lifecycle: {_err:?}");
             Status::UnspecifiedPersistentExecutionError
         })
+    }
+
+    pub fn activate_file(client: &mut impl trussed::Client) -> Result<(), Status> {
+        try_syscall!(client.remove_file(Location::Internal, Self::lifecycle_path(),)).ok();
+        // Errors can happen because of the removal of all files before the call to activate_file
+        // so they are silenced
+        Ok(())
     }
 }
 
