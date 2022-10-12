@@ -35,6 +35,13 @@ Download the latest compiled [release](https://github.com/Nitrokey/opcard-rs/rel
 Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
 `nitropy nk3 update <path/to/release/zip/file>`
 
+
+## Bug reports
+
+If you enconter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
+Please include the output of `gpg --card-status` so for context.
+
+
 ## License
 
 This project is licensed under the [GNU Lesser General Public License (LGPL)
