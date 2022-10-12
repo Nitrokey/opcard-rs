@@ -25,6 +25,8 @@ missing features for a first stable release.
 
 [v1.0.0 milestone]: https://github.com/Nitrokey/opcard-rs/milestone/2
 
+Check out the [user guide](USER_GUIDE.md) for more information on what can be done.
+
 ## Installation
 
 Currently only available for the Nitrokey 3A Mini.
