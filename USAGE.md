@@ -78,7 +78,7 @@ Your selection? 1
 The card will prompt you for the admin password (`12345678` by default).
 Continue for all three key types (signature, decryption and authentication).
 
-Finally, you can generate the keys with `generate`. `gpg` will ask you the user pin, `123456` by default.
+Finally, you can generate the keys with `generate`. `gpg` will ask you the admin pin then the user pin (`123456` by default).
 
 ```
 gpg/card> generate 
