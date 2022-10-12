@@ -25,6 +25,8 @@ missing features for a first stable release.
 
 [v1.0.0 milestone]: https://github.com/Nitrokey/opcard-rs/milestone/2
 
+Check out the [user guide](USAGE.md) for more information on what can be done.
+
 ## Installation
 
 Currently only available for the Nitrokey 3A Mini.
@@ -32,6 +34,13 @@ Currently only available for the Nitrokey 3A Mini.
 Download the latest compiled [release](https://github.com/Nitrokey/opcard-rs/releases) ZIP file.
 Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
 `nitropy nk3 update <path/to/release/zip/file>`
+
+
+## Bug reports
+
+If you enconter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
+Please include the output of `gpg --card-status` so for context.
+
 
 ## License
 
