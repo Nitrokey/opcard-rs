@@ -29,7 +29,11 @@ Finally, you can generate the keys with `generate`. `gpg` will ask you the user 
 
 ## Importing existing keys
 
-If you already have curve25519 or P-256 PGP keys, you should be able to import them using `gpg --edit-key <key email>` and then `keytocard`.
+⚠️ Opcard being alpha software, we do not guarantee that future updates will not lead to data loss. If you import a key to the card, we recommand you also keep a backup with `gpg --export-secret-keys <key email>` and `gpg --export-secret-subkeys <key email>`.
+
+
+If you already have curve25519 or P-256 PGP keys, you should be able to import them using `gpg --edit-key <key email>` and then `keytocard` (**this will delete your key from your computer!**) will move the signing key.
+Continue with `key 1` to select the encryption subkey and repeat `keytocard` to move it too.
 
 ## Changing the PIN
 
