@@ -53,7 +53,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
             }
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
-        SignatureAlgorithm::Rsa2k => sign_rsa(ctx, key_id, Mechanism::Rsa2kPkcs),
+        SignatureAlgorithm::Rsa2048 => sign_rsa(ctx, key_id, Mechanism::Rsa2048Pkcs),
         _ => {
             error!("Unimplemented operation");
             Err(Status::ConditionsOfUseNotSatisfied)
@@ -122,7 +122,7 @@ pub fn internal_authenticate<const R: usize, T: trussed::Client>(
             }
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
-        AuthenticationAlgorithm::Rsa2k => sign_rsa(ctx, key_id, Mechanism::Rsa2kPkcs),
+        AuthenticationAlgorithm::Rsa2048 => sign_rsa(ctx, key_id, Mechanism::Rsa2048Pkcs),
         _ => {
             error!("Unimplemented operation");
             Err(Status::ConditionsOfUseNotSatisfied)
@@ -157,7 +157,7 @@ pub fn decipher<const R: usize, T: trussed::Client>(
     match ctx.state.internal.dec_alg() {
         DecryptionAlgorithm::X255 => decrypt_ec(ctx, key_id, Mechanism::X255),
         DecryptionAlgorithm::EcDhP256 => decrypt_ec(ctx, key_id, Mechanism::P256),
-        DecryptionAlgorithm::Rsa2k => decrypt_rsa(ctx, key_id, Mechanism::Rsa2kPkcs),
+        DecryptionAlgorithm::Rsa2048 => decrypt_rsa(ctx, key_id, Mechanism::Rsa2048Pkcs),
         _ => {
             error!("Unimplemented operation");
             Err(Status::ConditionsOfUseNotSatisfied)

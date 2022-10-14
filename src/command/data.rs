@@ -1257,15 +1257,15 @@ mod tests {
                 (DataObject::ExtendedCapabilities, &EXTENDED_CAPABILITIES),
                 (
                     DataObject::AlgorithmAttributesSignature,
-                    SignatureAlgorithm::Rsa2k.attributes(),
+                    SignatureAlgorithm::Rsa2048.attributes(),
                 ),
                 (
                     DataObject::AlgorithmAttributesDecryption,
-                    DecryptionAlgorithm::Rsa2k.attributes(),
+                    DecryptionAlgorithm::Rsa2048.attributes(),
                 ),
                 (
                     DataObject::AlgorithmAttributesAuthentication,
-                    AuthenticationAlgorithm::Rsa2k.attributes(),
+                    AuthenticationAlgorithm::Rsa2048.attributes(),
                 ),
                 (
                     DataObject::PwStatusBytes,

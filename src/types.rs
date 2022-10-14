@@ -68,14 +68,14 @@ iterable_enum! {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
-        Rsa2k,
-        Rsa4k,
+        Rsa2048,
+        Rsa4096,
     }
 }
 
 impl Default for SignatureAlgorithm {
     fn default() -> Self {
-        Self::Rsa2k
+        Self::Rsa2048
     }
 }
 
@@ -89,8 +89,8 @@ impl SignatureAlgorithm {
         match self {
             Self::Ed255 => ED255_ATTRIBUTES,
             Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
-            Self::Rsa2k => RSA_2K_ATTRIBUTES,
-            Self::Rsa4k => RSA_4K_ATTRIBUTES,
+            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
         }
     }
 
@@ -107,8 +107,8 @@ impl TryFrom<&[u8]> for SignatureAlgorithm {
         match v {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
-            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
+            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2048),
+            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
     }
@@ -121,14 +121,14 @@ iterable_enum! {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         X255,
         EcDhP256,
-        Rsa2k,
-        Rsa4k,
+        Rsa2048,
+        Rsa4096,
     }
 }
 
 impl Default for DecryptionAlgorithm {
     fn default() -> Self {
-        Self::Rsa2k
+        Self::Rsa2048
     }
 }
 
@@ -142,8 +142,8 @@ impl DecryptionAlgorithm {
         match self {
             Self::X255 => X255_ATTRIBUTES,
             Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
-            Self::Rsa2k => RSA_2K_ATTRIBUTES,
-            Self::Rsa4k => RSA_4K_ATTRIBUTES,
+            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
         }
     }
 
@@ -160,8 +160,8 @@ impl TryFrom<&[u8]> for DecryptionAlgorithm {
         match v {
             X255_ATTRIBUTES => Ok(Self::X255),
             ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
-            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
-            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
+            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2048),
+            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
     }
@@ -174,14 +174,14 @@ iterable_enum! {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
-        Rsa2k,
-        Rsa4k,
+        Rsa2048,
+        Rsa4096,
     }
 }
 
 impl Default for AuthenticationAlgorithm {
     fn default() -> Self {
-        Self::Rsa2k
+        Self::Rsa2048
     }
 }
 
@@ -195,8 +195,8 @@ impl AuthenticationAlgorithm {
         match self {
             Self::Ed255 => ED255_ATTRIBUTES,
             Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
-            Self::Rsa2k => RSA_2K_ATTRIBUTES,
-            Self::Rsa4k => RSA_4K_ATTRIBUTES,
+            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
         }
     }
 
@@ -213,8 +213,8 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
         match v {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2k),
-            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4k),
+            RSA_2K_ATTRIBUTES => Ok(Self::Rsa2048),
+            RSA_4K_ATTRIBUTES => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
     }

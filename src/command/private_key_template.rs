@@ -49,7 +49,7 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        SignatureAlgorithm::Rsa2k | SignatureAlgorithm::Rsa4k => {
+        SignatureAlgorithm::Rsa2048 | SignatureAlgorithm::Rsa4096 => {
             warn!("Key import for RSA not supported");
             return Err(Status::FunctionNotSupported);
         }
@@ -76,7 +76,7 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
-        DecryptionAlgorithm::Rsa2k | DecryptionAlgorithm::Rsa4k => {
+        DecryptionAlgorithm::Rsa2048 | DecryptionAlgorithm::Rsa4096 => {
             warn!("Key import for RSA not supported");
             return Err(Status::FunctionNotSupported);
         }
@@ -103,7 +103,7 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        AuthenticationAlgorithm::Rsa2k | AuthenticationAlgorithm::Rsa4k => {
+        AuthenticationAlgorithm::Rsa2048 | AuthenticationAlgorithm::Rsa4096 => {
             warn!("Key import for RSA not supported");
             return Err(Status::FunctionNotSupported);
         }
