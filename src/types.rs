@@ -46,14 +46,14 @@ const RSA_2K_ATTRIBUTES: &[u8] = hex!("
     01
     0800 // Length modulus (in bit): 2048                                                                                                                                        
     0020 // Length exponent (in bit): 32
-    00   // 0: Acceptable format is: P and Q
+    02   // import in CRT Format
 ").as_slice();
 const RSA_4K_ATTRIBUTES: &[u8] = hex!(
     "
     01
     1000 // Length modulus (in bit): 4096
     0020 // Length exponent (in bit): 32
-    00   // 0: Acceptable format is: P and Q
+    02   // import in CRT Format
 "
 )
 .as_slice();
