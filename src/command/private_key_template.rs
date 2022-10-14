@@ -43,7 +43,7 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
         SignatureAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA not supported");
+            warn!("Key import for RSA4096 not supported");
             return Err(Status::FunctionNotSupported);
         }
     }
@@ -71,7 +71,7 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
         DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
         DecryptionAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA not supported");
+            warn!("Key import for RSA4096 not supported");
             return Err(Status::FunctionNotSupported);
         }
     }
@@ -99,7 +99,7 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
         AuthenticationAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA not supported");
+            warn!("Key import for RSA4096 not supported");
             return Err(Status::FunctionNotSupported);
         }
     }
@@ -178,12 +178,12 @@ fn put_rsa<const R: usize, T: trussed::Client>(
     mechanism: Mechanism,
 ) -> Result<Option<KeyId>, Status> {
     let key_data = parse_rsa_template(ctx.data).ok_or_else(|| {
-        warn!("Unable to parse rsa key");
+        warn!("Unable to parse RSA key");
         Status::IncorrectDataParameter
     })?;
 
     let key_message: Message = postcard_serialize_bytes(&key_data).map_err(|_err| {
-        error!("Failed to serialize rsa key: {_err:?}");
+        error!("Failed to serialize RSA key: {_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?;
     let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
