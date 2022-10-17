@@ -334,7 +334,7 @@ pub fn encipher<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if !ctx.state.runtime.other_verified {
-        warn!("Attempt to ensipher without PW1 verified");
+        warn!("Attempt to encipher without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
