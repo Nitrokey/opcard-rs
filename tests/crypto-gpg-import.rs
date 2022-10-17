@@ -268,7 +268,7 @@ fn gpg_255() {
             ],
             &[
                 vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(virt::KeyType::Cv25519NoAut),
+                virt::gpg_status(virt::KeyType::Cv25519NoAut, 1),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -277,7 +277,7 @@ fn gpg_255() {
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                 ],
                 virt::gpg_inquire_pin(),
-                virt::gpg_status(virt::KeyType::RsaNone),
+                virt::gpg_status(virt::KeyType::RsaNone, 0),
                 vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
             ]
             .into_iter()
@@ -546,7 +546,7 @@ fn gpg_p256() {
             ],
             &[
                 vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(virt::KeyType::P256NoAut),
+                virt::gpg_status(virt::KeyType::P256NoAut, 1),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -555,7 +555,7 @@ fn gpg_p256() {
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                 ],
                 virt::gpg_inquire_pin(),
-                virt::gpg_status(virt::KeyType::RsaNone),
+                virt::gpg_status(virt::KeyType::RsaNone, 0),
                 vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
             ]
             .into_iter()

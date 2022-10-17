@@ -648,6 +648,15 @@ impl Internal {
         self.sign_count
     }
 
+    pub fn increment_sign_count(&mut self, client: &mut impl trussed::Client) -> Result<(), Error> {
+        self.sign_count += 1;
+        // Sign count is returned on 3 bytes
+        if self.sign_count & 0xffffff == 0 {
+            self.sign_count = 0xffffff;
+        }
+        self.save(client)
+    }
+
     pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
         match ty {
             KeyType::Sign => self.signing_key,

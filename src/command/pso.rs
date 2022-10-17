@@ -43,6 +43,13 @@ pub fn sign<const R: usize, T: trussed::Client>(
     if !ctx.state.internal.pw1_valid_multiple() {
         ctx.state.runtime.sign_verified = false;
     }
+    ctx.state
+        .internal
+        .increment_sign_count(ctx.backend.client_mut())
+        .map_err(|_err| {
+            error!("Failed to increment sign count");
+            Status::UnspecifiedPersistentExecutionError
+        })?;
 
     match ctx.state.internal.sign_alg() {
         SignatureAlgorithm::Ed255 => sign_ec(ctx, key_id, Mechanism::Ed255),
