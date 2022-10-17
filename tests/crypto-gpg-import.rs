@@ -835,7 +835,7 @@ fn gpg_rsa() {
             ],
             &[
                 vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(virt::KeyType::RsaNoAut),
+                virt::gpg_status(virt::KeyType::RsaNoAut, 1),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -844,7 +844,7 @@ fn gpg_rsa() {
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
                 ],
                 virt::gpg_inquire_pin(),
-                virt::gpg_status(virt::KeyType::RsaNone),
+                virt::gpg_status(virt::KeyType::RsaNone, 0),
                 vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
             ]
             .into_iter()
