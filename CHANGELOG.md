@@ -9,12 +9,14 @@ SPDX-License-Identifier: CC0-1.0
 
 ### Features
 
+- Support using authentication keys for decryption and vice-versa with MANAGE SECURITY ENVIRONMENT ([#60][])
 - Support PIN resets using a resetting code ([#63][])
 
 ### Bugfixes
 
 - Fix the length of the Digital signature counter DO 0x93 ([#76][])
 
+[#60]: https://github.com/Nitrokey/opcard-rs/pull/60
 [#63]: https://github.com/Nitrokey/opcard-rs/pull/63
 [#76]: https://github.com/Nitrokey/opcard-rs/pull/76
 

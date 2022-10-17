@@ -7,6 +7,7 @@ use trussed::try_syscall;
 use trussed::types::*;
 
 use crate::card::LoadedContext;
+use crate::state::KeyRef;
 use crate::tlv::get_do;
 use crate::types::*;
 
@@ -14,18 +15,29 @@ fn check_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
-    if ctx.state.internal.uif(key).is_enabled()
-        && !ctx
-            .backend
-            .confirm_user_present()
-            .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
-    {
+    if ctx.state.internal.uif(key).is_enabled() {
+        prompt_uif(ctx)
+    } else {
+        Ok(())
+    }
+}
+
+fn prompt_uif<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let success = ctx
+        .backend
+        .confirm_user_present()
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    if !success {
         warn!("User presence confirmation timed out");
         // FIXME SecurityRelatedIssues (0x6600 is not available?)
-        return Err(Status::SecurityStatusNotSatisfied);
+        Err(Status::SecurityStatusNotSatisfied)
+    } else {
+        Ok(())
     }
-    Ok(())
 }
+
 // § 7.2.10
 pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
@@ -78,68 +90,129 @@ fn sign_ec<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&signature)
 }
 
+pub fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(KeyId, Mechanism, bool), Status> {
+    let (key_type, mechanism) = match ctx.state.runtime.keyrefs.internal_aut {
+        KeyRef::Aut => (
+            KeyType::Aut,
+            match ctx.state.internal.aut_alg() {
+                AuthenticationAlgorithm::EcDsaP256 => Mechanism::P256Prehashed,
+                AuthenticationAlgorithm::Ed255 => Mechanism::Ed255,
+
+                AuthenticationAlgorithm::Rsa2k | AuthenticationAlgorithm::Rsa4k => {
+                    error!("RSA is not implemented");
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+            },
+        ),
+        KeyRef::Dec => (
+            KeyType::Dec,
+            match ctx.state.internal.dec_alg() {
+                DecryptionAlgorithm::X255 => {
+                    warn!("Attempt to authenticate with X25519 key");
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+                DecryptionAlgorithm::EcDhP256 => Mechanism::P256Prehashed,
+                DecryptionAlgorithm::Rsa2k | DecryptionAlgorithm::Rsa4k => {
+                    error!("RSA is not implemented");
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+            },
+        ),
+    };
+
+    if mechanism == Mechanism::P256Prehashed && ctx.data.len() != 32 {
+        warn!(
+            "Attempt to sign with P256 with data length != 32: {}",
+            ctx.data.len()
+        );
+        return Err(Status::ConditionsOfUseNotSatisfied);
+    }
+
+    Ok((
+        ctx.state.internal.key_id(key_type).ok_or_else(|| {
+            warn!("Attempt to INTERNAL AUTHENTICATE without a key set");
+            Status::KeyReferenceNotFound
+        })?,
+        mechanism,
+        ctx.state.internal.uif(key_type).is_enabled(),
+    ))
+}
 // § 7.2.13
 pub fn internal_authenticate<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let key_id = ctx.state.internal.key_id(KeyType::Aut).ok_or_else(|| {
-        warn!("Attempt to authenticate without a key set");
-        Status::KeyReferenceNotFound
-    })?;
     if !ctx.state.runtime.other_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
-    check_uif(ctx.lend(), KeyType::Aut)?;
-
-    match ctx.state.internal.aut_alg() {
-        AuthenticationAlgorithm::Ed255 => sign_ec(ctx, key_id, Mechanism::Ed255),
-        AuthenticationAlgorithm::EcDsaP256 => {
-            if ctx.data.len() != 32 {
-                return Err(Status::ConditionsOfUseNotSatisfied);
-            }
-            sign_ec(ctx, key_id, Mechanism::P256Prehashed)
-        }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
+    let (key_id, mechanism, uif) = int_aut_key_mecha_uif(ctx.lend())?;
+    if uif {
+        prompt_uif(ctx.lend())?;
     }
+
+    sign_ec(ctx, key_id, mechanism)
+}
+
+pub fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(KeyId, Mechanism, bool), Status> {
+    let (key_type, mechanism) = match ctx.state.runtime.keyrefs.pso_decipher {
+        KeyRef::Dec => (
+            KeyType::Dec,
+            match ctx.state.internal.dec_alg() {
+                DecryptionAlgorithm::X255 => Mechanism::X255,
+                DecryptionAlgorithm::EcDhP256 => Mechanism::P256,
+                DecryptionAlgorithm::Rsa2k | DecryptionAlgorithm::Rsa4k => {
+                    error!("RSA is not implemented");
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+            },
+        ),
+        KeyRef::Aut => (
+            KeyType::Aut,
+            match ctx.state.internal.aut_alg() {
+                AuthenticationAlgorithm::EcDsaP256 => Mechanism::P256,
+                AuthenticationAlgorithm::Ed255 => {
+                    warn!("Attempt to decipher with Ed255 key");
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+
+                AuthenticationAlgorithm::Rsa2k | AuthenticationAlgorithm::Rsa4k => {
+                    error!("RSA is not implemented");
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+            },
+        ),
+    };
+
+    Ok((
+        ctx.state.internal.key_id(key_type).ok_or_else(|| {
+            warn!("Attempt to decrypt without a key set");
+            Status::KeyReferenceNotFound
+        })?,
+        mechanism,
+        ctx.state.internal.uif(key_type).is_enabled(),
+    ))
 }
 
 // § 7.2.11
 pub fn decipher<const R: usize, T: trussed::Client>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let key_id = ctx.state.internal.key_id(KeyType::Dec).ok_or_else(|| {
-        warn!("Attempt to authenticat without a key set");
-        Status::KeyReferenceNotFound
-    })?;
     if !ctx.state.runtime.other_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
-    if ctx.state.internal.uif(KeyType::Dec).is_enabled()
-        && !ctx
-            .backend
-            .confirm_user_present()
-            .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
-    {
-        warn!("User presence confirmation timed out");
-        // FIXME SecurityRelatedIssues (0x6600 is not available?)
-        return Err(Status::SecurityStatusNotSatisfied);
+    let (key_id, mechanism, uif) = decipher_key_mecha_uif(ctx.lend())?;
+    if uif {
+        prompt_uif(ctx.lend())?;
     }
 
-    match ctx.state.internal.dec_alg() {
-        DecryptionAlgorithm::X255 => decrypt_ec(ctx, key_id, Mechanism::X255),
-        DecryptionAlgorithm::EcDhP256 => decrypt_ec(ctx, key_id, Mechanism::P256),
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
-    }
+    decrypt_ec(ctx, key_id, mechanism)
 }
 
 fn decrypt_ec<const R: usize, T: trussed::Client>(

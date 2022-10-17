@@ -6,12 +6,13 @@ mod gen;
 mod private_key_template;
 mod pso;
 
+use hex_literal::hex;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
 use crate::error::Error;
 use crate::state::{
-    LifeCycle, State, MAX_GENERIC_LENGTH, MAX_PIN_LENGTH, MIN_LENGTH_ADMIN_PIN,
+    KeyRef, LifeCycle, State, MAX_GENERIC_LENGTH, MAX_PIN_LENGTH, MIN_LENGTH_ADMIN_PIN,
     MIN_LENGTH_RESET_CODE, MIN_LENGTH_USER_PIN,
 };
 use crate::tlv;
@@ -82,6 +83,7 @@ impl Command {
             Self::SelectData(occurrence) => select_data(context, *occurrence),
             Self::GetChallenge(length) => get_challenge(context, *length),
             Self::ResetRetryCounter(mode) => reset_retry_conter(context.load_state()?, *mode),
+            Self::ManageSecurityEnvironment(mode) => manage_security_environment(context, *mode),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
                 Err(Status::FunctionNotSupported)
@@ -299,7 +301,7 @@ impl TryFrom<u8> for GenerateAsymmetricKeyPairMode {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ManageSecurityEnvironmentMode {
     Authentication,
     Dec,
@@ -321,6 +323,7 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
 fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
         context.state.runtime.cur_do = None;
+        context.state.runtime.keyrefs = Default::default();
         Ok(())
     } else {
         info!("Selected application {:x?} not found", context.data);
@@ -628,5 +631,32 @@ fn get_challenge<const R: usize, T: trussed::Client>(
         )?
     }
 
+    Ok(())
+}
+
+// § 7.2.18
+fn manage_security_environment<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+    mode: ManageSecurityEnvironmentMode,
+) -> Result<(), Status> {
+    let key_ref = match ctx.data {
+        hex!("83 01 02") => KeyRef::Dec,
+        hex!("83 01 03") => KeyRef::Aut,
+        _ => {
+            warn!(
+                "Manage Security Environment called with invalid reference: {:x?}",
+                ctx.data
+            );
+            return Err(Status::IncorrectDataParameter);
+        }
+    };
+    info!("MANAGE SECURITY ENVIRONMENT: mode = {mode:?}, ref = {key_ref:?}");
+
+    match mode {
+        ManageSecurityEnvironmentMode::Dec => ctx.state.runtime.keyrefs.pso_decipher = key_ref,
+        ManageSecurityEnvironmentMode::Authentication => {
+            ctx.state.runtime.keyrefs.internal_aut = key_ref
+        }
+    }
     Ok(())
 }
