@@ -15,7 +15,7 @@ const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
 
 // § 4.4.3.12
 pub fn put_private_key_template<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let data = get_do(&[PRIVATE_KEY_TEMPLATE_DO], ctx.data).ok_or_else(|| {
         warn!("Got put private key template without 4D DO");
@@ -26,16 +26,7 @@ pub fn put_private_key_template<const R: usize, T: trussed::Client>(
     debug!("Importing {key_type:?} key");
 
     match key_type {
-        KeyType::Sign => {
-            put_sign(ctx.lend())?;
-            ctx.state
-                .internal
-                .set_sign_count(0, ctx.backend.client_mut())
-                .map_err(|_err| {
-                    warn!("Failed to save sign count: {_err}");
-                    Status::UnspecifiedNonpersistentExecutionError
-                })?;
-        }
+        KeyType::Sign => put_sign(ctx)?,
         KeyType::Dec => put_dec(ctx)?,
         KeyType::Aut => put_aut(ctx)?,
     }

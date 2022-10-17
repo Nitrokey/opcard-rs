@@ -291,7 +291,7 @@ pub struct Internal {
     cardholder_name: Bytes<39>,
     cardholder_sex: Sex,
     language_preferences: Bytes<8>,
-    sign_count: usize,
+    sign_count: u32,
     uif_sign: Uif,
     uif_dec: Uif,
     uif_aut: Uif,
@@ -644,17 +644,8 @@ impl Internal {
         self.save(client)
     }
 
-    pub fn sign_count(&self) -> usize {
+    pub fn sign_count(&self) -> u32 {
         self.sign_count
-    }
-
-    pub fn set_sign_count(
-        &mut self,
-        count: usize,
-        client: &mut impl trussed::Client,
-    ) -> Result<(), Error> {
-        self.sign_count = count;
-        self.save(client)
     }
 
     pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
@@ -683,7 +674,10 @@ impl Internal {
         client: &mut impl trussed::Client,
     ) -> Result<Option<(KeyId, KeyOrigin)>, Error> {
         match ty {
-            KeyType::Sign => swap(&mut self.signing_key, &mut new),
+            KeyType::Sign => {
+                self.sign_count = 0;
+                swap(&mut self.signing_key, &mut new)
+            }
             KeyType::Dec => swap(&mut self.confidentiality_key, &mut new),
             KeyType::Aut => swap(&mut self.aut_key, &mut new),
         }
