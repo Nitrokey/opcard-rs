@@ -444,11 +444,12 @@ const EXTENDED_CAPABILITIES: [u8; 10] = [
 
 const EF_ATR_INFO_TAG: u16 = 0x2f01;
 const EF_DIR_TAG: u16 = 0x2f00;
+// See 4.1.1
 const EF_DIR: &[u8] = &hex!(
     "
     61 11
-    4F 06 D27600012401 
-    50 07 4F70656e504750
+    4F 06 D27600012401 // Application identifier
+    50 07 4F70656e504750 // ASCII encoding of \"OpenPGP\"
 "
 );
 
@@ -581,13 +582,14 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
 }
 
 fn historical_bytes(chaining: bool, extended: bool, lifecycle: LifeCycle) -> [u8; 10] {
+    // See iso7618-4 8.1.1
     let mut base = hex!(
         "
-        00
-        31 F5
-        73 C0 01 E0
-        00
-        9000
+        00 // Category indicator (see table 83)
+        31 F5 // card service data (see table 85)
+        73 C0 01 E0 // Card capabilities (see table 86 to 88)
+        00 // Status (lifecycle) indicator
+        9000 // Status bytes
         "
     );
     const NO_CHAINING_MASK: u8 = 0b01111111;
