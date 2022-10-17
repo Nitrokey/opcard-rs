@@ -6,10 +6,15 @@ mod gen;
 mod private_key_template;
 mod pso;
 
+use hex_literal::hex;
 use iso7816::Status;
 
 use crate::card::{Context, LoadedContext, RID};
-use crate::state::{LifeCycle, State, MAX_GENERIC_LENGTH};
+use crate::error::Error;
+use crate::state::{
+    KeyRef, LifeCycle, State, MAX_GENERIC_LENGTH, MAX_PIN_LENGTH, MIN_LENGTH_ADMIN_PIN,
+    MIN_LENGTH_RESET_CODE, MIN_LENGTH_USER_PIN,
+};
 use crate::tlv;
 use crate::types::*;
 use trussed::config::MAX_MESSAGE_LENGTH;
@@ -72,11 +77,14 @@ impl Command {
             Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
             Self::InternalAuthenticate => pso::internal_authenticate(context.load_state()?),
             Self::Decipher => pso::decipher(context.load_state()?),
+            Self::Encipher => pso::encipher(context.load_state()?),
             Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
             Self::TerminateDf => terminate_df(context),
             Self::ActivateFile => activate_file(context),
             Self::SelectData(occurrence) => select_data(context, *occurrence),
             Self::GetChallenge(length) => get_challenge(context, *length),
+            Self::ResetRetryCounter(mode) => reset_retry_conter(context.load_state()?, *mode),
+            Self::ManageSecurityEnvironment(mode) => manage_security_environment(context, *mode),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
                 Err(Status::FunctionNotSupported)
@@ -184,6 +192,7 @@ impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
 pub enum Password {
     Pw1,
     Pw3,
+    ResetCode,
 }
 
 impl From<PasswordMode> for Password {
@@ -245,7 +254,7 @@ impl TryFrom<u8> for VerifyMode {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum ResetRetryCounterMode {
     ResettingCode,
     Verify,
@@ -293,7 +302,7 @@ impl TryFrom<u8> for GenerateAsymmetricKeyPairMode {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ManageSecurityEnvironmentMode {
     Authentication,
     Dec,
@@ -315,6 +324,7 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
 fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
         context.state.runtime.cur_do = None;
+        context.state.runtime.keyrefs = Default::default();
         Ok(())
     } else {
         info!("Selected application {:x?} not found", context.data);
@@ -378,11 +388,10 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     context: LoadedContext<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
-    const MIN_LENGTH_ADMIN_PIN: usize = 8;
-    const MIN_LENGTH_USER_PIN: usize = 6;
     let min_len = match password {
         Password::Pw1 => MIN_LENGTH_USER_PIN,
         Password::Pw3 => MIN_LENGTH_ADMIN_PIN,
+        Password::ResetCode => unreachable!(),
     };
 
     if context.data.len() < 2 * min_len {
@@ -504,6 +513,89 @@ fn activate_file<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
+// § 7.2.4
+fn reset_retry_conter<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    mode: ResetRetryCounterMode,
+) -> Result<(), Status> {
+    match mode {
+        ResetRetryCounterMode::Verify => reset_retry_conter_with_p3(ctx),
+        ResetRetryCounterMode::ResettingCode => reset_retry_conter_with_code(ctx),
+    }
+}
+
+fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    if ctx.data.len() < MIN_LENGTH_USER_PIN || ctx.data.len() > MAX_PIN_LENGTH {
+        warn!(
+            "Attempt to change PIN with incorrect lenght: {}",
+            ctx.data.len()
+        );
+        return Err(Status::IncorrectDataParameter);
+    }
+
+    if !ctx.state.runtime.admin_verified {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+
+    ctx.state
+        .internal
+        .change_pin(ctx.backend.client_mut(), ctx.data, Password::Pw1)
+        .map_err(|_err| {
+            error!("Failed to change PIN: {_err}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })
+}
+
+fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+) -> Result<(), Status> {
+    let code_len = ctx.state.internal.reset_code_len().ok_or_else(|| {
+        warn!("Attempt to use reset when not set");
+        Status::SecurityStatusNotSatisfied
+    })?;
+    if ctx.data.len() < MIN_LENGTH_RESET_CODE + MIN_LENGTH_USER_PIN {
+        warn!("Attempt to reset with too small new pin");
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+    let (old, new) = if ctx.data.len() < code_len {
+        (ctx.data, [].as_slice())
+    } else {
+        ctx.data.split_at(code_len)
+    };
+
+    let res = ctx
+        .state
+        .internal
+        .verify_pin(ctx.backend.client_mut(), old, Password::ResetCode);
+    match res {
+        Err(Error::TooManyTries) | Err(Error::InvalidPin) => {
+            return Err(Status::RemainingRetries(
+                ctx.state.internal.remaining_tries(Password::ResetCode),
+            ))
+        }
+        Err(_err) => {
+            error!("Failed to check reset code: {_err:?}");
+            return Err(Status::UnspecifiedNonpersistentExecutionError);
+        }
+        Ok(()) => {}
+    }
+
+    if new.len() > MAX_PIN_LENGTH || new.len() < MIN_LENGTH_USER_PIN {
+        warn!("Attempt to set resetting code with invalid length");
+        return Err(Status::IncorrectDataParameter);
+    }
+
+    ctx.state
+        .internal
+        .change_pin(ctx.backend.client_mut(), new, Password::Pw1)
+        .map_err(|_err| {
+            error!("Failed to change PIN: {_err:?}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })
+}
+
 // § 7.2.5
 fn select_data<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
@@ -540,5 +632,32 @@ fn get_challenge<const R: usize, T: trussed::Client>(
         )?
     }
 
+    Ok(())
+}
+
+// § 7.2.18
+fn manage_security_environment<const R: usize, T: trussed::Client>(
+    ctx: Context<'_, R, T>,
+    mode: ManageSecurityEnvironmentMode,
+) -> Result<(), Status> {
+    let key_ref = match ctx.data {
+        hex!("83 01 02") => KeyRef::Dec,
+        hex!("83 01 03") => KeyRef::Aut,
+        _ => {
+            warn!(
+                "Manage Security Environment called with invalid reference: {:x?}",
+                ctx.data
+            );
+            return Err(Status::IncorrectDataParameter);
+        }
+    };
+    info!("MANAGE SECURITY ENVIRONMENT: mode = {mode:?}, ref = {key_ref:?}");
+
+    match mode {
+        ManageSecurityEnvironmentMode::Dec => ctx.state.runtime.keyrefs.pso_decipher = key_ref,
+        ManageSecurityEnvironmentMode::Authentication => {
+            ctx.state.runtime.keyrefs.internal_aut = key_ref
+        }
+    }
     Ok(())
 }

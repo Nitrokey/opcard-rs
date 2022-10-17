@@ -4,13 +4,17 @@
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
+use trussed::{
+    syscall, try_syscall,
+    types::{KeySerialization, Location, Mechanism},
+};
 
 use crate::{
     card::{Context, LoadedContext, Options},
     command::{GetDataMode, Password, PutDataMode, Tag},
     state::{
         ArbitraryDO, KeyOrigin, PermissionRequirement, Sex, State, MAX_GENERIC_LENGTH,
-        MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH,
+        MAX_GENERIC_LENGTH_BE, MAX_PIN_LENGTH, MIN_LENGTH_RESET_CODE,
     },
     types::*,
     utils::InspectErr,
@@ -210,7 +214,7 @@ enum_u16! {
         KeyInformation = 0x00DE,
         SMkEnc = 0x00D1,
         SMkMac = 0x00D2,
-        ResetingCode = 0x00D3,
+        ResettingCode = 0x00D3,
         PSOEncDecKey = 0x00D5,
         SMEncMac = 0x00F4,
         UifCds = 0x00D6,
@@ -792,7 +796,7 @@ enum_subset! {
         SignGenerationDate,
         DecGenerationDate,
         AuthGenerationDate,
-        ResetingCode,
+        ResettingCode,
         PSOEncDecKey,
         UifCds,
         UifDec,
@@ -841,7 +845,7 @@ impl PutDataObject {
             Self::CaFingerprint1 => put_ca_fingerprint(ctx.load_state()?, KeyType::Aut)?,
             Self::CaFingerprint2 => put_ca_fingerprint(ctx.load_state()?, KeyType::Dec)?,
             Self::CaFingerprint3 => put_ca_fingerprint(ctx.load_state()?, KeyType::Sign)?,
-            Self::ResetingCode => put_reseting_code(ctx.load_state()?)?,
+            Self::ResettingCode => put_resetting_code(ctx.load_state()?)?,
             Self::PSOEncDecKey => put_enc_dec_key(ctx.load_state()?)?,
             Self::UifCds => put_uif(ctx.load_state()?, KeyType::Sign)?,
             Self::UifDec => put_uif(ctx.load_state()?, KeyType::Dec)?,
@@ -866,20 +870,63 @@ fn put_cardholder_cert<const R: usize, T: trussed::Client>(
     put_arbitrary_do(ctx, to_write)
 }
 
+const AES256_KEY_LEN: usize = 32;
+
 fn put_enc_dec_key<const R: usize, T: trussed::Client>(
-    _ctx: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO: implement
-    error!("Put data in even mode not yet implemented");
-    Err(Status::FunctionNotSupported)
+    if ctx.data.len() != AES256_KEY_LEN {
+        warn!(
+            "Attempt at importing an AES of length not {AES256_KEY_LEN}: {}",
+            ctx.data.len()
+        );
+        return Err(Status::ConditionsOfUseNotSatisfied);
+    }
+
+    let new_key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
+        Mechanism::Aes256Cbc,
+        ctx.data,
+        Location::Internal,
+        KeySerialization::Raw,
+    ))
+    .map_err(|_err| {
+        error!("Failed to import AES key: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+
+    let old_key = ctx
+        .state
+        .internal
+        .set_aes_key_id(Some(new_key), ctx.backend.client_mut())
+        .map_err(|_err| {
+            error!("Failed to set new key: {_err:?}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })?;
+    if let Some(old_key) = old_key {
+        syscall!(ctx.backend.client_mut().delete(old_key));
+    }
+
+    Ok(())
 }
 
-fn put_reseting_code<const R: usize, T: trussed::Client>(
-    _ctx: LoadedContext<'_, R, T>,
+fn put_resetting_code<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    // TODO: implement
-    error!("Put data in even mode not yet implemented");
-    Err(Status::FunctionNotSupported)
+    if ctx.data.len() < MIN_LENGTH_RESET_CODE || ctx.data.len() > MAX_PIN_LENGTH {
+        warn!(
+            "Attempt to set invalid size of resetting code: {}",
+            ctx.data.len()
+        );
+        return Err(Status::IncorrectDataParameter);
+    }
+    ctx.state
+        .internal
+        .change_pin(ctx.backend.client_mut(), ctx.data, Password::ResetCode)
+        .map_err(|_err| {
+            error!("Failed to change resetting code: {_err}");
+            Status::UnspecifiedNonpersistentExecutionError
+        })
 }
 
 fn put_uif<const R: usize, T: trussed::Client>(
@@ -1232,7 +1279,7 @@ mod tests {
             };
 
             let mut historical_bytes = options.historical_bytes.clone();
-            historical_bytes[7] = 3;
+            historical_bytes[7] = 5;
 
             get_data(
                 context,

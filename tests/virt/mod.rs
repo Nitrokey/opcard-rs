@@ -12,7 +12,6 @@ use std::{
     time::Duration,
 };
 
-use hex_literal::hex;
 use regex::{Regex, RegexSet};
 use stoppable_thread::spawn;
 
@@ -41,11 +40,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
         trussed::virt::with_ram_client("opcard", |client| {
-            let mut card = opcard::Card::new(client, opcard::Options::default());
-            let command: iso7816::Command<4> =
-                iso7816::Command::try_from(&hex!("00 44 0000")).unwrap();
-            let mut rep: heapless::Vec<u8, 0> = heapless::Vec::new();
-            card.handle(&command, &mut rep).unwrap();
+            let card = opcard::Card::new(client, opcard::Options::default());
             let mut virtual_card = opcard::VirtualCard::new(card);
             let mut result = Ok(());
             while !stopped.get() && result.is_ok() {
@@ -83,7 +78,7 @@ pub enum KeyType {
 }
 
 #[allow(unused)]
-pub fn gpg_status(key: KeyType) -> Vec<&'static str> {
+pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
     let (first, sec, third, fpr, grp) = match key {
         KeyType::Cv25519 => (
             r"keyattr:1:22:Ed25519:",
@@ -128,6 +123,20 @@ pub fn gpg_status(key: KeyType) -> Vec<&'static str> {
             "grp:[0]{40}:[0]{40}:[0]{40}:",
         ),
     };
+    // FIXME: This seems bad, but still less noisy than using `String` and adding `.to_string()` everywhere
+    let signcount = match sign_count {
+        0 => r"sigcount:0:::",
+        1 => r"sigcount:1:::",
+        2 => r"sigcount:2:::",
+        3 => r"sigcount:3:::",
+        4 => r"sigcount:4:::",
+        5 => r"sigcount:5:::",
+        6 => r"sigcount:6:::",
+        7 => r"sigcount:7:::",
+        8 => r"sigcount:8:::",
+        9 => r"sigcount:9:::",
+        _ => todo!(),
+    };
 
     let fprtimes = r"fprtime:\d*:\d*:\d*:";
 
@@ -147,7 +156,7 @@ pub fn gpg_status(key: KeyType) -> Vec<&'static str> {
         third,
         r"maxpinlen:127:127:127:",
         r"pinretry:3:3:3:",
-        r"sigcount:0:::",
+        signcount,
         r"kdf:off:",
         r"cafpr::::",
         fpr,

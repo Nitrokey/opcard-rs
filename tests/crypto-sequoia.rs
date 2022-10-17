@@ -81,12 +81,18 @@ fn sequoia_gen_key() {
         let dec_pubk =
             public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None)
                 .unwrap();
+        let dec_pubk_aut =
+            public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+                .unwrap();
 
         let (material, gendate) = admin
             .generate_key_simple(KeyType::Authentication, Some(AlgoSimple::NIST256))
             .unwrap();
         let aut_pubk =
             public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+                .unwrap();
+        let aut_pubk_dec =
+            public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None)
                 .unwrap();
 
         let (material, gendate) = admin
@@ -109,6 +115,9 @@ fn sequoia_gen_key() {
         let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
         let data = [2; 32];
         let signature = authenticator.sign(HashAlgorithm::SHA256, &data).unwrap();
+        assert!(dec_pubk_aut
+            .verify(&signature, HashAlgorithm::SHA256, &data)
+            .is_err());
         assert!(aut_pubk
             .verify(&signature, HashAlgorithm::SHA256, &data)
             .is_ok());
@@ -117,6 +126,28 @@ fn sequoia_gen_key() {
         session[0] = 7;
         let ciphertext = dec_pubk.encrypt(&session).unwrap();
         let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+        assert_eq!(session, decryptor.decrypt(&ciphertext, Some(32)).unwrap());
+
+        open.manage_security_environment(KeyType::Authentication, KeyType::Decryption)
+            .unwrap();
+        let mut user_card = open.user_card().unwrap();
+        let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+        let data = [3; 32];
+        let signature = authenticator.sign(HashAlgorithm::SHA256, &data).unwrap();
+        assert!(aut_pubk
+            .verify(&signature, HashAlgorithm::SHA256, &data)
+            .is_err());
+        dec_pubk_aut
+            .verify(&signature, HashAlgorithm::SHA256, &data)
+            .unwrap();
+
+        open.manage_security_environment(KeyType::Decryption, KeyType::Authentication)
+            .unwrap();
+        let mut user_card = open.user_card().unwrap();
+        let mut session = SessionKey::new(19);
+        session[0] = 7;
+        let ciphertext = aut_pubk_dec.encrypt(&session).unwrap();
+        let mut decryptor = user_card.decryptor_from_public(aut_pubk_dec, &|| {});
         assert_eq!(session, decryptor.decrypt(&ciphertext, Some(32)).unwrap());
     });
 
@@ -168,7 +199,28 @@ fn sequoia_gen_key() {
         let mut session = SessionKey::new(19);
         session[0] = 7;
         let ciphertext = dec_pubk.encrypt(&session).unwrap();
-        let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+        let mut decryptor = user_card.decryptor_from_public(dec_pubk.clone(), &|| {});
         assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
+
+        open.manage_security_environment(KeyType::Authentication, KeyType::Decryption)
+            .unwrap();
+        let mut user_card = open.user_card().unwrap();
+        let mut authenticator = user_card.authenticator_from_public(aut_pubk, &|| {});
+        let data = [3; 32];
+        // Signature with X25519 key should fail
+        let _ = authenticator
+            .sign(HashAlgorithm::SHA256, &data)
+            .unwrap_err();
+
+        open.manage_security_environment(KeyType::Decryption, KeyType::Authentication)
+            .unwrap();
+        let mut user_card = open.user_card().unwrap();
+        let mut session = SessionKey::new(19);
+        session[0] = 7;
+        let ciphertext = dec_pubk.encrypt(&session).unwrap();
+        let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+
+        // X25519 with and EdDSA key should fail
+        decryptor.decrypt(&ciphertext, None).unwrap_err();
     });
 }

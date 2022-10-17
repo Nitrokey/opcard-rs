@@ -1,0 +1,40 @@
+// Copyright (C) 2022 Nitrokey GmbH
+// SPDX-License-Identifier: LGPL-3.0-only
+
+[
+    IoTest(
+        name: "GET CHALLENGE",
+        cmd_resp: [
+            IoData(
+                input: "00 84 0000 0A",
+                output: And([NonZero, Len(0x0A)])
+            ),
+            IoData(
+                input: "00 84 0000 00 0400",
+                output: And([NonZero, Len(0x0400)])
+            )
+        ]
+    ),
+    IoTest(
+        name: "AES",
+        cmd_resp: [
+            // Verify Admin Pin
+            IoData(input: "00200083 08 3132333435363738"),
+            // Verify User Pin
+            IoData(input: "00200082 06 313233343536"),
+            // Set aes key
+            IoData(input: "0C DA 00D5 20 FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211"),
+            // Encrypt with AES
+            IoData(
+                input: "00 2A 86 80 10 00112233445566778899AABBCCDDEEFF 00",
+                output: Data("02 d9d2ca17e160427aee649db6912dbfad"),
+            ),
+            // Decrypt with AES
+            IoData(
+                input: "00 2A 80 86 11 02 d9d2ca17e160427aee649db6912dbfad 00",
+                output: Data("00112233445566778899AABBCCDDEEFF"),
+            ),
+        
+        ]
+    )
+]
