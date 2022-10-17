@@ -1,6 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use openpgp_card::StatusBytes;
 use test_log::test;
 
 mod card;
@@ -130,6 +131,20 @@ fn verify() {
         card.with_tx(|mut tx| {
             assert!(tx.reset_retry_counter_pw1(b"new code", None).is_err());
             assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert_eq!(
+                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                Some(2)
+            );
+            let short_reset = tx.reset_retry_counter_pw1(b"short", Some(&[0; 127]));
+            assert!(
+                matches!(
+                    short_reset,
+                    Err(openpgp_card::Error::CardStatus(
+                        StatusBytes::IncorrectParametersCommandDataField
+                    ))
+                ),
+                "Got: {short_reset:?}"
+            );
             assert_eq!(
                 error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
                 Some(2)

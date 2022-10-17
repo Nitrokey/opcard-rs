@@ -578,8 +578,8 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
         Ok(()) => {}
     }
 
-    if new.len() > MAX_PIN_LENGTH {
-        warn!("Attempt to set resetting code too short");
+    if new.len() > MAX_PIN_LENGTH || new.len() < MIN_LENGTH_USER_PIN {
+        warn!("Attempt to set resetting code with invalid length");
         return Err(Status::IncorrectDataParameter);
     }
 
