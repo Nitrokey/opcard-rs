@@ -23,6 +23,9 @@ use crate::utils::serde_bytes;
 
 /// Maximum supported length for PW1 and PW3
 pub const MAX_PIN_LENGTH: usize = 127;
+pub const MIN_LENGTH_RESET_CODE: usize = 8;
+pub const MIN_LENGTH_ADMIN_PIN: usize = 8;
+pub const MIN_LENGTH_USER_PIN: usize = 6;
 
 /// Default value for PW1
 pub const DEFAULT_USER_PIN: &[u8] = b"123456";
@@ -270,9 +273,11 @@ pub enum KeyOrigin {
 pub struct Internal {
     user_pin_tries: u8,
     admin_pin_tries: u8,
+    reset_code_tries: u8,
     pw1_valid_multiple: bool,
     user_pin: Bytes<MAX_PIN_LENGTH>,
     admin_pin: Bytes<MAX_PIN_LENGTH>,
+    reset_code_pin: Option<Bytes<MAX_PIN_LENGTH>>,
     signing_key: Option<(KeyId, KeyOrigin)>,
     confidentiality_key: Option<(KeyId, KeyOrigin)>,
     aut_key: Option<(KeyId, KeyOrigin)>,
@@ -305,6 +310,8 @@ impl Internal {
         Self {
             user_pin_tries: 0,
             admin_pin_tries: 0,
+            reset_code_tries: 0,
+            reset_code_pin: None,
             pw1_valid_multiple: false,
             admin_pin,
             user_pin,
@@ -365,6 +372,7 @@ impl Internal {
         match password {
             Password::Pw1 => Self::MAX_RETRIES.saturating_sub(self.user_pin_tries),
             Password::Pw3 => Self::MAX_RETRIES.saturating_sub(self.admin_pin_tries),
+            Password::ResetCode => Self::MAX_RETRIES.saturating_sub(self.reset_code_tries),
         }
     }
 
@@ -372,6 +380,7 @@ impl Internal {
         match password {
             Password::Pw1 => self.user_pin_tries >= Self::MAX_RETRIES,
             Password::Pw3 => self.admin_pin_tries >= Self::MAX_RETRIES,
+            Password::ResetCode => self.reset_code_tries >= Self::MAX_RETRIES,
         }
     }
 
@@ -384,6 +393,7 @@ impl Internal {
             match password {
                 Password::Pw1 => self.user_pin_tries += 1,
                 Password::Pw3 => self.admin_pin_tries += 1,
+                Password::ResetCode => self.reset_code_tries += 1,
             }
             self.save(client)
         } else {
@@ -399,14 +409,16 @@ impl Internal {
         match password {
             Password::Pw1 => self.user_pin_tries = 0,
             Password::Pw3 => self.admin_pin_tries = 0,
+            Password::ResetCode => self.reset_code_tries = 0,
         }
         self.save(client)
     }
 
-    fn pin(&self, password: Password) -> &[u8] {
+    fn pin(&self, password: Password) -> Option<&[u8]> {
         match password {
-            Password::Pw1 => &self.user_pin,
-            Password::Pw3 => &self.admin_pin,
+            Password::Pw1 => Some(&self.user_pin),
+            Password::Pw3 => Some(&self.admin_pin),
+            Password::ResetCode => self.reset_code_pin.as_ref().map(|d| &d[..]),
         }
     }
 
@@ -421,7 +433,8 @@ impl Internal {
         }
 
         self.decrement_counter(client, password)?;
-        if (!value.ct_eq(self.pin(password))).into() {
+        let pin = self.pin(password).ok_or(Error::BadRequest)?;
+        if (!value.ct_eq(pin)).into() {
             return Err(Error::InvalidPin);
         }
 
@@ -429,11 +442,18 @@ impl Internal {
         Ok(())
     }
 
+    /// Panics if password is ResetCode, use [reset_code_len](Self::reset_code_len) instead
     pub fn pin_len(&self, password: Password) -> usize {
         match password {
             Password::Pw1 => self.user_pin.len(),
             Password::Pw3 => self.admin_pin.len(),
+            Password::ResetCode => unreachable!(),
         }
+    }
+
+    /// Returns None if no code has been set
+    pub fn reset_code_len(&self) -> Option<usize> {
+        self.reset_code_pin.as_ref().map(|d| d.len())
     }
 
     pub fn change_pin<T: trussed::Client>(
@@ -442,11 +462,20 @@ impl Internal {
         value: &[u8],
         password: Password,
     ) -> Result<(), Error> {
+        let new_pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
         let (pin, tries) = match password {
             Password::Pw1 => (&mut self.user_pin, &mut self.user_pin_tries),
             Password::Pw3 => (&mut self.admin_pin, &mut self.admin_pin_tries),
+            Password::ResetCode => {
+                self.reset_code_pin = Some(Default::default());
+                (
+                    #[allow(clippy::unwrap_used)]
+                    self.reset_code_pin.as_mut().unwrap(),
+                    &mut self.reset_code_tries,
+                )
+            }
         };
-        *pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
+        *pin = new_pin;
         *tries = 0;
         self.save(client)
     }
