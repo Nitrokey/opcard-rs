@@ -4,6 +4,7 @@
 
 use std::borrow::Cow;
 
+use hex_literal::hex;
 use serde::Deserialize;
 
 // iso7816::Status doesn't support serde
@@ -47,6 +48,40 @@ fn serialize_len(len: usize) -> heapless::Vec<u8, 3> {
     } else {
     }
     buf
+}
+
+fn build_command(cla: u8, ins: u8, p1: u8, p2: u8, data: &[u8], le: u16) -> Vec<u8> {
+    let mut res = vec![cla, ins, p1, p2];
+    let lc = data.len();
+    let extended = if lc == 0 {
+        false
+    } else if let Ok(len) = lc.try_into() {
+        res.push(len);
+        false
+    } else {
+        let len: usize = lc.try_into().unwrap();
+        res.push(0);
+        res.extend_from_slice(&len.to_be_bytes());
+        true
+    };
+
+    res.extend_from_slice(data);
+
+    if le == 0 {
+        return res;
+    }
+
+    if let Ok(len) = (le - 1).try_into() {
+        let _: u8 = len;
+        res.push(len.wrapping_add(1));
+    } else if extended {
+        res.extend_from_slice(&le.to_be_bytes());
+    } else {
+        res.push(0);
+        res.extend_from_slice(&le.to_be_bytes());
+    }
+
+    res
 }
 
 impl TryFrom<u16> for Status {
@@ -94,19 +129,93 @@ impl Default for Status {
 }
 
 #[derive(Deserialize, Debug)]
+enum KeyType {
+    Sign,
+    Dec,
+    Aut,
+}
+
+const ED25519_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice();
+const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
+const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
+const X25519_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
+const RSA_2K_ATTRIBUTES: &[u8] = hex!("
+    01
+    0800 // Length modulus (in bit): 2048                                                                                                                                        
+    0020 // Length exponent (in bit): 32
+    00   // 0: Acceptable format is: P and Q
+").as_slice();
+const RSA_4K_ATTRIBUTES: &[u8] = hex!(
+    "
+    01
+    1000 // Length modulus (in bit): 4096
+    0020 // Length exponent (in bit): 32
+    00   // 0: Acceptable format is: P and Q
+"
+)
+.as_slice();
+
+#[derive(Deserialize, Debug)]
+enum KeyKind {
+    Rsa2048,
+    Rsa4096,
+    X25519,
+    Ed25519,
+    EcP256,
+    DhP256,
+}
+impl KeyKind {
+    pub fn attributes(&self) -> &'static [u8] {
+        match self {
+            Self::Ed25519 => ED25519_ATTRIBUTES,
+            Self::X25519 => X25519_ATTRIBUTES,
+            Self::EcP256 => ECDSA_P256_ATTRIBUTES,
+            Self::DhP256 => ECDH_P256_ATTRIBUTES,
+            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
+        }
+    }
+    pub fn is_ec(&self) -> bool {
+        !matches!(self, Self::Rsa2048 | Self::Rsa4096)
+    }
+}
+
+impl KeyType {
+    fn crt(&self) -> &'static [u8] {
+        match self {
+            Self::Sign => &[0xB6, 0x00],
+            Self::Dec => &[0xB8, 0x00],
+            Self::Aut => &[0xA4, 0x00],
+        }
+    }
+
+    fn attributes_tag(&self) -> u8 {
+        match self {
+            Self::Sign => 0xC1,
+            Self::Dec => 0xC2,
+            Self::Aut => 0xC3,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct IoTest {
     name: String,
     cmd_resp: Vec<IoCmd>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 enum OutputMatcher {
     Len(usize),
     // The () at the end are here to workaround a compiler bug. See:
     // https://github.com/rust-lang/rust/issues/89940#issuecomment-1282321806
     And(Cow<'static, [OutputMatcher]>, #[serde(default)] ()),
     Or(Cow<'static, [OutputMatcher]>, #[serde(default)] ()),
+    /// HEX data
     Data(Cow<'static, str>),
+    Bytes(Cow<'static, [u8]>),
     NonZero,
 }
 
@@ -129,6 +238,10 @@ impl OutputMatcher {
                 println!("Validating output with {expected}");
                 data == parse_hex(expected)
             }
+            Self::Bytes(expected) => {
+                println!("Validating output with {expected:x?}");
+                data == &**expected
+            }
             Self::Len(len) => data.len() == *len,
             Self::And(matchers, _) => matchers.iter().filter(|m| !m.validate(data)).count() == 0,
             Self::Or(matchers, _) => matchers.iter().filter(|m| m.validate(data)).count() != 0,
@@ -137,6 +250,7 @@ impl OutputMatcher {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 enum IoCmd {
     IoData {
         input: String,
@@ -148,6 +262,21 @@ enum IoCmd {
     VerifyDefaultSign,
     VerifyDefaultPw1,
     VerifyDefaultPw3,
+    ImportKey {
+        key: String,
+        key_type: KeyType,
+        #[serde(default)]
+        expected_status: Status,
+    },
+    ReadKey {
+        key_type: KeyType,
+        key_kind: KeyKind,
+        public_key: String,
+    },
+    SetAttributes {
+        key_kind: KeyKind,
+        key_type: KeyType,
+    },
 }
 
 const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
@@ -178,19 +307,32 @@ impl IoCmd {
                 Status::Success,
                 card,
             ),
+            Self::ImportKey {
+                key,
+                key_type,
+                expected_status,
+            } => Self::run_import(key, key_type, *expected_status, card),
+            Self::SetAttributes { key_kind, key_type } => {
+                Self::run_set_attributes(key_kind, key_type, card)
+            }
+            Self::ReadKey {
+                key_type,
+                key_kind,
+                public_key,
+            } => Self::run_read_key(key_kind, key_type, public_key, card),
         }
     }
 
-    fn run_iodata<T: trussed::Client>(
-        input: &str,
+    fn run_bytes<T: trussed::Client>(
+        input: &[u8],
         output: &OutputMatcher,
         expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
-        println!("Command: {:?}", input);
+        println!("Command: {:x?}", input);
         let mut rep: heapless::Vec<u8, 1024> = heapless::Vec::new();
-        let cmd: iso7816::Command<1024> = iso7816::Command::try_from(&parse_hex(input))
-            .unwrap_or_else(|err| {
+        let cmd: iso7816::Command<1024> =
+            iso7816::Command::try_from(&input).unwrap_or_else(|err| {
                 panic!("Bad command: {err:?}, for command: {}", hex::encode(&input))
             });
         let status: Status = card
@@ -207,6 +349,85 @@ impl IoCmd {
         if status != expected_status {
             panic!("Bad status. Expected {:?}", expected_status);
         }
+    }
+
+    fn run_iodata<T: trussed::Client>(
+        input: &str,
+        output: &OutputMatcher,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        Self::run_bytes(&parse_hex(input), output, expected_status, card)
+    }
+
+    fn run_import<T: trussed::Client>(
+        key: &str,
+        key_type: &KeyType,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let mut data = vec![0x4D];
+        let key = parse_hex(key);
+        let mut inner = Vec::from(key_type.crt());
+        let serialized_len = serialize_len(key.len());
+        inner.extend_from_slice(&hex!("7F 48"));
+        inner.extend_from_slice(&serialize_len(serialized_len.len() + 1));
+        inner.push(0x92);
+        inner.extend_from_slice(&serialized_len);
+        inner.extend_from_slice(&hex!("5F 48"));
+        inner.extend_from_slice(&serialized_len);
+        inner.extend_from_slice(&key);
+        inner.extend_from_slice(&serialize_len(serialized_len.len() + 1));
+
+        data.extend_from_slice(&serialize_len(inner.len()));
+        data.extend_from_slice(&inner);
+
+        let input = build_command(0x00, 0xDB, 0x3F, 0xFF, &data, 0);
+        Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
+    }
+
+    fn run_set_attributes<T: trussed::Client>(
+        key_kind: &KeyKind,
+        key_type: &KeyType,
+        card: &mut opcard::Card<T>,
+    ) {
+        let input = build_command(
+            0x00,
+            0xDA,
+            0x00,
+            key_type.attributes_tag(),
+            key_kind.attributes(),
+            0,
+        );
+        Self::run_bytes(&input, &OutputMatcher::Len(0), Status::Success, card)
+    }
+
+    fn run_read_key<T: trussed::Client>(
+        key_kind: &KeyKind,
+        key_type: &KeyType,
+        public_key: &str,
+        card: &mut opcard::Card<T>,
+    ) {
+        let input = build_command(0x00, 0x47, 0x81, 0x00, key_type.crt(), 0);
+        let mut expected_response = Vec::from(hex!("7f49"));
+        let mut inner;
+        if key_kind.is_ec() {
+            inner = Vec::from(hex!("86"));
+            let pubk = parse_hex(public_key);
+            inner.extend_from_slice(&serialize_len(pubk.len()));
+            inner.extend_from_slice(&pubk);
+        } else {
+            inner = parse_hex(public_key);
+        }
+        expected_response.extend_from_slice(&serialize_len(inner.len()));
+        expected_response.extend_from_slice(&inner);
+
+        Self::run_bytes(
+            &input,
+            &OutputMatcher::Bytes(Cow::Owned(expected_response)),
+            Status::Success,
+            card,
+        )
     }
 }
 
