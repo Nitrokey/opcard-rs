@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![cfg(feature = "virtual")]
 
+use std::borrow::Cow;
+
 use serde::Deserialize;
 
 // iso7816::Status doesn't support serde
@@ -29,6 +31,22 @@ enum Status {
     InstructionNotSupportedOrInvalid,
     ClassNotSupported,
     UnspecifiedCheckingError,
+}
+
+fn serialize_len(len: usize) -> heapless::Vec<u8, 3> {
+    let mut buf = heapless::Vec::new();
+    if let Ok(len) = u8::try_from(len) {
+        if len <= 0x7f {
+            buf.extend_from_slice(&[len]).ok();
+        } else {
+            buf.extend_from_slice(&[0x81, len]).ok();
+        }
+    } else if let Ok(len) = u16::try_from(len) {
+        let arr = len.to_be_bytes();
+        buf.extend_from_slice(&[0x82, arr[0], arr[1]]).ok();
+    } else {
+    }
+    buf
 }
 
 impl TryFrom<u16> for Status {
@@ -81,18 +99,20 @@ struct IoTest {
     cmd_resp: Vec<IoCmd>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Clone, Deserialize)]
 enum OutputMatcher {
-    And(Vec<OutputMatcher>),
-    Or(Vec<OutputMatcher>),
     Len(usize),
-    Data(String),
+    // The () at the end are here to workaround a compiler bug. See:
+    // https://github.com/rust-lang/rust/issues/89940#issuecomment-1282321806
+    And(Cow<'static, [OutputMatcher]>, #[serde(default)] ()),
+    Or(Cow<'static, [OutputMatcher]>, #[serde(default)] ()),
+    Data(Cow<'static, str>),
     NonZero,
 }
 
 impl Default for OutputMatcher {
     fn default() -> Self {
-        OutputMatcher::Len(0)
+        MATCH_EMPTY
     }
 }
 
@@ -110,8 +130,8 @@ impl OutputMatcher {
                 data == parse_hex(expected)
             }
             Self::Len(len) => data.len() == *len,
-            Self::And(matchers) => matchers.iter().filter(|m| !m.validate(data)).count() == 0,
-            Self::Or(matchers) => matchers.iter().filter(|m| m.validate(data)).count() != 0,
+            Self::And(matchers, _) => matchers.iter().filter(|m| !m.validate(data)).count() == 0,
+            Self::Or(matchers, _) => matchers.iter().filter(|m| m.validate(data)).count() != 0,
         }
     }
 }
@@ -125,7 +145,12 @@ enum IoCmd {
         #[serde(default)]
         expected_status: Status,
     },
+    VerifyDefaultSign,
+    VerifyDefaultPw1,
+    VerifyDefaultPw3,
 }
+
+const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
 
 impl IoCmd {
     fn run<T: trussed::Client>(&self, card: &mut opcard::Card<T>) {
@@ -135,6 +160,24 @@ impl IoCmd {
                 output,
                 expected_status,
             } => Self::run_iodata(&input, &output, *expected_status, card),
+            Self::VerifyDefaultSign => Self::run_iodata(
+                "00200081 06 313233343536",
+                &MATCH_EMPTY,
+                Status::Success,
+                card,
+            ),
+            Self::VerifyDefaultPw1 => Self::run_iodata(
+                "00200082 06 313233343536",
+                &MATCH_EMPTY,
+                Status::Success,
+                card,
+            ),
+            Self::VerifyDefaultPw3 => Self::run_iodata(
+                "00200083 08 3132333435363738",
+                &MATCH_EMPTY,
+                Status::Success,
+                card,
+            ),
         }
     }
 

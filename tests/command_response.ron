@@ -18,10 +18,8 @@
     IoTest(
         name: "AES",
         cmd_resp: [
-            // Verify Admin Pin
-            IoData(input: "00200083 08 3132333435363738"),
-            // Verify User Pin
-            IoData(input: "00200082 06 313233343536"),
+            VerifyDefaultPw3,
+            VerifyDefaultPw1,
             // Set aes key
             IoData(input: "0C DA 00D5 20 FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211"),
             // Encrypt with AES
