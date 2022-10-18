@@ -5,7 +5,7 @@
 use serde::Deserialize;
 
 // iso7816::Status doesn't support serde
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
 enum Status {
     Success,
     MoreAvailable(u8),
@@ -78,7 +78,7 @@ impl Default for Status {
 #[derive(Deserialize, Debug)]
 struct IoTest {
     name: String,
-    cmd_resp: Vec<IoData>,
+    cmd_resp: Vec<IoCmd>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -117,12 +117,54 @@ impl OutputMatcher {
 }
 
 #[derive(Deserialize, Debug)]
-struct IoData {
-    input: String,
-    #[serde(default)]
-    output: OutputMatcher,
-    #[serde(default)]
-    expected_status: Status,
+enum IoCmd {
+    IoData {
+        input: String,
+        #[serde(default)]
+        output: OutputMatcher,
+        #[serde(default)]
+        expected_status: Status,
+    },
+}
+
+impl IoCmd {
+    fn run<T: trussed::Client>(&self, card: &mut opcard::Card<T>) {
+        match self {
+            Self::IoData {
+                input,
+                output,
+                expected_status,
+            } => Self::run_iodata(&input, &output, *expected_status, card),
+        }
+    }
+
+    fn run_iodata<T: trussed::Client>(
+        input: &str,
+        output: &OutputMatcher,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        println!("Command: {:?}", input);
+        let mut rep: heapless::Vec<u8, 1024> = heapless::Vec::new();
+        let cmd: iso7816::Command<1024> = iso7816::Command::try_from(&parse_hex(input))
+            .unwrap_or_else(|err| {
+                panic!("Bad command: {err:?}, for command: {}", hex::encode(&input))
+            });
+        let status: Status = card
+            .handle(&cmd, &mut rep)
+            .err()
+            .map(|s| TryFrom::<u16>::try_from(s.into()).unwrap())
+            .unwrap_or_default();
+
+        println!("Output: {:?}\nStatus: {status:?}", hex::encode(&rep));
+
+        if !output.validate(&rep) {
+            panic!("Bad output. Expected {:?}", output);
+        }
+        if status != expected_status {
+            panic!("Bad status. Expected {:?}", expected_status);
+        }
+    }
 }
 
 #[test_log::test]
@@ -134,29 +176,7 @@ fn command_response() {
         trussed::virt::with_ram_client("opcard", |client| {
             let mut card = opcard::Card::new(client, opcard::Options::default());
             for io in t.cmd_resp {
-                println!("Command: {:?}", io.input);
-                let mut rep: heapless::Vec<u8, 1024> = heapless::Vec::new();
-                let cmd: iso7816::Command<1024> = iso7816::Command::try_from(&parse_hex(&io.input))
-                    .unwrap_or_else(|err| {
-                        panic!(
-                            "Bad command: {err:?}, for command: {}",
-                            hex::encode(&io.input)
-                        )
-                    });
-                let status: Status = card
-                    .handle(&cmd, &mut rep)
-                    .err()
-                    .map(|s| TryFrom::<u16>::try_from(s.into()).unwrap())
-                    .unwrap_or_default();
-
-                println!("Output: {:?}\nStatus: {status:?}", hex::encode(&rep));
-
-                if !io.output.validate(&rep) {
-                    panic!("Bad output. Expected {:?}", io.output);
-                }
-                if status != io.expected_status {
-                    panic!("Bad status. Expected {:?}", io.expected_status);
-                }
+                io.run(&mut card);
             }
         });
     }
