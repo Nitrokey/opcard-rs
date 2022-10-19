@@ -295,6 +295,10 @@ enum IoCmd {
         output: String,
         key_kind: KeyKind,
     },
+    Sign {
+        input: String,
+        output: String,
+    },
 }
 
 const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
@@ -312,6 +316,7 @@ impl IoCmd {
                 output,
                 key_kind,
             } => Self::run_decrypt(input, output, key_kind, card),
+            Self::Sign { input, output } => Self::run_sign(input, output, card),
             Self::VerifyDefaultSign => Self::run_iodata(
                 "00200081 06 313233343536",
                 &MATCH_EMPTY,
@@ -444,6 +449,16 @@ impl IoCmd {
         Self::run_bytes(
             &input,
             &OutputMatcher::Bytes(Cow::Owned(expected_response)),
+            Status::Success,
+            card,
+        )
+    }
+
+    fn run_sign<T: trussed::Client>(input: &str, output: &str, card: &mut opcard::Card<T>) {
+        let input = build_command(0x00, 0x2A, 0x9E, 0x9A, &parse_hex(input), 0);
+        Self::run_bytes(
+            &input,
+            &OutputMatcher::Bytes(Cow::Owned(parse_hex(output))),
             Status::Success,
             card,
         )
