@@ -6,9 +6,13 @@ SPDX-License-Identifier: CC0-1.0
 # opcard-rs
 
 `opcard` is a Rust implementation of the [OpenPGP smart card specification
-v3.4][spec].
+v3.4][spec] using the [Trussed][] framework for modern cryptographic firmware.
+It is developed for the [Nitrokey 3][] but can be used with any device
+supporting Trussed.
 
 [spec]: https://github.com/Nitrokey/openpgp-card/raw/master/OpenPGP%20Card%20Specification%203.4.pdf
+[Trussed]: https://github.com/trussed-dev/trussed
+[Nitrokey 3]: https://github.com/nitrokey/nitrokey-3-firmware
 
 ## ⚠️ Security Warning
 
@@ -38,7 +42,7 @@ Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/
 
 ## Bug reports
 
-If you enconter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
+If you encounter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
 Please include the output of `gpg --card-status` so for context.
 
 
