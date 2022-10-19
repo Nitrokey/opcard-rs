@@ -163,6 +163,7 @@ enum KeyKind {
     Ed25519,
     EcP256,
     DhP256,
+    Aes,
 }
 impl KeyKind {
     pub fn attributes(&self) -> &'static [u8] {
@@ -173,10 +174,14 @@ impl KeyKind {
             Self::DhP256 => ECDH_P256_ATTRIBUTES,
             Self::Rsa2048 => RSA_2K_ATTRIBUTES,
             Self::Rsa4096 => RSA_4K_ATTRIBUTES,
+            Self::Aes => panic!("AES cannot be used outside of decipher"),
         }
     }
     pub fn is_ec(&self) -> bool {
         !matches!(self, Self::Rsa2048 | Self::Rsa4096)
+    }
+    pub fn is_aes(&self) -> bool {
+        !matches!(self, Self::Aes)
     }
 }
 
@@ -277,6 +282,11 @@ enum IoCmd {
         key_kind: KeyKind,
         key_type: KeyType,
     },
+    Decrypt {
+        input: String,
+        output: String,
+        key_kind: KeyKind,
+    },
 }
 
 const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
@@ -289,6 +299,11 @@ impl IoCmd {
                 output,
                 expected_status,
             } => Self::run_iodata(&input, &output, *expected_status, card),
+            Self::Decrypt {
+                input,
+                output,
+                key_kind,
+            } => Self::run_decrypt(&input, &output, &key_kind, card),
             Self::VerifyDefaultSign => Self::run_iodata(
                 "00200081 06 313233343536",
                 &MATCH_EMPTY,
@@ -425,6 +440,45 @@ impl IoCmd {
         Self::run_bytes(
             &input,
             &OutputMatcher::Bytes(Cow::Owned(expected_response)),
+            Status::Success,
+            card,
+        )
+    }
+
+    fn run_decrypt<T: trussed::Client>(
+        input: &str,
+        output: &str,
+        key_kind: &KeyKind,
+        card: &mut opcard::Card<T>,
+    ) {
+        let input = parse_hex(input);
+        let mut data;
+        if key_kind.is_ec() {
+            let mut inner2 = vec![0x86];
+            inner2.extend_from_slice(&serialize_len(input.len()));
+            inner2.extend_from_slice(&input);
+
+            let mut inner = vec![0x7f, 0x49];
+            inner.extend_from_slice(&serialize_len(inner2.len()));
+            inner.extend_from_slice(&inner2);
+
+            data = vec![0xA6];
+            data.extend_from_slice(&serialize_len(inner.len()));
+            data.extend_from_slice(&inner);
+        } else if key_kind.is_aes() {
+            data = vec![0x02];
+            data.extend_from_slice(&serialize_len(input.len()));
+            data.extend_from_slice(&input);
+        } else {
+            data = vec![0x00];
+            data.extend_from_slice(&serialize_len(input.len()));
+            data.extend_from_slice(&input);
+        }
+
+        let input = build_command(0x00, 0x2A, 0x80, 0x86, &data, 0);
+        Self::run_bytes(
+            &input,
+            &OutputMatcher::Bytes(Cow::Owned(parse_hex(output))),
             Status::Success,
             card,
         )
