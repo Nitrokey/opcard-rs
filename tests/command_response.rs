@@ -59,7 +59,7 @@ fn build_command(cla: u8, ins: u8, p1: u8, p2: u8, data: &[u8], le: u16) -> Vec<
         res.push(len);
         false
     } else {
-        let len: usize = lc.try_into().unwrap();
+        let len: u16 = lc.try_into().unwrap();
         res.push(0);
         res.extend_from_slice(&len.to_be_bytes());
         true
@@ -298,12 +298,12 @@ impl IoCmd {
                 input,
                 output,
                 expected_status,
-            } => Self::run_iodata(&input, &output, *expected_status, card),
+            } => Self::run_iodata(input, output, *expected_status, card),
             Self::Decrypt {
                 input,
                 output,
                 key_kind,
-            } => Self::run_decrypt(&input, &output, &key_kind, card),
+            } => Self::run_decrypt(input, output, key_kind, card),
             Self::VerifyDefaultSign => Self::run_iodata(
                 "00200081 06 313233343536",
                 &MATCH_EMPTY,
@@ -346,10 +346,9 @@ impl IoCmd {
     ) {
         println!("Command: {:x?}", input);
         let mut rep: heapless::Vec<u8, 1024> = heapless::Vec::new();
-        let cmd: iso7816::Command<1024> =
-            iso7816::Command::try_from(&input).unwrap_or_else(|err| {
-                panic!("Bad command: {err:?}, for command: {}", hex::encode(&input))
-            });
+        let cmd: iso7816::Command<1024> = iso7816::Command::try_from(input).unwrap_or_else(|err| {
+            panic!("Bad command: {err:?}, for command: {}", hex::encode(&input))
+        });
         let status: Status = card
             .handle(&cmd, &mut rep)
             .err()
