@@ -27,11 +27,11 @@
                 input: "00 2A 86 80 10 00112233445566778899AABBCCDDEEFF 00",
                 output: Data("02 d9d2ca17e160427aee649db6912dbfad"),
             ),
-            // Decrypt with AES
-            IoData(
-                input: "00 2A 80 86 11 02 d9d2ca17e160427aee649db6912dbfad 00",
-                output: Data("00112233445566778899AABBCCDDEEFF"),
-            ),
+            Decrypt(
+                key_kind: Aes,
+                input: "d9d2ca17e160427aee649db6912dbfad",
+                output: "00112233445566778899AABBCCDDEEFF"
+            )
         
         ]
     ),
