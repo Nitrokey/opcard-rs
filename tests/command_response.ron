@@ -57,5 +57,32 @@
                 output: "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
             )
         ]
+    ),
+    IoTest(
+        name: "Ed25519 import",
+        cmd_resp: [
+            VerifyDefaultPw3,
+            VerifyDefaultPw1,
+            SetAttributes (key_type: Sign, key_kind: Ed25519),
+            ImportKey(
+                key: "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
+                key_type: Sign,
+                key_kind: Ed25519,
+            ),
+            ReadKey(
+                public_key: "ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf",
+                key_kind: Ed25519,
+                key_type: Sign,
+            ),
+            VerifyDefaultSign,
+            // FIXME: Investigate why this doesn't work
+            // Sign(
+            //     // SHA512(b"abc")
+            //     input: "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a
+            //             2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+            //     output: "98a70222f0b8121aa9d30f813d683f809e462b469c7ff87639499bb94e6dae41
+            //              31f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406"
+            // )
+        ]
     )
 ]
