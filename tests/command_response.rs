@@ -50,6 +50,13 @@ fn serialize_len(len: usize) -> heapless::Vec<u8, 3> {
     buf
 }
 
+fn tlv(tag: &[u8], data: &[u8]) -> Vec<u8> {
+    let mut buf = Vec::from(tag);
+    buf.extend_from_slice(&serialize_len(data.len()));
+    buf.extend_from_slice(data);
+    buf
+}
+
 fn build_command(cla: u8, ins: u8, p1: u8, p2: u8, data: &[u8], le: u16) -> Vec<u8> {
     let mut res = vec![cla, ins, p1, p2];
     let lc = data.len();
@@ -270,6 +277,7 @@ enum IoCmd {
     ImportKey {
         key: String,
         key_type: KeyType,
+        key_kind: KeyKind,
         #[serde(default)]
         expected_status: Status,
     },
@@ -325,8 +333,9 @@ impl IoCmd {
             Self::ImportKey {
                 key,
                 key_type,
+                key_kind,
                 expected_status,
-            } => Self::run_import(key, key_type, *expected_status, card),
+            } => Self::run_import(key, key_type, key_kind, *expected_status, card),
             Self::SetAttributes { key_kind, key_type } => {
                 Self::run_set_attributes(key_kind, key_type, card)
             }
@@ -377,26 +386,26 @@ impl IoCmd {
     fn run_import<T: trussed::Client>(
         key: &str,
         key_type: &KeyType,
+        key_kind: &KeyKind,
         expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
-        let mut data = vec![0x4D];
+        let crt = key_type.crt();
         let key = parse_hex(key);
-        let mut inner = Vec::from(key_type.crt());
-        let serialized_len = serialize_len(key.len());
-        inner.extend_from_slice(&hex!("7F 48"));
-        inner.extend_from_slice(&serialize_len(serialized_len.len() + 1));
-        inner.push(0x92);
-        inner.extend_from_slice(&serialized_len);
-        inner.extend_from_slice(&hex!("5F 48"));
-        inner.extend_from_slice(&serialized_len);
-        inner.extend_from_slice(&key);
-        inner.extend_from_slice(&serialize_len(serialized_len.len() + 1));
+        let mut template;
+        if key_kind.is_ec() {
+            template = vec![0x92];
+            template.extend_from_slice(&serialize_len(key.len()))
+        } else if key_kind.is_aes() {
+            todo!()
+        } else {
+            todo!()
+        }
+        let mut data = Vec::from(crt);
+        data.extend_from_slice(&tlv(&[0x7F, 0x48], &template));
+        data.extend_from_slice(&tlv(&[0x5F, 0x48], &key));
 
-        data.extend_from_slice(&serialize_len(inner.len()));
-        data.extend_from_slice(&inner);
-
-        let input = build_command(0x00, 0xDB, 0x3F, 0xFF, &data, 0);
+        let input = build_command(0x00, 0xDB, 0x3F, 0xFF, &tlv(&[0x4d], &data), 0);
         Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
     }
 
@@ -423,18 +432,14 @@ impl IoCmd {
         card: &mut opcard::Card<T>,
     ) {
         let input = build_command(0x00, 0x47, 0x81, 0x00, key_type.crt(), 0);
-        let mut expected_response = Vec::from(hex!("7f49"));
-        let mut inner;
-        if key_kind.is_ec() {
-            inner = Vec::from(hex!("86"));
+        let inner = if key_kind.is_ec() {
             let pubk = parse_hex(public_key);
-            inner.extend_from_slice(&serialize_len(pubk.len()));
-            inner.extend_from_slice(&pubk);
+            tlv(&[0x86], &pubk)
         } else {
-            inner = parse_hex(public_key);
-        }
-        expected_response.extend_from_slice(&serialize_len(inner.len()));
-        expected_response.extend_from_slice(&inner);
+            parse_hex(public_key)
+        };
+
+        let expected_response = tlv(&[0x7F, 0x49], &inner);
 
         Self::run_bytes(
             &input,
@@ -453,23 +458,12 @@ impl IoCmd {
         let input = parse_hex(input);
         let mut data;
         if key_kind.is_ec() {
-            let mut inner2 = vec![0x86];
-            inner2.extend_from_slice(&serialize_len(input.len()));
-            inner2.extend_from_slice(&input);
-
-            let mut inner = vec![0x7f, 0x49];
-            inner.extend_from_slice(&serialize_len(inner2.len()));
-            inner.extend_from_slice(&inner2);
-
-            data = vec![0xA6];
-            data.extend_from_slice(&serialize_len(inner.len()));
-            data.extend_from_slice(&inner);
+            data = tlv(&[0xA6], &tlv(&[0x7F, 0x49], &tlv(&[0x86], &input)))
         } else if key_kind.is_aes() {
             data = vec![0x02];
             data.extend_from_slice(&input);
         } else {
             data = vec![0x00];
-            data.extend_from_slice(&serialize_len(input.len()));
             data.extend_from_slice(&input);
         }
 
