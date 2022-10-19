@@ -178,10 +178,10 @@ impl KeyKind {
         }
     }
     pub fn is_ec(&self) -> bool {
-        !matches!(self, Self::Rsa2048 | Self::Rsa4096)
+        !matches!(self, Self::Rsa2048 | Self::Rsa4096 | Self::Aes)
     }
     pub fn is_aes(&self) -> bool {
-        !matches!(self, Self::Aes)
+        matches!(self, Self::Aes)
     }
 }
 
@@ -467,7 +467,6 @@ impl IoCmd {
             data.extend_from_slice(&inner);
         } else if key_kind.is_aes() {
             data = vec![0x02];
-            data.extend_from_slice(&serialize_len(input.len()));
             data.extend_from_slice(&input);
         } else {
             data = vec![0x00];
