@@ -35,29 +35,29 @@
         
         ]
     ),
-    IoTest(
-        name: "X25519 import",
-        cmd_resp: [
-            VerifyDefaultPw3,
-            VerifyDefaultPw1,
-            SetAttributes (key_type: Dec, key_kind: X25519),
-            ImportKey(
-                key: "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
-                key_type: Dec,
-                key_kind: X25519,
-            ),
-            ReadKey(
-                public_key: "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
-                key_kind: X25519,
-                key_type: Dec,
-            ),
-            Decrypt(
-                key_kind: X25519,
-                input: "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f",
-                output: "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
-            )
-        ]
-    ),
+    // IoTest(
+    //     name: "X25519 import",
+    //     cmd_resp: [
+    //         VerifyDefaultPw3,
+    //         VerifyDefaultPw1,
+    //         SetAttributes (key_type: Dec, key_kind: X25519),
+    //         ImportKey(
+    //             key: "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+    //             key_type: Dec,
+    //             key_kind: X25519,
+    //         ),
+    //         ReadKey(
+    //             public_key: "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
+    //             key_kind: X25519,
+    //             key_type: Dec,
+    //         ),
+    //         Decrypt(
+    //             key_kind: X25519,
+    //             input: "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f",
+    //             output: "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
+    //         )
+    //     ]
+    // ),
     IoTest(
         name: "Ed25519 import",
         cmd_resp: [
@@ -84,5 +84,25 @@
             //              31f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406"
             // )
         ]
-    )
+    ),
+    IoTest(
+        name: "X25519 import",
+        cmd_resp: [
+            VerifyDefaultPw3,
+            VerifyDefaultPw1,
+            SetAttributes (key_type: Dec, key_kind: X25519),
+            ImportKey(
+                key: "56ca9c48fec3ef2874f3e4c39730a7014da61cf77f50af086998957102837b00",
+                key_type: Dec,
+                key_kind: X25519,
+            ),
+            ReadKey(
+                public_key: "38B64BB09D88839BDC98DB56CF640ED80D3618E5A7EF2FA6EAD6DDDF1D3CB642",
+                key_kind: X25519,
+                key_type: Dec,
+            ),
+        ]
+    ),
 ]
+
+// 4d2ab8007f480292205f482056ca9c48fec3ef2874f3e4c39730a7014da61cf77f50af086998957102837b00
