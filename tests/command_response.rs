@@ -497,6 +497,7 @@ fn command_response() {
     let data = std::fs::read_to_string("tests/command_response.ron").unwrap();
     let tests: Vec<IoTest> = ron::from_str(&data).unwrap();
     for t in tests {
+        println!("\n\n===========================================================",);
         println!("Running {}", t.name);
         trussed::virt::with_ram_client("opcard", |client| {
             let mut card = opcard::Card::new(client, opcard::Options::default());
