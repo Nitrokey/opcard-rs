@@ -494,7 +494,7 @@ impl IoCmd {
 
 #[test_log::test]
 fn command_response() {
-    let data = std::fs::read_to_string("tests/command_response.ron").unwrap();
+    let data = std::fs::read_to_string("tests/command-response.ron").unwrap();
     let tests: Vec<IoTest> = ron::from_str(&data).unwrap();
     for t in tests {
         println!("\n\n===========================================================",);
