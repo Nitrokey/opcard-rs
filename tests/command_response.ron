@@ -74,15 +74,6 @@
                 key_kind: Ed25519,
                 key_type: Sign,
             ),
-            VerifyDefaultSign,
-            // FIXME: Investigate why this doesn't work
-            // Sign(
-            //     // SHA512(b"abc")
-            //     input: "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a
-            //             2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
-            //     output: "98a70222f0b8121aa9d30f813d683f809e462b469c7ff87639499bb94e6dae41
-            //              31f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406"
-            // )
         ]
     ),
     IoTest(
