@@ -70,6 +70,11 @@ Download the latest compiled [alpha release](https://github.com/Nitrokey/nitroke
 Plug your Nitrokey 3 and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
 `nitropy nk3 update <path/to/release/file>`
 
+## Minimum Supported Rust Version (MSRV)
+
+The minimum supported Rust version (MSRV) for this crate is the most recent stable Rust release.
+Older versions may or may not work.
+Rust versions older than 1.63.0 cannot be used to build this crate.
 
 ## Bug reports
 
