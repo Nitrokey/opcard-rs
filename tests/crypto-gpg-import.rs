@@ -187,17 +187,24 @@ fn gpg_255() {
         let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
         gnupg_test(
             &[DEFAULT_PW1],
-            &[vec![
-                r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
-                r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
-                r"\[GNUPG:\] BEGIN_DECRYPTION",
-                r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
-                r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
-                r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
-                r"\[GNUPG:\] DECRYPTION_OKAY",
-                r"\[GNUPG:\] GOODMDC",
-                r"\[GNUPG:\] END_DECRYPTION",
-            ]]
+            &[
+                vec![
+                    r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                    &custom1,
+                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 18 0",
+                ],
+                virt::gpg_inquire_pin(),
+                vec![
+                    r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
+                    r"\[GNUPG:\] BEGIN_DECRYPTION",
+                    r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
+                    r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
+                    r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
+                    r"\[GNUPG:\] DECRYPTION_OKAY",
+                    r"\[GNUPG:\] GOODMDC",
+                    r"\[GNUPG:\] END_DECRYPTION",
+                ],
+            ]
             .into_iter()
             .flatten()
             .collect::<Vec<&str>>(),
