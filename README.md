@@ -56,3 +56,11 @@ each file.  You can find a copy of the license texts in the
 This project complies with [version 3.0 of the REUSE specification][reuse].
 
 [reuse]: https://reuse.software/practices/3.0/
+
+## Funding
+
+[<img src="https://nlnet.nl/logo/banner.svg" width="200" alt="Logo NLnet: abstract logo of four people seen from above" hspace="20">](https://nlnet.nl/)
+[<img src="https://nlnet.nl/image/logos/NGI0PET_tag.svg" width="200" alt="Logo NGI Zero: letterlogo shaped like a tag" hspace="20">](https://nlnet.nl/NGI0/)
+
+This project was funded through the NGI0 PET Fund, a fund established by NLnet with financial support from the European Commission's Next Generation Internet programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 825310.
+
