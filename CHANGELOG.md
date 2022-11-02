@@ -17,7 +17,7 @@ SPDX-License-Identifier: CC0-1.0
 
 - Fix the length of the Digital signature counter DO 0x93 ([#76][])
 - PSO:CDS: Increment the signature counter ([#78][])
-- Fix endianness of curve25519 key impor([#89][])
+- Fix endianness of curve25519 key import([#89][])
 
 [#64]: https://github.com/Nitrokey/opcard-rs/pull/64
 [#60]: https://github.com/Nitrokey/opcard-rs/pull/60
