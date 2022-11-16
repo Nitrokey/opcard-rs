@@ -2,17 +2,16 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::Status;
-use trussed::types::{KeyId, KeySerialization, Location, Mechanism, Message, RsaCrtImportFormat};
-use trussed::{postcard_serialize_bytes, syscall, try_syscall};
+use trussed::types::{KeyId, KeySerialization, Location, Mechanism};
+use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
-use crate::tlv::{get_do, take_len};
+use crate::tlv::get_do;
 use crate::types::*;
 
 const PRIVATE_KEY_TEMPLATE_DO: u16 = 0x4D;
 const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
-const TEMPLATE_DO: u16 = 0x7F48;
 
 // § 4.4.3.12
 pub fn put_private_key_template<const R: usize, T: trussed::Client>(
@@ -146,7 +145,11 @@ fn put_ec<const R: usize, T: trussed::Client>(
     Ok(Some(key))
 }
 
-fn parse_rsa_template(data: &[u8]) -> Option<RsaCrtImportFormat<'_>> {
+#[cfg(feature = "rsa2048")]
+fn parse_rsa_template(data: &[u8]) -> Option<trussed::types::RsaCrtImportFormat<'_>> {
+    use crate::tlv::take_len;
+    const TEMPLATE_DO: u16 = 0x7F48;
+
     let mut template = get_do(&[PRIVATE_KEY_TEMPLATE_DO, TEMPLATE_DO], data)?;
     let mut res = [(0, 0); 6];
     let mut acc = 0;
@@ -163,7 +166,7 @@ fn parse_rsa_template(data: &[u8]) -> Option<RsaCrtImportFormat<'_>> {
     }
 
     let key_data = get_do(&[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO], data)?;
-    Some(RsaCrtImportFormat {
+    Some(trussed::types::RsaCrtImportFormat {
         e: key_data.get(res[0].0..res[0].1)?,
         p: key_data.get(res[1].0..res[1].1)?,
         q: key_data.get(res[2].0..res[2].1)?,
@@ -173,10 +176,13 @@ fn parse_rsa_template(data: &[u8]) -> Option<RsaCrtImportFormat<'_>> {
     })
 }
 
+#[cfg(feature = "rsa2048")]
 fn put_rsa<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     mechanism: Mechanism,
 ) -> Result<Option<KeyId>, Status> {
+    use trussed::{postcard_serialize_bytes, types::Message};
+
     let key_data = parse_rsa_template(ctx.data).ok_or_else(|| {
         warn!("Unable to parse RSA key");
         Status::IncorrectDataParameter
@@ -198,4 +204,12 @@ fn put_rsa<const R: usize, T: trussed::Client>(
     })?
     .key;
     Ok(Some(key))
+}
+
+#[cfg(not(feature = "rsa2048"))]
+fn put_rsa<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+    _mechanism: Mechanism,
+) -> Result<Option<KeyId>, Status> {
+    Err(Status::FunctionNotSupported)
 }

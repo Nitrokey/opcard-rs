@@ -82,6 +82,7 @@ pub fn aut<const R: usize, T: trussed::Client>(
     }
 }
 
+#[cfg(feature = "rsa2048")]
 fn gen_rsa_key<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
@@ -257,6 +258,7 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
     ctx.reply.prepend_len(offset)
 }
 
+#[cfg(feature = "rsa2048")]
 fn read_rsa_key<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key_id: KeyId,
@@ -302,4 +304,22 @@ fn read_rsa_key<const R: usize, T: trussed::Client>(
 
     syscall!(client.delete(public_key));
     Ok(())
+}
+
+#[cfg(not(feature = "rsa2048"))]
+fn gen_rsa_key<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+    _key: KeyType,
+    _mechanism: Mechanism,
+) -> Result<(), Status> {
+    Err(Status::FunctionNotSupported)
+}
+
+#[cfg(not(feature = "rsa2048"))]
+fn read_rsa_key<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+    _key_id: KeyId,
+    _mechanism: Mechanism,
+) -> Result<(), Status> {
+    Err(Status::FunctionNotSupported)
 }
