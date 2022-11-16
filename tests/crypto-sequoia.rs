@@ -18,6 +18,7 @@ use test_log::test;
 
 #[test]
 fn sequoia_gen_key() {
+    #[cfg(feature = "rsa2048")]
     virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
         let mut pgp = OpenPgp::new(cards.pop().unwrap());

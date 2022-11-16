@@ -510,6 +510,7 @@ fn gpg_p256() {
     });
 }
 
+#[cfg(feature = "rsa2048")]
 fn gpg_rsa() {
     with_vsc(|| {
         let file_number: u32 = rand::rngs::OsRng.gen();
@@ -733,6 +734,7 @@ fn gpg_rsa() {
 
 #[test]
 fn gpg_crypto() {
+    #[cfg(feature = "rsa2048")]
     gpg_rsa();
     gpg_255();
     gpg_p256();

@@ -11,7 +11,7 @@ FUZZ_DURATION?="0"
 .PHONY: check
 check:
 	cargo check --all-features --all-targets --workspace
-	cargo check --no-default-features
+	cargo check --no-default-features --all-targets
 	cargo clippy --all-features --all-targets -- --deny warnings
 	cargo fmt -- --check
 	RUSTDOCFLAGS='-Dwarnings' cargo doc --all-features --package opcard
@@ -24,7 +24,7 @@ fix:
 
 .PHONY: test
 test:
-	cargo test --features virtual
+	cargo test --features virtual,rsa2048
 
 .PHONY: fuzz
 fuzz: fuzz-corpus

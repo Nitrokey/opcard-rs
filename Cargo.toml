@@ -53,6 +53,7 @@ hex = { version = "0.4", features = ["serde"] }
 [features]
 std = []
 virtual = ["std", "vpicc"]
+rsa2048 = ["trussed/rsa2048"]
 
 # used for delog
 log-all = []
