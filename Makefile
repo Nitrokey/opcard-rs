@@ -24,7 +24,7 @@ fix:
 
 .PHONY: test
 test:
-	cargo test --features virtual,rsa2048
+	cargo test --features virtual,rsa2048,rsa4096
 
 .PHONY: fuzz
 fuzz: fuzz-corpus

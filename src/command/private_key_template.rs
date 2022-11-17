@@ -41,10 +41,7 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
-        SignatureAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA4096 not supported");
-            return Err(Status::FunctionNotSupported);
-        }
+        SignatureAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -69,10 +66,7 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
         DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
-        DecryptionAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA4096 not supported");
-            return Err(Status::FunctionNotSupported);
-        }
+        DecryptionAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -97,10 +91,7 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
-        AuthenticationAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA4096 not supported");
-            return Err(Status::FunctionNotSupported);
-        }
+        AuthenticationAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -181,14 +172,14 @@ fn put_rsa<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     mechanism: Mechanism,
 ) -> Result<Option<KeyId>, Status> {
-    use trussed::{postcard_serialize_bytes, types::Message};
+    use trussed::{postcard_serialize_bytes, types::SerializedKey};
 
     let key_data = parse_rsa_template(ctx.data).ok_or_else(|| {
         warn!("Unable to parse RSA key");
         Status::IncorrectDataParameter
     })?;
 
-    let key_message: Message = postcard_serialize_bytes(&key_data).map_err(|_err| {
+    let key_message: SerializedKey = postcard_serialize_bytes(&key_data).map_err(|_err| {
         error!("Failed to serialize RSA key: {_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?;

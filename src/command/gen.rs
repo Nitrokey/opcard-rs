@@ -37,9 +37,8 @@ pub fn sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        SignatureAlgorithm::Rsa4096 => {
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs)
         }
     }
 }
@@ -55,9 +54,8 @@ pub fn dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        DecryptionAlgorithm::Rsa4096 => {
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs)
         }
     }
 }
@@ -75,9 +73,8 @@ pub fn aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        AuthenticationAlgorithm::Rsa4096 => {
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs)
         }
     }
 }
@@ -160,10 +157,7 @@ pub fn read_sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
         SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs),
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
+        SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs),
     }
 }
 
@@ -181,10 +175,7 @@ pub fn read_dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs),
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
+        DecryptionAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs),
     }
 }
 
@@ -204,9 +195,8 @@ pub fn read_aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        AuthenticationAlgorithm::Rsa4096 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs)
         }
     }
 }

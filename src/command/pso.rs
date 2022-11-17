@@ -72,10 +72,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
         SignatureAlgorithm::Rsa2048 => sign_rsa(ctx, key_id, Mechanism::Rsa2048Pkcs),
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
+        SignatureAlgorithm::Rsa4096 => sign_rsa(ctx, key_id, Mechanism::Rsa4096Pkcs),
     }
 }
 
@@ -133,10 +130,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
                 AuthenticationAlgorithm::Ed255 => (Mechanism::Ed255, RsaOrEcc::Ecc),
 
                 AuthenticationAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
-                AuthenticationAlgorithm::Rsa4096 => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                AuthenticationAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
         KeyRef::Dec => (
@@ -148,10 +142,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
                 }
                 DecryptionAlgorithm::EcDhP256 => (Mechanism::P256Prehashed, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
-                DecryptionAlgorithm::Rsa4096 => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                DecryptionAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
     };
@@ -205,10 +196,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
                 DecryptionAlgorithm::X255 => (Mechanism::X255, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::EcDhP256 => (Mechanism::P256, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
-                DecryptionAlgorithm::Rsa4096 => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                DecryptionAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
         KeyRef::Aut => (
@@ -221,10 +209,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
                 }
 
                 AuthenticationAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
-                AuthenticationAlgorithm::Rsa4096 => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                AuthenticationAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
     };
