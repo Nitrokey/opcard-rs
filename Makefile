@@ -24,6 +24,7 @@ fix:
 
 .PHONY: test
 test:
+	cargo test --features virtual,rsa2048,rsa4096-gen gpg_crypto
 	cargo test --features virtual,rsa2048,rsa4096
 
 .PHONY: fuzz

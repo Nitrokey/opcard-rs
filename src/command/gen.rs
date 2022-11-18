@@ -38,7 +38,10 @@ pub fn sign<const R: usize, T: trussed::Client>(
             gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs)
         }
         SignatureAlgorithm::Rsa4096 => {
-            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs)
+            #[cfg(feature = "rsa4096-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs);
+            #[cfg(not(feature = "rsa4096-gen"))]
+            return Err(Status::FunctionNotSupported);
         }
     }
 }
@@ -55,7 +58,10 @@ pub fn dec<const R: usize, T: trussed::Client>(
             gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs)
         }
         DecryptionAlgorithm::Rsa4096 => {
-            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs)
+            #[cfg(feature = "rsa4096-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs);
+            #[cfg(not(feature = "rsa4096-gen"))]
+            return Err(Status::FunctionNotSupported);
         }
     }
 }
@@ -74,7 +80,10 @@ pub fn aut<const R: usize, T: trussed::Client>(
             gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs)
         }
         AuthenticationAlgorithm::Rsa4096 => {
-            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs)
+            #[cfg(feature = "rsa4096-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs);
+            #[cfg(not(feature = "rsa4096-gen"))]
+            return Err(Status::FunctionNotSupported);
         }
     }
 }

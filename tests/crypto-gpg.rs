@@ -26,6 +26,7 @@ fn attr_ec_ask() -> Vec<&'static str> {
     .collect()
 }
 
+#[cfg(feature = "rsa4096-gen")]
 fn attr_rsa_ask() -> Vec<&'static str> {
     iter::repeat(
         [
@@ -746,7 +747,7 @@ fn gpg_rsa_2048() {
     });
 }
 
-#[cfg(feature = "rsa4096")]
+#[cfg(feature = "rsa4096-gen")]
 fn gpg_rsa_4096() {
     with_vsc(|| {
         let file_number: u32 = rand::rngs::OsRng.gen();
@@ -986,7 +987,7 @@ fn gpg_rsa_4096() {
 fn gpg_crypto() {
     #[cfg(feature = "rsa2048")]
     gpg_rsa_2048();
-    #[cfg(feature = "rsa4096")]
+    #[cfg(feature = "rsa4096-gen")]
     gpg_rsa_4096();
     gpg_255();
     gpg_p256();

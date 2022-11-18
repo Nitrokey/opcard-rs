@@ -71,7 +71,7 @@ fn sequoia_gen_key() {
         assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
     });
 
-    #[cfg(feature = "rsa4096")]
+    #[cfg(feature = "rsa4096-gen")]
     virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
         let mut pgp = OpenPgp::new(cards.pop().unwrap());
