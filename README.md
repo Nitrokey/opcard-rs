@@ -6,9 +6,13 @@ SPDX-License-Identifier: CC0-1.0
 # opcard-rs
 
 `opcard` is a Rust implementation of the [OpenPGP smart card specification
-v3.4][spec].
+v3.4][spec] using the [Trussed][] framework for modern cryptographic firmware.
+It is developed for the [Nitrokey 3][] but can be used with any device
+supporting Trussed.
 
 [spec]: https://github.com/Nitrokey/openpgp-card/raw/master/OpenPGP%20Card%20Specification%203.4.pdf
+[Trussed]: https://github.com/trussed-dev/trussed
+[Nitrokey 3]: https://github.com/nitrokey/nitrokey-3-firmware
 
 ## ⚠️ Security Warning
 
@@ -38,7 +42,7 @@ Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/
 
 ## Bug reports
 
-If you enconter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
+If you encounter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
 Please include the output of `gpg --card-status` so for context.
 
 
@@ -56,3 +60,10 @@ each file.  You can find a copy of the license texts in the
 This project complies with [version 3.0 of the REUSE specification][reuse].
 
 [reuse]: https://reuse.software/practices/3.0/
+
+## Funding
+
+[<img src="https://nlnet.nl/logo/banner.svg" width="200" alt="Logo NLnet: abstract logo of four people seen from above" hspace="20">](https://nlnet.nl/)
+[<img src="https://nlnet.nl/image/logos/NGI0PET_tag.svg" width="200" alt="Logo NGI Zero: letterlogo shaped like a tag" hspace="20">](https://nlnet.nl/NGI0/)
+
+This project was funded through the [NGI0 PET](https://nlnet.nl/PET) Fund, a fund established by [NLnet](https://nlnet.nl/) with financial support from the European Commission's [Next Generation Internet programme](https://ngi.eu/), under the aegis of DG Communications Networks, Content and Technology under grant agreement No 825310.
