@@ -18,6 +18,7 @@ use test_log::test;
 
 #[test]
 fn sequoia_gen_key() {
+    #[cfg(feature = "rsa2048")]
     virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
         let mut pgp = OpenPgp::new(cards.pop().unwrap());
@@ -69,6 +70,59 @@ fn sequoia_gen_key() {
         let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
         assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
     });
+
+    #[cfg(feature = "rsa4096-gen")]
+    virt::with_vsc(|| {
+        let mut cards = PcscBackend::cards(None).unwrap();
+        let mut pgp = OpenPgp::new(cards.pop().unwrap());
+        let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
+        open.verify_admin(b"12345678").unwrap();
+        let mut admin = open.admin_card().unwrap();
+
+        let (material, gendate) = admin
+            .generate_key_simple(KeyType::Decryption, Some(AlgoSimple::RSA4k))
+            .unwrap();
+        let dec_pubk =
+            public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None)
+                .unwrap();
+
+        let (material, gendate) = admin
+            .generate_key_simple(KeyType::Authentication, Some(AlgoSimple::RSA4k))
+            .unwrap();
+        let aut_pubk =
+            public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+                .unwrap();
+
+        let (material, gendate) = admin
+            .generate_key_simple(KeyType::Signing, Some(AlgoSimple::RSA4k))
+            .unwrap();
+        let pubk =
+            public_key_material_to_key(&material, KeyType::Signing, &gendate, None, None).unwrap();
+
+        open.verify_user_for_signing(b"123456").unwrap();
+        let mut sign_card = open.signing_card().unwrap();
+        let mut signer = sign_card.signer_from_public(pubk.clone(), &|| {});
+        let data = [1; 64];
+        let signature = signer.sign(HashAlgorithm::SHA512, &data).unwrap();
+        assert!(pubk
+            .verify(&signature, HashAlgorithm::SHA512, &data)
+            .is_ok());
+        open.verify_user(b"123456").unwrap();
+        let mut user_card = open.user_card().unwrap();
+        let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+        let data = [2; 64];
+        let signature = authenticator.sign(HashAlgorithm::SHA512, &data).unwrap();
+        assert!(aut_pubk
+            .verify(&signature, HashAlgorithm::SHA512, &data)
+            .is_ok());
+
+        let mut session = SessionKey::new(19);
+        session[0] = 7;
+        let ciphertext = dec_pubk.encrypt(&session).unwrap();
+        let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+        assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
+    });
+
     virt::with_vsc(|| {
         let mut cards = PcscBackend::cards(None).unwrap();
         let mut pgp = OpenPgp::new(cards.pop().unwrap());

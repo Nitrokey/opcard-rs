@@ -416,11 +416,7 @@ struct PasswordStatus {
 impl From<PasswordStatus> for [u8; 7] {
     fn from(status: PasswordStatus) -> Self {
         [
-            if status.pw1_valid_multiple {
-                0x01
-            } else {
-                0x00
-            },
+            u8::from(status.pw1_valid_multiple),
             status.max_length_pw1,
             status.max_length_rc,
             status.max_length_pw3,

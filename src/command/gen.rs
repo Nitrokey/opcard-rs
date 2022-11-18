@@ -37,9 +37,11 @@ pub fn sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        SignatureAlgorithm::Rsa4096 => {
+            #[cfg(feature = "rsa4096-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs);
+            #[cfg(not(feature = "rsa4096-gen"))]
+            return Err(Status::FunctionNotSupported);
         }
     }
 }
@@ -55,9 +57,11 @@ pub fn dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        DecryptionAlgorithm::Rsa4096 => {
+            #[cfg(feature = "rsa4096-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs);
+            #[cfg(not(feature = "rsa4096-gen"))]
+            return Err(Status::FunctionNotSupported);
         }
     }
 }
@@ -75,13 +79,16 @@ pub fn aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        AuthenticationAlgorithm::Rsa4096 => {
+            #[cfg(feature = "rsa4096-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs);
+            #[cfg(not(feature = "rsa4096-gen"))]
+            return Err(Status::FunctionNotSupported);
         }
     }
 }
 
+#[cfg(feature = "rsa2048")]
 fn gen_rsa_key<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
@@ -159,10 +166,7 @@ pub fn read_sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
         SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs),
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
+        SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs),
     }
 }
 
@@ -180,10 +184,7 @@ pub fn read_dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs),
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
+        DecryptionAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs),
     }
 }
 
@@ -203,9 +204,8 @@ pub fn read_aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
+        AuthenticationAlgorithm::Rsa4096 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs)
         }
     }
 }
@@ -257,6 +257,7 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
     ctx.reply.prepend_len(offset)
 }
 
+#[cfg(feature = "rsa2048")]
 fn read_rsa_key<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key_id: KeyId,
@@ -302,4 +303,22 @@ fn read_rsa_key<const R: usize, T: trussed::Client>(
 
     syscall!(client.delete(public_key));
     Ok(())
+}
+
+#[cfg(not(feature = "rsa2048"))]
+fn gen_rsa_key<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+    _key: KeyType,
+    _mechanism: Mechanism,
+) -> Result<(), Status> {
+    Err(Status::FunctionNotSupported)
+}
+
+#[cfg(not(feature = "rsa2048"))]
+fn read_rsa_key<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+    _key_id: KeyId,
+    _mechanism: Mechanism,
+) -> Result<(), Status> {
+    Err(Status::FunctionNotSupported)
 }

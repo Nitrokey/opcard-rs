@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::Status;
-use trussed::types::{KeyId, KeySerialization, Location};
+use trussed::types::{KeyId, KeySerialization, Location, Mechanism};
 use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
@@ -40,10 +40,8 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        SignatureAlgorithm::Rsa2048 | SignatureAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA not supported");
-            return Err(Status::FunctionNotSupported);
-        }
+        SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
+        SignatureAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -67,10 +65,8 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
-        DecryptionAlgorithm::Rsa2048 | DecryptionAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA not supported");
-            return Err(Status::FunctionNotSupported);
-        }
+        DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
+        DecryptionAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -94,10 +90,8 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        AuthenticationAlgorithm::Rsa2048 | AuthenticationAlgorithm::Rsa4096 => {
-            warn!("Key import for RSA not supported");
-            return Err(Status::FunctionNotSupported);
-        }
+        AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
+        AuthenticationAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -128,9 +122,27 @@ fn put_ec<const R: usize, T: trussed::Client>(
         Status::IncorrectDataParameter
     })?;
 
+    // GPG stores scalars as big endian when X25519 specifies them to be little endian
+    // See https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html
+    let mut data: [u8; 32];
+    let message;
+    if matches!(curve, CurveAlgo::X255) {
+        data = private_key_data.try_into().map_err(|_| {
+            warn!(
+                "Bad private key length for x25519: {}",
+                private_key_data.len()
+            );
+            Status::IncorrectDataParameter
+        })?;
+        data.reverse();
+        message = data.as_slice();
+    } else {
+        message = private_key_data;
+    }
+
     let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         curve.mechanism(),
-        private_key_data,
+        message,
         Location::Internal,
         KeySerialization::Raw
     ))
@@ -140,4 +152,73 @@ fn put_ec<const R: usize, T: trussed::Client>(
     })?
     .key;
     Ok(Some(key))
+}
+
+#[cfg(feature = "rsa2048")]
+fn parse_rsa_template(data: &[u8]) -> Option<trussed::types::RsaCrtImportFormat<'_>> {
+    use crate::tlv::take_len;
+    const TEMPLATE_DO: u16 = 0x7F48;
+
+    let mut template = get_do(&[PRIVATE_KEY_TEMPLATE_DO, TEMPLATE_DO], data)?;
+    let mut res = [(0, 0); 6];
+    let mut acc = 0;
+    for i in 0..6 {
+        if *template.first()? != i + 0x91 {
+            warn!("Unexpected template data: {}", template.first()?);
+            return None;
+        }
+
+        let (size, d) = take_len(&template[1..])?;
+        res[i as usize] = (acc, acc + size);
+        acc += size;
+        template = d;
+    }
+
+    let key_data = get_do(&[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO], data)?;
+    Some(trussed::types::RsaCrtImportFormat {
+        e: key_data.get(res[0].0..res[0].1)?,
+        p: key_data.get(res[1].0..res[1].1)?,
+        q: key_data.get(res[2].0..res[2].1)?,
+        qinv: key_data.get(res[3].0..res[3].1)?,
+        dp: key_data.get(res[4].0..res[4].1)?,
+        dq: key_data.get(res[5].0..res[5].1)?,
+    })
+}
+
+#[cfg(feature = "rsa2048")]
+fn put_rsa<const R: usize, T: trussed::Client>(
+    ctx: LoadedContext<'_, R, T>,
+    mechanism: Mechanism,
+) -> Result<Option<KeyId>, Status> {
+    use trussed::{postcard_serialize_bytes, types::SerializedKey};
+
+    let key_data = parse_rsa_template(ctx.data).ok_or_else(|| {
+        warn!("Unable to parse RSA key");
+        Status::IncorrectDataParameter
+    })?;
+
+    let key_message: SerializedKey = postcard_serialize_bytes(&key_data).map_err(|_err| {
+        error!("Failed to serialize RSA key: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?;
+    let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
+        mechanism,
+        &key_message,
+        Location::Internal,
+        KeySerialization::RsaCrt
+    ))
+    .map_err(|_err| {
+        warn!("Failed to store key: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+    Ok(Some(key))
+}
+
+#[cfg(not(feature = "rsa2048"))]
+fn put_rsa<const R: usize, T: trussed::Client>(
+    _ctx: LoadedContext<'_, R, T>,
+    _mechanism: Mechanism,
+) -> Result<Option<KeyId>, Status> {
+    Err(Status::FunctionNotSupported)
 }
