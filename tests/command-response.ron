@@ -1,0 +1,99 @@
+// Copyright (C) 2022 Nitrokey GmbH
+// SPDX-License-Identifier: LGPL-3.0-only
+
+[
+    IoTest(
+        name: "GET CHALLENGE",
+        cmd_resp: [
+            IoData(
+                input: "00 84 0000 0A",
+                output: And([NonZero, Len(0x0A)])
+            ),
+            IoData(
+                input: "00 84 0000 00 0400",
+                output: And([NonZero, Len(0x0400)])
+            )
+        ]
+    ),
+    IoTest(
+        name: "AES",
+        cmd_resp: [
+            VerifyDefaultPw3,
+            VerifyDefaultPw1,
+            ImportKey(
+                key: "FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211",
+                key_kind: Aes,
+            ),
+            // Encrypt with AES
+            IoData(
+                input: "00 2A 86 80 10 00112233445566778899AABBCCDDEEFF 00",
+                output: Data("02 d9d2ca17e160427aee649db6912dbfad"),
+            ),
+            Decrypt(
+                key_kind: Aes,
+                input: "d9d2ca17e160427aee649db6912dbfad",
+                output: "00112233445566778899AABBCCDDEEFF"
+            )
+        
+        ]
+    ),
+    IoTest(
+        name: "X25519 import",
+        cmd_resp: [
+            VerifyDefaultPw3,
+            VerifyDefaultPw1,
+            SetAttributes (key_type: Dec, key_kind: X25519),
+            ImportKey(
+                key: "2a2cb91da5fb77b12a99c0eb872f4cdf4566b25172c1163c7da518730a6d0777",
+                key_type: Dec,
+                key_kind: X25519,
+            ),
+            ReadKey(
+                public_key: "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
+                key_kind: X25519,
+                key_type: Dec,
+            ),
+            Decrypt(
+                key_kind: X25519,
+                input: "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f",
+                output: "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
+            )
+        ]
+    ),
+    IoTest(
+        name: "Ed25519 import",
+        cmd_resp: [
+            VerifyDefaultPw3,
+            VerifyDefaultPw1,
+            SetAttributes (key_type: Sign, key_kind: Ed25519),
+            ImportKey(
+                key: "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
+                key_type: Sign,
+                key_kind: Ed25519,
+            ),
+            ReadKey(
+                public_key: "ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf",
+                key_kind: Ed25519,
+                key_type: Sign,
+            ),
+        ]
+    ),
+    IoTest(
+        name: "X25519 import",
+        cmd_resp: [
+            VerifyDefaultPw3,
+            VerifyDefaultPw1,
+            SetAttributes (key_type: Dec, key_kind: X25519),
+            ImportKey(
+                key: "56ca9c48fec3ef2874f3e4c39730a7014da61cf77f50af086998957102837b00",
+                key_type: Dec,
+                key_kind: X25519,
+            ),
+            ReadKey(
+                public_key: "38B64BB09D88839BDC98DB56CF640ED80D3618E5A7EF2FA6EAD6DDDF1D3CB642",
+                key_kind: X25519,
+                key_type: Dec,
+            ),
+        ]
+    ),
+]
