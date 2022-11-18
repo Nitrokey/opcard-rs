@@ -128,9 +128,27 @@ fn put_ec<const R: usize, T: trussed::Client>(
         Status::IncorrectDataParameter
     })?;
 
+    // GPG stores scalars as big endian when X25519 specifies them to be little endian
+    // See https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html
+    let mut data: [u8; 32];
+    let message;
+    if matches!(curve, CurveAlgo::X255) {
+        data = private_key_data.try_into().map_err(|_| {
+            warn!(
+                "Bad private key length for x25519: {}",
+                private_key_data.len()
+            );
+            Status::IncorrectDataParameter
+        })?;
+        data.reverse();
+        message = data.as_slice();
+    } else {
+        message = private_key_data;
+    }
+
     let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         curve.mechanism(),
-        private_key_data,
+        message,
         Location::Internal,
         KeySerialization::Raw
     ))
