@@ -20,8 +20,10 @@
         cmd_resp: [
             VerifyDefaultPw3,
             VerifyDefaultPw1,
-            // Set aes key
-            IoData(input: "0C DA 00D5 20 FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211"),
+            ImportKey(
+                key: "FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211",
+                key_kind: Aes,
+            ),
             // Encrypt with AES
             IoData(
                 input: "00 2A 86 80 10 00112233445566778899AABBCCDDEEFF 00",

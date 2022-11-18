@@ -5,6 +5,7 @@
 use std::borrow::Cow;
 
 use hex_literal::hex;
+use ron::{extensions::Extensions, Options};
 use serde::Deserialize;
 
 // iso7816::Status doesn't support serde
@@ -32,6 +33,60 @@ enum Status {
     InstructionNotSupportedOrInvalid,
     ClassNotSupported,
     UnspecifiedCheckingError,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[repr(u16)]
+enum DataObject {
+    PrivateUse1 = 0x0101,
+    PrivateUse2 = 0x0102,
+    PrivateUse3 = 0x0103,
+    PrivateUse4 = 0x0104,
+    ExtendedHeaderList = 0x3FFF,
+    ApplicationIdentifier = 0x004F,
+    LoginData = 0x005E,
+    Url = 0x5F50,
+    HistoricalBytes = 0x5F52,
+    CardHolderRelatedData = 0x0065,
+    CardHolderName = 0x005B,
+    LanguagePreferences = 0x5F2D,
+    CardHolderSex = 0x5F35,
+    ApplicationRelatedData = 0x006E,
+    GeneralFeatureManagement = 0x7f74,
+    DiscretionaryDataObjects = 0x0073,
+    ExtendedCapabilities = 0x00C0,
+    AlgorithmAttributesSignature = 0x00C1,
+    AlgorithmAttributesDecryption = 0x00C2,
+    AlgorithmAttributesAuthentication = 0x00C3,
+    PwStatusBytes = 0x00C4,
+    Fingerprints = 0x00C5,
+    CAFingerprints = 0x00C6,
+    SignFingerprint = 0x00C7,
+    DecFingerprint = 0x00C8,
+    AuthFingerprint = 0x00C9,
+    CaFingerprint1 = 0x00CA,
+    CaFingerprint2 = 0x00CB,
+    CaFingerprint3 = 0x00CC,
+    KeyGenerationDates = 0x00CD,
+    SignGenerationDate = 0x00CE,
+    DecGenerationDate = 0x00CF,
+    AuthGenerationDate = 0x00D0,
+    KeyInformation = 0x00DE,
+    SMkEnc = 0x00D1,
+    SMkMac = 0x00D2,
+    ResettingCode = 0x00D3,
+    PSOEncDecKey = 0x00D5,
+    SMEncMac = 0x00F4,
+    UifCds = 0x00D6,
+    UifDec = 0x00D7,
+    UifAut = 0x00D8,
+    SecuritySupportTemplate = 0x007A,
+    DigitalSignatureCounter = 0x0093,
+    CardHolderCertificate = 0x7f21,
+    ExtendedLengthInformation = 0x7f66,
+    KdfDo = 0x00F9,
+    AlgorithmInformation = 0x00FA,
+    SecureMessagingCertificate = 0x00FB,
 }
 
 fn serialize_len(len: usize) -> heapless::Vec<u8, 3> {
@@ -135,7 +190,7 @@ impl Default for Status {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 enum KeyType {
     Sign,
     Dec,
@@ -276,7 +331,8 @@ enum IoCmd {
     VerifyDefaultPw3,
     ImportKey {
         key: String,
-        key_type: KeyType,
+        #[serde(default)]
+        key_type: Option<KeyType>,
         key_kind: KeyKind,
         #[serde(default)]
         expected_status: Status,
@@ -340,7 +396,7 @@ impl IoCmd {
                 key_type,
                 key_kind,
                 expected_status,
-            } => Self::run_import(key, key_type, key_kind, *expected_status, card),
+            } => Self::run_import(key, *key_type, key_kind, *expected_status, card),
             Self::SetAttributes { key_kind, key_type } => {
                 Self::run_set_attributes(key_kind, key_type, card)
             }
@@ -388,24 +444,36 @@ impl IoCmd {
         Self::run_bytes(&parse_hex(input), output, expected_status, card)
     }
 
+    fn run_put_data<T: trussed::Client>(
+        data_object: DataObject,
+        data: &[u8],
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let [p1, p2] = (data_object as u16).to_be_bytes();
+
+        let input = build_command(0x00, 0xDA, p1, p2, data, 0);
+        Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
+    }
+
     fn run_import<T: trussed::Client>(
         key: &str,
-        key_type: &KeyType,
+        key_type: Option<KeyType>,
         key_kind: &KeyKind,
         expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
-        let crt = key_type.crt();
         let key = parse_hex(key);
         let mut template;
         if key_kind.is_ec() {
             template = vec![0x92];
             template.extend_from_slice(&serialize_len(key.len()))
         } else if key_kind.is_aes() {
-            todo!()
+            return Self::run_put_data(DataObject::PSOEncDecKey, &key, expected_status, card);
         } else {
             todo!()
         }
+        let crt = key_type.unwrap().crt();
         let mut data = Vec::from(crt);
         data.extend_from_slice(&tlv(&[0x7F, 0x48], &template));
         data.extend_from_slice(&tlv(&[0x5F, 0x48], &key));
@@ -495,7 +563,9 @@ impl IoCmd {
 #[test_log::test]
 fn command_response() {
     let data = std::fs::read_to_string("tests/command-response.ron").unwrap();
-    let tests: Vec<IoTest> = ron::from_str(&data).unwrap();
+
+    let ron = Options::default().with_default_extension(Extensions::IMPLICIT_SOME);
+    let tests: Vec<IoTest> = ron.from_str(&data).unwrap();
     for t in tests {
         println!("\n\n===========================================================",);
         println!("Running {}", t.name);
