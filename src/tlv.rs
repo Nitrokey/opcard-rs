@@ -52,7 +52,7 @@ fn take_tag(data: &[u8]) -> Option<(u16, &[u8])> {
     }
 }
 
-fn take_len(data: &[u8]) -> Option<(usize, &[u8])> {
+pub fn take_len(data: &[u8]) -> Option<(usize, &[u8])> {
     let l1 = *data.first()?;
     if l1 <= 0x7F {
         Some((l1 as usize, &data[1..]))
@@ -60,7 +60,10 @@ fn take_len(data: &[u8]) -> Option<(usize, &[u8])> {
         Some((*data.get(1)? as usize, &data[2..]))
     } else {
         if l1 != 0x82 {
-            warn!("Got an unexpected length tag: {l1:x}");
+            warn!(
+                "Got an unexpected length tag: {l1:x}, data: {:x?}",
+                &data[..3]
+            );
             return None;
         }
         let l2 = *data.get(1)?;

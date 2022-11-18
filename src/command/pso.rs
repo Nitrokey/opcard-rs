@@ -71,10 +71,8 @@ pub fn sign<const R: usize, T: trussed::Client>(
             }
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
-        _ => {
-            error!("Unimplemented operation");
-            Err(Status::ConditionsOfUseNotSatisfied)
-        }
+        SignatureAlgorithm::Rsa2048 => sign_rsa(ctx, key_id, Mechanism::Rsa2048Pkcs),
+        SignatureAlgorithm::Rsa4096 => sign_rsa(ctx, key_id, Mechanism::Rsa4096Pkcs),
     }
 }
 
@@ -97,20 +95,42 @@ fn sign_ec<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&signature)
 }
 
-pub fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
+fn sign_rsa<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+    key_id: KeyId,
+    mechanism: Mechanism,
+) -> Result<(), Status> {
+    let signature = try_syscall!(ctx.backend.client_mut().sign(
+        mechanism,
+        key_id,
+        ctx.data,
+        SignatureSerialization::Raw
+    ))
+    .map_err(|_err| {
+        error!("Failed to sign data: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .signature;
+    ctx.reply.expand(&signature)
+}
+
+enum RsaOrEcc {
+    Rsa,
+    Ecc,
+}
+
+fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
-) -> Result<(KeyId, Mechanism, bool), Status> {
-    let (key_type, mechanism) = match ctx.state.runtime.keyrefs.internal_aut {
+) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
+    let (key_type, (mechanism, key_kind)) = match ctx.state.runtime.keyrefs.internal_aut {
         KeyRef::Aut => (
             KeyType::Aut,
             match ctx.state.internal.aut_alg() {
-                AuthenticationAlgorithm::EcDsaP256 => Mechanism::P256Prehashed,
-                AuthenticationAlgorithm::Ed255 => Mechanism::Ed255,
+                AuthenticationAlgorithm::EcDsaP256 => (Mechanism::P256Prehashed, RsaOrEcc::Ecc),
+                AuthenticationAlgorithm::Ed255 => (Mechanism::Ed255, RsaOrEcc::Ecc),
 
-                AuthenticationAlgorithm::Rsa2k | AuthenticationAlgorithm::Rsa4k => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                AuthenticationAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
+                AuthenticationAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
         KeyRef::Dec => (
@@ -120,11 +140,9 @@ pub fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
                     warn!("Attempt to authenticate with X25519 key");
                     return Err(Status::ConditionsOfUseNotSatisfied);
                 }
-                DecryptionAlgorithm::EcDhP256 => Mechanism::P256Prehashed,
-                DecryptionAlgorithm::Rsa2k | DecryptionAlgorithm::Rsa4k => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                DecryptionAlgorithm::EcDhP256 => (Mechanism::P256Prehashed, RsaOrEcc::Ecc),
+                DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
+                DecryptionAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
     };
@@ -144,8 +162,10 @@ pub fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
         })?,
         mechanism,
         ctx.state.internal.uif(key_type).is_enabled(),
+        key_kind,
     ))
 }
+
 // § 7.2.13
 pub fn internal_authenticate<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
@@ -155,42 +175,41 @@ pub fn internal_authenticate<const R: usize, T: trussed::Client>(
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
-    let (key_id, mechanism, uif) = int_aut_key_mecha_uif(ctx.lend())?;
+    let (key_id, mechanism, uif, key_kind) = int_aut_key_mecha_uif(ctx.lend())?;
     if uif {
         prompt_uif(ctx.lend())?;
     }
 
-    sign_ec(ctx, key_id, mechanism)
+    match key_kind {
+        RsaOrEcc::Ecc => sign_ec(ctx, key_id, mechanism),
+        RsaOrEcc::Rsa => sign_rsa(ctx, key_id, mechanism),
+    }
 }
 
-pub fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
+fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
-) -> Result<(KeyId, Mechanism, bool), Status> {
-    let (key_type, mechanism) = match ctx.state.runtime.keyrefs.pso_decipher {
+) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
+    let (key_type, (mechanism, key_kind)) = match ctx.state.runtime.keyrefs.pso_decipher {
         KeyRef::Dec => (
             KeyType::Dec,
             match ctx.state.internal.dec_alg() {
-                DecryptionAlgorithm::X255 => Mechanism::X255,
-                DecryptionAlgorithm::EcDhP256 => Mechanism::P256,
-                DecryptionAlgorithm::Rsa2k | DecryptionAlgorithm::Rsa4k => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                DecryptionAlgorithm::X255 => (Mechanism::X255, RsaOrEcc::Ecc),
+                DecryptionAlgorithm::EcDhP256 => (Mechanism::P256, RsaOrEcc::Ecc),
+                DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
+                DecryptionAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
         KeyRef::Aut => (
             KeyType::Aut,
             match ctx.state.internal.aut_alg() {
-                AuthenticationAlgorithm::EcDsaP256 => Mechanism::P256,
+                AuthenticationAlgorithm::EcDsaP256 => (Mechanism::P256, RsaOrEcc::Ecc),
                 AuthenticationAlgorithm::Ed255 => {
                     warn!("Attempt to decipher with Ed255 key");
                     return Err(Status::ConditionsOfUseNotSatisfied);
                 }
 
-                AuthenticationAlgorithm::Rsa2k | AuthenticationAlgorithm::Rsa4k => {
-                    error!("RSA is not implemented");
-                    return Err(Status::ConditionsOfUseNotSatisfied);
-                }
+                AuthenticationAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
+                AuthenticationAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs, RsaOrEcc::Rsa),
             },
         ),
     };
@@ -202,6 +221,7 @@ pub fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
         })?,
         mechanism,
         ctx.state.internal.uif(key_type).is_enabled(),
+        key_kind,
     ))
 }
 
@@ -221,12 +241,42 @@ pub fn decipher<const R: usize, T: trussed::Client>(
         return decipher_aes(ctx);
     }
 
-    let (key_id, mechanism, uif) = decipher_key_mecha_uif(ctx.lend())?;
+    let (key_id, mechanism, uif, key_kind) = decipher_key_mecha_uif(ctx.lend())?;
     if uif {
         prompt_uif(ctx.lend())?;
     }
+    match key_kind {
+        RsaOrEcc::Ecc => decrypt_ec(ctx, key_id, mechanism),
+        RsaOrEcc::Rsa => decrypt_rsa(ctx, key_id, mechanism),
+    }
+}
 
-    decrypt_ec(ctx, key_id, mechanism)
+fn decrypt_rsa<const R: usize, T: trussed::Client>(
+    mut ctx: LoadedContext<'_, R, T>,
+    private_key: KeyId,
+    mechanism: Mechanism,
+) -> Result<(), Status> {
+    if ctx.data.is_empty() {
+        return Err(Status::IncorrectDataParameter);
+    }
+    let plaintext = try_syscall!(ctx.backend.client_mut().decrypt(
+        mechanism,
+        private_key,
+        &ctx.data[1..],
+        &[],
+        &[],
+        &[]
+    ))
+    .map_err(|_err| {
+        error!("Failed to decrypt data: {_err:?}");
+        Status::IncorrectDataParameter
+    })?
+    .plaintext
+    .ok_or_else(|| {
+        warn!("No plaintext");
+        Status::IncorrectDataParameter
+    })?;
+    ctx.reply.expand(&plaintext)
 }
 
 fn decrypt_ec<const R: usize, T: trussed::Client>(

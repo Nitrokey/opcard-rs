@@ -53,6 +53,9 @@ hex = { version = "0.4", features = ["serde"] }
 [features]
 std = []
 virtual = ["std", "vpicc"]
+rsa2048 = ["trussed/rsa2048"]
+rsa4096 = ["rsa2048", "trussed/rsa4096"]
+rsa4096-gen = ["rsa4096"]
 
 # used for delog
 log-all = []
@@ -63,9 +66,17 @@ log-warn = []
 log-error = []
 
 [patch.crates-io]
-trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "6de826f3bcbef247e55fd890d80d9ed6ce9f0abc" }
+# trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "6de826f3bcbef247e55fd890d80d9ed6ce9f0abc" }
+trussed = { git = "https://github.com/nitrokey/trussed" , branch = "rsa-import" }
 littlefs2-sys = { git = "https://github.com/sosthene-nitrokey/littlefs2-sys.git", branch = "bindgen-runtime-feature" }
 interchange = { git = "https://github.com/trussed-dev/interchange.git", rev = "fe5633466640e1e9a8c06d9b5dd1d0af08c272af" }
+p256-cortex-m4 = { git = "https://github.com/sosthene-nitrokey/p256-cortex-m4.git", branch = "upgrade" }
 
 [package.metadata.docs.rs]
 all-features = true
+
+[profile.dev.package.rsa]
+opt-level = 2
+
+[profile.dev.package.num-bigint-dig]
+opt-level = 2

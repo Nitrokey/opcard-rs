@@ -11,7 +11,7 @@ FUZZ_DURATION?="0"
 .PHONY: check
 check:
 	cargo check --all-features --all-targets --workspace
-	cargo check --no-default-features
+	cargo check --no-default-features --all-targets
 	cargo clippy --all-features --all-targets -- --deny warnings
 	cargo fmt -- --check
 	RUSTDOCFLAGS='-Dwarnings' cargo doc --all-features --package opcard
@@ -24,7 +24,8 @@ fix:
 
 .PHONY: test
 test:
-	cargo test --features virtual
+	cargo test --features virtual,rsa2048,rsa4096-gen gpg_crypto,sequoia_gen_key
+	cargo test --features virtual,rsa2048,rsa4096
 
 .PHONY: fuzz
 fuzz: fuzz-corpus
@@ -45,7 +46,7 @@ fuzz-cov:
 
 .PHONY: tarpaulin
 tarpaulin:
-	cargo tarpaulin --features virtual -o Html -o Xml
+	cargo tarpaulin --features virtual,rsa4096-gen -o Html -o Xml
 
 .PHONY: ci
 ci: check tarpaulin
