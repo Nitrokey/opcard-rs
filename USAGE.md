@@ -22,7 +22,7 @@ Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/
 
 ## Generating keys
 
-OPcard supports Rsa 2048 and 4096 bits, P-256, X25519 ad Ed25519.
+OPcard supports RSA 2048 and 4096 bits, P-256, X25519 ad Ed25519.
 To edit the card, run `gpg --edit-card --expert` (`--expert` is required for P-256).
 GPG should show you information about the card:
 
