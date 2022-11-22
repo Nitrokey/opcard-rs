@@ -22,7 +22,7 @@ Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/
 
 ## Generating keys
 
-Currently, Opcard only supports curve25519 and P-256 curves.
+OPcard supports Rsa 2048 and 4096 bits, P-256, X25519 ad Ed25519.
 To edit the card, run `gpg --edit-card --expert` (`--expert` is required for P-256).
 GPG should show you information about the card:
 
@@ -51,7 +51,7 @@ General key info..: [none]
 ```
 
 Enable administration commands with `admin` and edit the key types with `key-attr`.
-Select `ECC` (`RSA` support is coming soon) and then choose either `Curve 25519` or `NIST P-256`.
+You can then select `ECC` and choose either `Curve 25519` or `NIST P-256`.
 
 ```
 gpg/card> admin 
@@ -73,6 +73,23 @@ Please select which elliptic curve you want:
    (8) Brainpool P-512
    (9) secp256k1
 Your selection? 1
+```
+
+You can also select `RSA` and keys of size 2048 or 4096.
+While opcard supports 4096 bit keys, in practice key generation is extremely slow is therefore disable in the compiled firmware.
+You can however still import RSA 4096 bit keys that were generated off-device.
+
+```
+gpg/card> admin 
+Admin commands are allowed
+
+gpg/card> key-attr 
+Changing card key attribute for: Signature key
+Please select what kind of key you want:
+   (1) RSA
+   (2) ECC
+Your selection? 1
+What keysize do you want? (2048) 2048
 ```
 
 The card will prompt you for the admin password (`12345678` by default).
@@ -116,7 +133,7 @@ public and secret key created and signed.
 ⚠️ Opcard being alpha software, we do not guarantee that future updates will not lead to data loss. If you import a key to the card, we recommand you also keep a backup with `gpg --export-secret-keys <key email>` and `gpg --export-secret-subkeys <key email>`.
 
 
-If you already have curve25519 or P-256 PGP keys, you should be able to import them using `gpg --edit-key <key email>` and then `keytocard` (**this will delete your key from your computer!**) will move the signing key.
+If you already have PGP keys, you should be able to import them using `gpg --edit-key <key email>` and then `keytocard` (**this will delete your key from your computer!**) will move the signing key.
 Continue with `key 1` to select the encryption subkey and repeat `keytocard` to move it too.
 
 ## Changing the PIN
