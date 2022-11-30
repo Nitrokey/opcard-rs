@@ -37,6 +37,7 @@ const STDERR_FILTER: &[&str] = &[
 ];
 
 #[cfg(feature = "virtual")]
+#[allow(unused)]
 pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
 

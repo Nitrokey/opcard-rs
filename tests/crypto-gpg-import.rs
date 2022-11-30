@@ -11,6 +11,7 @@ use virt::gnupg_test;
 use virt::GpgCommand::*;
 
 #[cfg(feature = "virtual")]
+#[allow(unused)]
 use virt::with_vsc;
 
 const DEFAULT_PW3: &str = "12345678";
@@ -1204,7 +1205,7 @@ fn gpg_rsa_4096() {
     );
 }
 
-#[cfg(feature = "virtual")]
+#[cfg(all(feature = "virtual", not(feature = "dangerous-test-real-card")))]
 #[test]
 fn gpg_crypto() {
     #[cfg(feature = "rsa2048")]
