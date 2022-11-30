@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: CC0-1.0
 
 export RUST_LOG ?= info,cargo_tarpaulin=off
+export OPCARD_DANGEROUS_TEST_CARD_VENDOR ?= 0000
+export OPCARD_DANGEROUS_TEST_CARD_SERIAL ?= 000000
+export OPCARD_DANGEROUS_TEST_CARD_NAME ?= test card
 
 FUZZ_JOBS?=$(shell nproc)
 FUZZ_DURATION?="0"
@@ -26,6 +29,11 @@ fix:
 test:
 	cargo test --features virtual,rsa2048,rsa4096-gen gpg_crypto,sequoia_gen_key
 	cargo test --features virtual,rsa2048,rsa4096
+	
+
+.PHONY: test
+dangerous-real-card-test:
+	cargo test --features rsa4096,dangerous-test-real-card
 
 .PHONY: fuzz
 fuzz: fuzz-corpus

@@ -1210,7 +1210,7 @@ fn gpg_rsa_4096() {
 fn gpg_crypto() {
     #[cfg(feature = "rsa2048")]
     with_vsc(gpg_rsa_2048);
-    #[cfg(feature = "rsa4096-gen")]
+    #[cfg(feature = "rsa4096")]
     with_vsc(gpg_rsa_4096);
     with_vsc(gpg_255);
     with_vsc(gpg_p256);

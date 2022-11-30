@@ -168,9 +168,29 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
 
     let fprtimes = r"fprtime:\d*:\d*:\d*:";
     #[cfg(feature = "virtual")]
-    let reader = r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card";
+    let (reader, serial, vendor) = (
+        r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card",
+        r"vendor:0000:test card:",
+        r"serial:00000000:",
+    );
     #[cfg(feature = "dangerous-test-real-card")]
-    let reader = r"Reader:[A-Z0-9]{4}:[A-Z0-9]{4}:X:0:AID:D276000124010304[A-Z0-9]*:openpgp-card";
+    let (reader, serial, vendor) = (
+        concat!(
+            r"Reader:",
+            env!("OPCARD_DANGEROUS_TEST_CARD_VENDOR"),
+            ":",
+            env!("OPCARD_DANGEROUS_TEST_CARD_SERIAL"),
+            ":X:0:AID:D276000124010304[A-Z0-9]*:openpgp-card"
+        ),
+        concat!(
+            r"vendor:",
+            env!("OPCARD_DANGEROUS_TEST_CARD_VENDOR"),
+            ":",
+            env!("OPCARD_DANGEROUS_TEST_CARD_NAME"),
+            ":"
+        ),
+        concat!(r"serial:", env!("OPCARD_DANGEROUS_TEST_CARD_SERIAL"), ":"),
+    );
 
     [
         reader,
