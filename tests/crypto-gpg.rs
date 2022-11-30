@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
+#![cfg(any(feature = "virtual", feature = "dangerous-test-real-card"))]
 
-#![cfg(feature = "virtual")]
 mod virt;
 
 use std::iter;
@@ -9,8 +9,11 @@ use std::iter;
 use rand::Rng;
 use test_log::test;
 
+use virt::gnupg_test;
 use virt::GpgCommand::*;
-use virt::{gnupg_test, with_vsc};
+
+#[cfg(feature = "virtual")]
+use virt::with_vsc;
 
 fn attr_ec_ask() -> Vec<&'static str> {
     iter::repeat(
@@ -54,35 +57,47 @@ impl<'s> Drop for FileDropper<'s> {
 }
 
 fn gpg_255() {
-    with_vsc(|| {
-        let file_number: u32 = rand::rngs::OsRng.gen();
-        let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
-        let encrypted_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
-        let sign_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
-        let decrypted_file = &tmp;
-        let _dropper = FileDropper {
-            temp_file_name: encrypted_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: sign_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: decrypted_file,
-        };
+    let file_number: u32 = rand::rngs::OsRng.gen();
+    let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
+    let encrypted_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
+    let sign_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
+    let decrypted_file = &tmp;
+    let _dropper = FileDropper {
+        temp_file_name: encrypted_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: sign_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: decrypted_file,
+    };
 
-        let tmp = format!("test name{file_number}");
-        let temp_name = &tmp;
+    let tmp = format!("test name{file_number}");
+    let temp_name = &tmp;
 
-        let tmp = format!("test{file_number}@email.com");
-        let temp_email = &tmp;
+    let tmp = format!("test{file_number}@email.com");
+    let temp_email = &tmp;
 
-        let custom_match = format!(
-            r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
-        );
+    let custom_match = format!(
+        r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
+    );
 
-        gnupg_test(
+    gnupg_test(
+        &[],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[],
+        CardStatus,
+    );
+
+    gnupg_test(
             &[
                 "admin",
                 "key-attr",
@@ -107,7 +122,7 @@ fn gpg_255() {
                 "quit",
             ],
             &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
+                vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
                 virt::gpg_status(virt::KeyType::RsaNone,0),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -130,14 +145,14 @@ fn gpg_255() {
                 ],
                 virt::gpg_inquire_pin(),
                 vec![
-                    r"pub:u:\d*:22:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D2760001240103040000000000000000::ed25519:::0:",
+                    r"pub:u:\d*:22:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D276000124010304[A-Z0-9]*::ed25519:::0:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     &custom_match,
-                    r"sub:u:\d*:22:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D2760001240103040000000000000000::ed25519::",
+                    r"sub:u:\d*:22:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D276000124010304[A-Z0-9]*::ed25519::",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
-                    r"sub:u:\d*:18:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D2760001240103040000000000000000::cv25519::",
+                    r"sub:u:\d*:18:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D276000124010304[A-Z0-9]*::cv25519::",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     r"\[GNUPG:\] KEY_CREATED B [0-9A-F]{40}",
@@ -153,171 +168,182 @@ fn gpg_255() {
             EditCard,
         );
 
-        println!("================ FINISHED GENERATING 25519 KEYS ================");
+    println!("================ FINISHED GENERATING 25519 KEYS ================");
 
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
-                r"\[GNUPG:\] END_ENCRYPTION",
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
+            r"\[GNUPG:\] END_ENCRYPTION",
+        ],
+        &[],
+        Encrypt {
+            i: "Cargo.toml",
+            o: encrypted_file,
+            r: temp_email,
+        },
+    );
+
+    println!("================ FINISHED ENCRYPTION ================");
+
+    let custom1 = format!(
+        r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
+    );
+    let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 18 0",
             ],
-            &[],
-            Encrypt {
-                i: "Cargo.toml",
-                o: encrypted_file,
-                r: temp_email,
-            },
-        );
-
-        println!("================ FINISHED ENCRYPTION ================");
-
-        let custom1 = format!(
-            r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
-        );
-        let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 18 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![
-                    r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
-                    r"\[GNUPG:\] BEGIN_DECRYPTION",
-                    r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
-                    r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
-                    r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
-                    r"\[GNUPG:\] DECRYPTION_OKAY",
-                    r"\[GNUPG:\] GOODMDC",
-                    r"\[GNUPG:\] END_DECRYPTION",
-                ],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: encrypted with \d*-bit ECDH key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
-                &custom2,
+            virt::gpg_inquire_pin(),
+            vec![
+                r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
+                r"\[GNUPG:\] BEGIN_DECRYPTION",
+                r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
+                r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
+                r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
+                r"\[GNUPG:\] DECRYPTION_OKAY",
+                r"\[GNUPG:\] GOODMDC",
+                r"\[GNUPG:\] END_DECRYPTION",
             ],
-            Decrypt {
-                i: encrypted_file,
-                o: decrypted_file,
-            },
-        );
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: encrypted with \d*-bit ECDH key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            &custom2,
+        ],
+        Decrypt {
+            i: encrypted_file,
+            o: decrypted_file,
+        },
+    );
 
-        println!("================ FINISHED DECRYPTION ================");
+    println!("================ FINISHED DECRYPTION ================");
 
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
-                    r"\[GNUPG:\] BEGIN_SIGNING H\d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 22 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![r"\[GNUPG:\] SIG_CREATED S 22 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
-            Sign {
-                i: "Cargo.toml",
-                o: sign_file,
-                s: temp_email,
-            },
-        );
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
+                r"\[GNUPG:\] BEGIN_SIGNING H\d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 22 0",
+            ],
+            virt::gpg_inquire_pin(),
+            vec![r"\[GNUPG:\] SIG_CREATED S 22 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
+        Sign {
+            i: "Cargo.toml",
+            o: sign_file,
+            s: temp_email,
+        },
+    );
 
-        println!("================ FINISHED SIGNATURE ================");
+    println!("================ FINISHED SIGNATURE ================");
 
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] NEWSIG test\d*@email.com",
-                r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
-                r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
-                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 22 8 00 [a-fA-F0-9]{40}",
-                r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] NEWSIG test\d*@email.com",
+            r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
+            r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
+            r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 22 8 00 [a-fA-F0-9]{40}",
+            r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+        ],
+        &[
+            r"gpg: Signature made .*",
+            r"gpg:                using EDDSA key [a-fA-F0-9]{40}",
+            r#"gpg:                issuer "test\d*@email.com""#,
+            r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
+        ],
+        Verify { i: sign_file },
+    );
+    gnupg_test(
+        &[
+            "admin",
+            "factory-reset",
+            "y",
+            "yes",
+            "verify",
+            DEFAULT_PW1,
+            "quit",
+        ],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::Cv25519, 5),
+            vec![
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
+                r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
             ],
-            &[
-                r"gpg: Signature made .*",
-                r"gpg:                using EDDSA key [a-fA-F0-9]{40}",
-                r#"gpg:                issuer "test\d*@email.com""#,
-                r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
-            ],
-            Verify { i: sign_file },
-        );
-        gnupg_test(
-            &[
-                "admin",
-                "factory-reset",
-                "y",
-                "yes",
-                "verify",
-                DEFAULT_PW1,
-                "quit",
-            ],
-            &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(virt::KeyType::Cv25519, 5),
-                vec![
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
-                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                ],
-                virt::gpg_inquire_pin(),
-                virt::gpg_status(virt::KeyType::RsaNone, 0),
-                vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
-                r"gpg: Note: This command destroys all keys stored on the card!",
-            ],
-            EditCard,
-        );
-    });
+            virt::gpg_inquire_pin(),
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+            vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
+            r"gpg: Note: This command destroys all keys stored on the card!",
+        ],
+        EditCard,
+    );
 }
 
 fn gpg_p256() {
-    with_vsc(|| {
-        let file_number: u32 = rand::rngs::OsRng.gen();
-        let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
-        let encrypted_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
-        let sign_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
-        let decrypted_file = &tmp;
-        let _dropper = FileDropper {
-            temp_file_name: encrypted_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: sign_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: decrypted_file,
-        };
+    let file_number: u32 = rand::rngs::OsRng.gen();
+    let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
+    let encrypted_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
+    let sign_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
+    let decrypted_file = &tmp;
+    let _dropper = FileDropper {
+        temp_file_name: encrypted_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: sign_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: decrypted_file,
+    };
 
-        let tmp = format!("test name{file_number}");
-        let temp_name = &tmp;
+    let tmp = format!("test name{file_number}");
+    let temp_name = &tmp;
 
-        let tmp = format!("test{file_number}@email.com");
-        let temp_email = &tmp;
+    let tmp = format!("test{file_number}@email.com");
+    let temp_email = &tmp;
 
-        let custom_match = format!(
-            r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
-        );
+    let custom_match = format!(
+        r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
+    );
 
-        gnupg_test(
+    gnupg_test(
+        &[],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[],
+        CardStatus,
+    );
+
+    gnupg_test(
             &[
                 "admin",
                 "key-attr",
@@ -342,7 +368,7 @@ fn gpg_p256() {
                 "quit",
             ],
             &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
+                vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
                 virt::gpg_status(virt::KeyType::RsaNone,0),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -365,14 +391,14 @@ fn gpg_p256() {
                 ],
                 virt::gpg_inquire_pin(),
                 vec![
-                    r"pub:u:\d*:19:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D2760001240103040000000000000000::nistp256:::0:",
+                    r"pub:u:\d*:19:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D276000124010304[A-Z0-9]*::nistp256:::0:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     &custom_match,
-                    r"sub:u:\d*:19:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D2760001240103040000000000000000::nistp256::",
+                    r"sub:u:\d*:19:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D276000124010304[A-Z0-9]*::nistp256::",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
-                    r"sub:u:\d*:18:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D2760001240103040000000000000000::nistp256::",
+                    r"sub:u:\d*:18:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D276000124010304[A-Z0-9]*::nistp256::",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     r"\[GNUPG:\] KEY_CREATED B [0-9A-F]{40}",
@@ -388,174 +414,185 @@ fn gpg_p256() {
             EditCard,
         );
 
-        println!("================ FINISHED GENERATING P256 KEYS ================");
+    println!("================ FINISHED GENERATING P256 KEYS ================");
 
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
-                r"\[GNUPG:\] END_ENCRYPTION",
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
+            r"\[GNUPG:\] END_ENCRYPTION",
+        ],
+        &[],
+        Encrypt {
+            i: "Cargo.toml",
+            o: encrypted_file,
+            r: temp_email,
+        },
+    );
+
+    println!("================ FINISHED ENCRYPTION ================");
+
+    let custom1 = format!(
+        r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
+    );
+    let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
+
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 18 0",
             ],
-            &[],
-            Encrypt {
-                i: "Cargo.toml",
-                o: encrypted_file,
-                r: temp_email,
-            },
-        );
-
-        println!("================ FINISHED ENCRYPTION ================");
-
-        let custom1 = format!(
-            r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
-        );
-        let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
-
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 18 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![
-                    r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
-                    r"\[GNUPG:\] BEGIN_DECRYPTION",
-                    r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
-                    r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
-                    r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
-                    r"\[GNUPG:\] DECRYPTION_OKAY",
-                    r"\[GNUPG:\] GOODMDC",
-                    r"\[GNUPG:\] END_DECRYPTION",
-                ],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: encrypted with \d*-bit ECDH key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
-                &custom2,
+            virt::gpg_inquire_pin(),
+            vec![
+                r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
+                r"\[GNUPG:\] BEGIN_DECRYPTION",
+                r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
+                r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
+                r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
+                r"\[GNUPG:\] DECRYPTION_OKAY",
+                r"\[GNUPG:\] GOODMDC",
+                r"\[GNUPG:\] END_DECRYPTION",
             ],
-            Decrypt {
-                i: encrypted_file,
-                o: decrypted_file,
-            },
-        );
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: encrypted with \d*-bit ECDH key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            &custom2,
+        ],
+        Decrypt {
+            i: encrypted_file,
+            o: decrypted_file,
+        },
+    );
 
-        println!("================ FINISHED DECRYPTION ================");
+    println!("================ FINISHED DECRYPTION ================");
 
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
-                    r"\[GNUPG:\] BEGIN_SIGNING H\d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 19 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![r"\[GNUPG:\] SIG_CREATED S 19 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
-            Sign {
-                i: "Cargo.toml",
-                o: sign_file,
-                s: temp_email,
-            },
-        );
-
-        println!("================ FINISHED SIGNATURE ================");
-
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] NEWSIG test\d*@email.com",
-                r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
-                r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
-                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 19 8 00 [a-fA-F0-9]{40}",
-                r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
+                r"\[GNUPG:\] BEGIN_SIGNING H\d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 19 0",
             ],
-            &[
-                r"gpg: Signature made .*",
-                r"gpg:                using ECDSA key [a-fA-F0-9]{40}",
-                r#"gpg:                issuer "test\d*@email.com""#,
-                r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
-            ],
-            Verify { i: sign_file },
-        );
+            virt::gpg_inquire_pin(),
+            vec![r"\[GNUPG:\] SIG_CREATED S 19 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
+        Sign {
+            i: "Cargo.toml",
+            o: sign_file,
+            s: temp_email,
+        },
+    );
 
-        gnupg_test(
-            &[
-                "admin",
-                "factory-reset",
-                "y",
-                "yes",
-                "verify",
-                DEFAULT_PW1,
-                "quit",
+    println!("================ FINISHED SIGNATURE ================");
+
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] NEWSIG test\d*@email.com",
+            r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
+            r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
+            r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 19 8 00 [a-fA-F0-9]{40}",
+            r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+        ],
+        &[
+            r"gpg: Signature made .*",
+            r"gpg:                using ECDSA key [a-fA-F0-9]{40}",
+            r#"gpg:                issuer "test\d*@email.com""#,
+            r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
+        ],
+        Verify { i: sign_file },
+    );
+
+    gnupg_test(
+        &[
+            "admin",
+            "factory-reset",
+            "y",
+            "yes",
+            "verify",
+            DEFAULT_PW1,
+            "quit",
+        ],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::P256, 5),
+            vec![
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
+                r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
             ],
-            &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(virt::KeyType::P256, 5),
-                vec![
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
-                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                ],
-                virt::gpg_inquire_pin(),
-                virt::gpg_status(virt::KeyType::RsaNone, 0),
-                vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
-                r"gpg: Note: This command destroys all keys stored on the card!",
-            ],
-            EditCard,
-        );
-    });
+            virt::gpg_inquire_pin(),
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+            vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
+            r"gpg: Note: This command destroys all keys stored on the card!",
+        ],
+        EditCard,
+    );
 }
 
 #[cfg(feature = "rsa2048")]
 fn gpg_rsa_2048() {
-    with_vsc(|| {
-        let file_number: u32 = rand::rngs::OsRng.gen();
-        let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
-        let encrypted_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
-        let sign_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
-        let decrypted_file = &tmp;
-        let _dropper = FileDropper {
-            temp_file_name: encrypted_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: sign_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: decrypted_file,
-        };
+    let file_number: u32 = rand::rngs::OsRng.gen();
+    let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
+    let encrypted_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
+    let sign_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
+    let decrypted_file = &tmp;
+    let _dropper = FileDropper {
+        temp_file_name: encrypted_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: sign_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: decrypted_file,
+    };
 
-        let tmp = format!("test name{file_number}");
-        let temp_name = &tmp;
+    let tmp = format!("test name{file_number}");
+    let temp_name = &tmp;
 
-        let tmp = format!("test{file_number}@email.com");
-        let temp_email = &tmp;
+    let tmp = format!("test{file_number}@email.com");
+    let temp_email = &tmp;
 
-        let custom_match = format!(
-            r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
-        );
+    let custom_match = format!(
+        r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
+    );
 
-        gnupg_test(
+    gnupg_test(
+        &[],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[],
+        CardStatus,
+    );
+
+    gnupg_test(
             &[
                 "admin",
                 "generate",
@@ -570,7 +607,7 @@ fn gpg_rsa_2048() {
                 "quit",
             ],
             &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
+                vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
                 virt::gpg_status(virt::KeyType::RsaNone,0),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -589,14 +626,14 @@ fn gpg_rsa_2048() {
                 ],
                 virt::gpg_inquire_pin(),
                 vec![
-                    r"pub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D2760001240103040000000000000000:::23::0:",
+                    r"pub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D276000124010304[A-Z0-9]*:::23::0:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     &custom_match,
-                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D2760001240103040000000000000000:::23:",
+                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D276000124010304[A-Z0-9]*:::23:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
-                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D2760001240103040000000000000000:::23:",
+                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D276000124010304[A-Z0-9]*:::23:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     r"\[GNUPG:\] KEY_CREATED B [0-9A-F]{40}",
@@ -612,172 +649,183 @@ fn gpg_rsa_2048() {
             EditCard,
         );
 
-        println!("================ FINISHED GENERATING 25519 KEYS ================");
+    println!("================ FINISHED GENERATING 25519 KEYS ================");
 
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
-                r"\[GNUPG:\] END_ENCRYPTION",
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
+            r"\[GNUPG:\] END_ENCRYPTION",
+        ],
+        &[],
+        Encrypt {
+            i: "Cargo.toml",
+            o: encrypted_file,
+            r: temp_email,
+        },
+    );
+
+    println!("================ FINISHED ENCRYPTION ================");
+
+    let custom1 = format!(
+        r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
+    );
+    let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
             ],
-            &[],
-            Encrypt {
-                i: "Cargo.toml",
-                o: encrypted_file,
-                r: temp_email,
-            },
-        );
-
-        println!("================ FINISHED ENCRYPTION ================");
-
-        let custom1 = format!(
-            r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
-        );
-        let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![
-                    r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
-                    r"\[GNUPG:\] BEGIN_DECRYPTION",
-                    r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
-                    r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
-                    r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
-                    r"\[GNUPG:\] DECRYPTION_OKAY",
-                    r"\[GNUPG:\] GOODMDC",
-                    r"\[GNUPG:\] END_DECRYPTION",
-                ],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: encrypted with \d*-bit RSA key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
-                &custom2,
+            virt::gpg_inquire_pin(),
+            vec![
+                r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
+                r"\[GNUPG:\] BEGIN_DECRYPTION",
+                r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
+                r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
+                r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
+                r"\[GNUPG:\] DECRYPTION_OKAY",
+                r"\[GNUPG:\] GOODMDC",
+                r"\[GNUPG:\] END_DECRYPTION",
             ],
-            Decrypt {
-                i: encrypted_file,
-                o: decrypted_file,
-            },
-        );
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: encrypted with \d*-bit RSA key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            &custom2,
+        ],
+        Decrypt {
+            i: encrypted_file,
+            o: decrypted_file,
+        },
+    );
 
-        println!("================ FINISHED DECRYPTION ================");
+    println!("================ FINISHED DECRYPTION ================");
 
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
-                    r"\[GNUPG:\] BEGIN_SIGNING H\d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![r"\[GNUPG:\] SIG_CREATED S 1 \d* 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
-            Sign {
-                i: "Cargo.toml",
-                o: sign_file,
-                s: temp_email,
-            },
-        );
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
+                r"\[GNUPG:\] BEGIN_SIGNING H\d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
+            ],
+            virt::gpg_inquire_pin(),
+            vec![r"\[GNUPG:\] SIG_CREATED S 1 \d* 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
+        Sign {
+            i: "Cargo.toml",
+            o: sign_file,
+            s: temp_email,
+        },
+    );
 
-        println!("================ FINISHED SIGNATURE ================");
+    println!("================ FINISHED SIGNATURE ================");
 
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] NEWSIG test\d*@email.com",
-                r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
-                r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
-                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 1 \d* 00 [a-fA-F0-9]{40}",
-                r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] NEWSIG test\d*@email.com",
+            r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
+            r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
+            r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 1 \d* 00 [a-fA-F0-9]{40}",
+            r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+        ],
+        &[
+            r"gpg: Signature made .*",
+            r"gpg:                using RSA key [a-fA-F0-9]{40}",
+            r#"gpg:                issuer "test\d*@email.com""#,
+            r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
+        ],
+        Verify { i: sign_file },
+    );
+    gnupg_test(
+        &[
+            "admin",
+            "factory-reset",
+            "y",
+            "yes",
+            "verify",
+            DEFAULT_PW1,
+            "quit",
+        ],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::Rsa, 5),
+            vec![
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
+                r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
             ],
-            &[
-                r"gpg: Signature made .*",
-                r"gpg:                using RSA key [a-fA-F0-9]{40}",
-                r#"gpg:                issuer "test\d*@email.com""#,
-                r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
-            ],
-            Verify { i: sign_file },
-        );
-        gnupg_test(
-            &[
-                "admin",
-                "factory-reset",
-                "y",
-                "yes",
-                "verify",
-                DEFAULT_PW1,
-                "quit",
-            ],
-            &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(virt::KeyType::Rsa, 5),
-                vec![
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
-                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                ],
-                virt::gpg_inquire_pin(),
-                virt::gpg_status(virt::KeyType::RsaNone, 0),
-                vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
-                r"gpg: Note: This command destroys all keys stored on the card!",
-            ],
-            EditCard,
-        );
-    });
+            virt::gpg_inquire_pin(),
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+            vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
+            r"gpg: Note: This command destroys all keys stored on the card!",
+        ],
+        EditCard,
+    );
 }
 
 #[cfg(feature = "rsa4096-gen")]
 fn gpg_rsa_4096() {
-    with_vsc(|| {
-        let file_number: u32 = rand::rngs::OsRng.gen();
-        let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
-        let encrypted_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
-        let sign_file = &tmp;
-        let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
-        let decrypted_file = &tmp;
-        let _dropper = FileDropper {
-            temp_file_name: encrypted_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: sign_file,
-        };
-        let _dropper = FileDropper {
-            temp_file_name: decrypted_file,
-        };
+    let file_number: u32 = rand::rngs::OsRng.gen();
+    let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
+    let encrypted_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}-sig.gpg");
+    let sign_file = &tmp;
+    let tmp = format!("/tmp/opcard-tests-{file_number}.toml");
+    let decrypted_file = &tmp;
+    let _dropper = FileDropper {
+        temp_file_name: encrypted_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: sign_file,
+    };
+    let _dropper = FileDropper {
+        temp_file_name: decrypted_file,
+    };
 
-        let tmp = format!("test name{file_number}");
-        let temp_name = &tmp;
+    let tmp = format!("test name{file_number}");
+    let temp_name = &tmp;
 
-        let tmp = format!("test{file_number}@email.com");
-        let temp_email = &tmp;
+    let tmp = format!("test{file_number}@email.com");
+    let temp_email = &tmp;
 
-        let custom_match = format!(
-            r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
-        );
+    let custom_match = format!(
+        r"uid:u::::\d{{10}}::[0-9A-F]{{40}}::{temp_name} \(no comment\) <{temp_email}>::::::::::0:"
+    );
 
-        gnupg_test(
+    gnupg_test(
+        &[],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[],
+        CardStatus,
+    );
+
+    gnupg_test(
             &[
                 "admin",
                 "key-attr",
@@ -802,7 +850,7 @@ fn gpg_rsa_4096() {
                 "quit",
             ],
             &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
+                vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
                 virt::gpg_status(virt::KeyType::RsaNone,0),
                 vec![
                     r"\[GNUPG:\] GET_LINE cardedit.prompt",
@@ -825,14 +873,14 @@ fn gpg_rsa_4096() {
                 ],
                 virt::gpg_inquire_pin(),
                 vec![
-                    r"pub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D2760001240103040000000000000000:::23::0:",
+                    r"pub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}:::u:::scESCA:::D276000124010304[A-Z0-9]*:::23::0:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     &custom_match,
-                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D2760001240103040000000000000000:::23:",
+                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::a:::D276000124010304[A-Z0-9]*:::23:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
-                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D2760001240103040000000000000000:::23:",
+                    r"sub:u:\d*:1:[0-9A-F]{16}:[0-9A-F]{10}::::::e:::D276000124010304[A-Z0-9]*:::23:",
                     r"fpr:::::::::[0-9A-F]{40}:",
                     r"grp:::::::::[0-9A-F]{40}:",
                     r"\[GNUPG:\] KEY_CREATED B [0-9A-F]{40}",
@@ -848,147 +896,158 @@ fn gpg_rsa_4096() {
             EditCard,
         );
 
-        println!("================ FINISHED GENERATING 25519 KEYS ================");
+    println!("================ FINISHED GENERATING 25519 KEYS ================");
 
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
-                r"\[GNUPG:\] END_ENCRYPTION",
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] BEGIN_ENCRYPTION \d \d",
+            r"\[GNUPG:\] END_ENCRYPTION",
+        ],
+        &[],
+        Encrypt {
+            i: "Cargo.toml",
+            o: encrypted_file,
+            r: temp_email,
+        },
+    );
+
+    println!("================ FINISHED ENCRYPTION ================");
+
+    let custom1 = format!(
+        r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
+    );
+    let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
             ],
-            &[],
-            Encrypt {
-                i: "Cargo.toml",
-                o: encrypted_file,
-                r: temp_email,
-            },
-        );
-
-        println!("================ FINISHED ENCRYPTION ================");
-
-        let custom1 = format!(
-            r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
-        );
-        let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![
-                    r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
-                    r"\[GNUPG:\] BEGIN_DECRYPTION",
-                    r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
-                    r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
-                    r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
-                    r"\[GNUPG:\] DECRYPTION_OKAY",
-                    r"\[GNUPG:\] GOODMDC",
-                    r"\[GNUPG:\] END_DECRYPTION",
-                ],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: encrypted with \d*-bit RSA key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
-                &custom2,
+            virt::gpg_inquire_pin(),
+            vec![
+                r"\[GNUPG:\] DECRYPTION_KEY [a-fA-F0-9]{40} [a-fA-F0-9]{40} u",
+                r"\[GNUPG:\] BEGIN_DECRYPTION",
+                r"\[GNUPG:\] DECRYPTION_INFO \d \d \d",
+                r"\[GNUPG:\] PLAINTEXT \d* \d* Cargo.toml",
+                r"\[GNUPG:\] PLAINTEXT_LENGTH \d*",
+                r"\[GNUPG:\] DECRYPTION_OKAY",
+                r"\[GNUPG:\] GOODMDC",
+                r"\[GNUPG:\] END_DECRYPTION",
             ],
-            Decrypt {
-                i: encrypted_file,
-                o: decrypted_file,
-            },
-        );
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: encrypted with \d*-bit RSA key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            &custom2,
+        ],
+        Decrypt {
+            i: encrypted_file,
+            o: decrypted_file,
+        },
+    );
 
-        println!("================ FINISHED DECRYPTION ================");
+    println!("================ FINISHED DECRYPTION ================");
 
-        gnupg_test(
-            &[DEFAULT_PW1],
-            &[
-                vec![
-                    r"\[GNUPG:\] CARDCTRL 3 D2760001240103040000000000000000",
-                    r"\[GNUPG:\] BEGIN_SIGNING H\d*",
-                    &custom1,
-                    r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
-                ],
-                virt::gpg_inquire_pin(),
-                vec![r"\[GNUPG:\] SIG_CREATED S 1 \d* 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
-            Sign {
-                i: "Cargo.toml",
-                o: sign_file,
-                s: temp_email,
-            },
-        );
+    gnupg_test(
+        &[DEFAULT_PW1],
+        &[
+            vec![
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
+                r"\[GNUPG:\] BEGIN_SIGNING H\d*",
+                &custom1,
+                r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
+            ],
+            virt::gpg_inquire_pin(),
+            vec![r"\[GNUPG:\] SIG_CREATED S 1 \d* 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[r#"gpg: using "test\d*@email.com" as default secret key for signing"#],
+        Sign {
+            i: "Cargo.toml",
+            o: sign_file,
+            s: temp_email,
+        },
+    );
 
-        println!("================ FINISHED SIGNATURE ================");
+    println!("================ FINISHED SIGNATURE ================");
 
-        gnupg_test(
-            &[],
-            &[
-                r"\[GNUPG:\] NEWSIG test\d*@email.com",
-                r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
-                r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
-                r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 1 \d* 00 [a-fA-F0-9]{40}",
-                r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+    gnupg_test(
+        &[],
+        &[
+            r"\[GNUPG:\] NEWSIG test\d*@email.com",
+            r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
+            r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
+            r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 1 \d* 00 [a-fA-F0-9]{40}",
+            r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
+        ],
+        &[
+            r"gpg: Signature made .*",
+            r"gpg:                using RSA key [a-fA-F0-9]{40}",
+            r#"gpg:                issuer "test\d*@email.com""#,
+            r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
+        ],
+        Verify { i: sign_file },
+    );
+    gnupg_test(
+        &[
+            "admin",
+            "factory-reset",
+            "y",
+            "yes",
+            "verify",
+            DEFAULT_PW1,
+            "quit",
+        ],
+        &[
+            vec![r"\[GNUPG:\] CARDCTRL \d D276000124010304[A-Z0-9]*"],
+            virt::gpg_status(virt::KeyType::Rsa4096, 5),
+            vec![
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
+                r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
+                r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
+                r"\[GNUPG:\] GET_LINE cardedit.prompt",
             ],
-            &[
-                r"gpg: Signature made .*",
-                r"gpg:                using RSA key [a-fA-F0-9]{40}",
-                r#"gpg:                issuer "test\d*@email.com""#,
-                r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
-            ],
-            Verify { i: sign_file },
-        );
-        gnupg_test(
-            &[
-                "admin",
-                "factory-reset",
-                "y",
-                "yes",
-                "verify",
-                DEFAULT_PW1,
-                "quit",
-            ],
-            &[
-                vec![r"\[GNUPG:\] CARDCTRL \d D2760001240103040000000000000000"],
-                virt::gpg_status(virt::KeyType::Rsa4096, 5),
-                vec![
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                    r"\[GNUPG:\] GET_BOOL cardedit.factory-reset.proceed",
-                    r"\[GNUPG:\] GET_LINE cardedit.factory-reset.really",
-                    r"\[GNUPG:\] GET_LINE cardedit.prompt",
-                ],
-                virt::gpg_inquire_pin(),
-                virt::gpg_status(virt::KeyType::RsaNone, 0),
-                vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&str>>(),
-            &[
-                r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
-                r"gpg: Note: This command destroys all keys stored on the card!",
-            ],
-            EditCard,
-        );
-    });
+            virt::gpg_inquire_pin(),
+            virt::gpg_status(virt::KeyType::RsaNone, 0),
+            vec![r"\[GNUPG:\] GET_LINE cardedit.prompt"],
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&str>>(),
+        &[
+            r"gpg: OpenPGP card no. [0-9A-F]{32} detected",
+            r"gpg: Note: This command destroys all keys stored on the card!",
+        ],
+        EditCard,
+    );
 }
 
+#[cfg(feature = "virtual")]
 #[test]
 fn gpg_crypto() {
+    with_vsc(gpg_255);
+    with_vsc(gpg_p256);
+    #[cfg(feature = "rsa2048")]
+    with_vsc(gpg_rsa_2048);
+    #[cfg(feature = "rsa4096-gen")]
+    with_vsc(gpg_rsa_4096);
+}
+
+#[cfg(feature = "dangerous-test-real-card")]
+#[test]
+fn gpg_crypto() {
+    gpg_255();
+    gpg_p256();
     #[cfg(feature = "rsa2048")]
     gpg_rsa_2048();
     #[cfg(feature = "rsa4096-gen")]
     gpg_rsa_4096();
-    gpg_255();
-    gpg_p256();
 }

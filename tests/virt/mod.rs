@@ -1,18 +1,20 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-
-#![cfg(feature = "virtual")]
+#![cfg(any(feature = "virtual", feature = "dangerous-test-real-card"))]
 
 use std::{
     io::{BufRead, BufReader, Write},
     mem::drop,
     process::{Command, Stdio},
-    sync::mpsc,
-    thread::{self, sleep},
-    time::Duration,
+    thread,
 };
 
+#[cfg(feature = "virtual")]
+use std::{sync::mpsc, thread::sleep, time::Duration};
+
 use regex::{Regex, RegexSet};
+
+#[cfg(feature = "virtual")]
 use stoppable_thread::spawn;
 
 const STDOUT_FILTER: &[&str] = &[
@@ -34,6 +36,7 @@ const STDERR_FILTER: &[&str] = &[
     r"There is NO WARRANTY, to the extent permitted by law.",
 ];
 
+#[cfg(feature = "virtual")]
 pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
 
@@ -163,12 +166,16 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
     };
 
     let fprtimes = r"fprtime:\d*:\d*:\d*:";
+    #[cfg(feature = "virtual")]
+    let reader = r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card";
+    #[cfg(feature = "dangerous-test-real-card")]
+    let reader = r"Reader:[A-Z0-9]{4}:[A-Z0-9]{4}:X:0:AID:D276000124010304[A-Z0-9]*:openpgp-card";
 
     [
-        r"Reader:Virtual PCD \d\d \d\d:AID:D2760001240103040000000000000000:openpgp-card",
+        reader,
         r"version:0304",
-        r"vendor:0000:test card",
-        r"serial:00000000",
+        r"vendor:[a-zA-Z0-9]{4}:.*:",
+        r"serial:[a-zA-Z0-9]*:",
         r"name:::",
         r"lang::",
         r"sex:u:",
@@ -202,6 +209,7 @@ pub fn gpg_inquire_pin() -> Vec<&'static str> {
 #[allow(unused)]
 pub enum GpgCommand<'a> {
     EditCard,
+    CardStatus,
     Encrypt { r: &'a str, i: &'a str, o: &'a str },
     Decrypt { i: &'a str, o: &'a str },
     Sign { i: &'a str, s: &'a str, o: &'a str },
@@ -228,6 +236,7 @@ impl GpgCommand<'_> {
         .stdin(Stdio::piped());
         match self {
             GpgCommand::EditCard => cmd.arg("--edit-card"),
+            GpgCommand::CardStatus => cmd.arg("--card-status"),
             GpgCommand::Encrypt { i, o, r } => {
                 cmd.args(["--encrypt", "--output", o, "--recipient", r, i])
             }
