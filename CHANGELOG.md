@@ -12,6 +12,7 @@ SPDX-License-Identifier: CC0-1.0
 - Support using authentication keys for decryption and vice-versa with MANAGE SECURITY ENVIRONMENT ([#60][])
 - Support PIN resets using a resetting code ([#63][])
 - Support AES encryption/decryption ([#64][])
+- Support RSA 2048 and 4096 bit key usage and generation ([#94][])
 
 ### Bugfixes
 
@@ -25,6 +26,7 @@ SPDX-License-Identifier: CC0-1.0
 [#76]: https://github.com/Nitrokey/opcard-rs/pull/76
 [#78]: https://github.com/Nitrokey/opcard-rs/pull/78
 [#89]: https://github.com/Nitrokey/opcard-rs/pull/89
+[#94]: https://github.com/Nitrokey/opcard-rs/pull/94
 
 ## v0.1.0 (2022-10-12)
 
