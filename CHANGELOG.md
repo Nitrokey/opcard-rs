@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
-## Unreleased
+## 0.2.0 (2022-11-18)
 
 ### Features
 
