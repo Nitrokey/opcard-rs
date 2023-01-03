@@ -348,29 +348,29 @@ impl GetDataObject {
         match self {
             Self::HistoricalBytes => historical_bytes(context)?,
             Self::ApplicationIdentifier => context.reply.expand(&context.options.aid())?,
-            Self::PwStatusBytes => pw_status_bytes(context.load_state()?)?,
+            Self::PwStatusBytes => pw_status_bytes(context)?,
             Self::ExtendedLengthInformation => context.reply.expand(&EXTENDED_LENGTH_INFO)?,
             Self::ExtendedCapabilities => context.reply.expand(&EXTENDED_CAPABILITIES)?,
             Self::GeneralFeatureManagement => context
                 .reply
                 .expand(&general_feature_management(context.options))?,
-            Self::AlgorithmAttributesSignature => alg_attr_sign(context.load_state()?)?,
-            Self::AlgorithmAttributesDecryption => alg_attr_dec(context.load_state()?)?,
-            Self::AlgorithmAttributesAuthentication => alg_attr_aut(context.load_state()?)?,
+            Self::AlgorithmAttributesSignature => alg_attr_sign(context)?,
+            Self::AlgorithmAttributesDecryption => alg_attr_dec(context)?,
+            Self::AlgorithmAttributesAuthentication => alg_attr_aut(context)?,
             Self::AlgorithmInformation => algo_info(context)?,
-            Self::Fingerprints => fingerprints(context.load_state()?)?,
-            Self::CAFingerprints => ca_fingerprints(context.load_state()?)?,
-            Self::KeyGenerationDates => keygen_dates(context.load_state()?)?,
-            Self::KeyInformation => key_info(context.load_state()?)?,
-            Self::UifCds => uif(context.load_state()?, KeyType::Sign)?,
-            Self::UifDec => uif(context.load_state()?, KeyType::Dec)?,
-            Self::UifAut => uif(context.load_state()?, KeyType::Aut)?,
-            Self::CardHolderName => cardholder_name(context.load_state()?)?,
-            Self::CardHolderSex => cardholder_sex(context.load_state()?)?,
-            Self::LanguagePreferences => language_preferences(context.load_state()?)?,
+            Self::Fingerprints => fingerprints(context)?,
+            Self::CAFingerprints => ca_fingerprints(context)?,
+            Self::KeyGenerationDates => keygen_dates(context)?,
+            Self::KeyInformation => key_info(context)?,
+            Self::UifCds => uif(context, KeyType::Sign)?,
+            Self::UifDec => uif(context, KeyType::Dec)?,
+            Self::UifAut => uif(context, KeyType::Aut)?,
+            Self::CardHolderName => cardholder_name(context)?,
+            Self::CardHolderSex => cardholder_sex(context)?,
+            Self::LanguagePreferences => language_preferences(context)?,
             Self::Url => get_arbitrary_do(context, ArbitraryDO::Url)?,
             Self::LoginData => get_arbitrary_do(context, ArbitraryDO::LoginData)?,
-            Self::DigitalSignatureCounter => signature_counter(context.load_state()?)?,
+            Self::DigitalSignatureCounter => signature_counter(context)?,
             Self::KdfDo => get_arbitrary_do(context, ArbitraryDO::KdfDo)?,
             Self::PrivateUse1 => get_arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
             Self::PrivateUse2 => get_arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
@@ -555,18 +555,32 @@ fn cardholder_cert<const R: usize, T: trussed::Client>(
 }
 
 fn pw_status_bytes<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let status = PasswordStatus {
-        pw1_valid_multiple: ctx.state.internal.pw1_valid_multiple(),
-        max_length_pw1: MAX_PIN_LENGTH as u8,
-        max_length_rc: MAX_PIN_LENGTH as u8,
-        max_length_pw3: MAX_PIN_LENGTH as u8,
-        error_counter_pw1: ctx.state.internal.remaining_tries(Password::Pw1),
-        // TODO when implementing RESET RETRY COUNTER
-        error_counter_rc: 3,
-        error_counter_pw3: ctx.state.internal.remaining_tries(Password::Pw3),
+    let status = if let Ok(ctx) = ctx.load_state() {
+        PasswordStatus {
+            pw1_valid_multiple: ctx.state.internal.pw1_valid_multiple(),
+            max_length_pw1: MAX_PIN_LENGTH as u8,
+            max_length_rc: MAX_PIN_LENGTH as u8,
+            max_length_pw3: MAX_PIN_LENGTH as u8,
+            error_counter_pw1: ctx.state.internal.remaining_tries(Password::Pw1),
+            // TODO when implementing RESET RETRY COUNTER
+            error_counter_rc: 3,
+            error_counter_pw3: ctx.state.internal.remaining_tries(Password::Pw3),
+        }
+    } else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        PasswordStatus {
+            pw1_valid_multiple: false,
+            max_length_pw1: MAX_PIN_LENGTH as u8,
+            max_length_rc: MAX_PIN_LENGTH as u8,
+            max_length_pw3: MAX_PIN_LENGTH as u8,
+            error_counter_pw1: 3,
+            error_counter_rc: 3,
+            error_counter_pw3: 3,
+        }
     };
+
     let status: [u8; 7] = status.into();
     ctx.reply.expand(&status)
 }
@@ -594,46 +608,72 @@ fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> 
 }
 
 fn alg_attr_sign<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(SignatureAlgorithm::default().attributes());
+    };
+
     ctx.reply
         .expand(ctx.state.internal.sign_alg().attributes())?;
     Ok(())
 }
 
 fn alg_attr_dec<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(DecryptionAlgorithm::default().attributes());
+    };
+
     ctx.reply
         .expand(ctx.state.internal.dec_alg().attributes())?;
     Ok(())
 }
 
 fn alg_attr_aut<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(AuthenticationAlgorithm::default().attributes());
+    };
     ctx.reply
         .expand(ctx.state.internal.aut_alg().attributes())?;
     Ok(())
 }
 
 fn fingerprints<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(&[0;60]);
+    };
     ctx.reply.expand(&ctx.state.internal.fingerprints().0)?;
     Ok(())
 }
 
 fn ca_fingerprints<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(&[0;60]);
+    };
     ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)?;
     Ok(())
 }
 
 fn keygen_dates<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(&[0;12]);
+    };
     ctx.reply.expand(&ctx.state.internal.keygen_dates().0)?;
     Ok(())
 }
@@ -646,9 +686,11 @@ fn key_info_byte(data: Option<KeyOrigin>) -> u8 {
     }
 }
 
-fn key_info<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(&hex!("010002000300"));
+    };
     // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
     ctx.reply.expand(&[
         0x01,
@@ -666,9 +708,14 @@ fn key_info<const R: usize, T: trussed::Client>(
 }
 
 fn uif<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(&[Uif::Disabled as u8, general_feature_management_byte(ctx.options)]);
+    };
+
     if !ctx.options.button_available {
         warn!("GET DAT for uif without a button available");
         return Err(Status::FunctionNotSupported);
@@ -680,28 +727,46 @@ fn uif<const R: usize, T: trussed::Client>(
 }
 
 fn cardholder_name<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(b"Card state corrupted. Factory reset recommended");
+    };
     ctx.reply.expand(ctx.state.internal.cardholder_name())
 }
 
 fn cardholder_sex<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+    return ctx.reply
+        .expand(&[Sex::NotKnown as u8])
+    };
     ctx.reply
         .expand(&[ctx.state.internal.cardholder_sex() as u8])
 }
 
 fn language_preferences<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(b"");
+    };
     ctx.reply.expand(ctx.state.internal.language_preferences())
 }
 
 fn signature_counter<const R: usize, T: trussed::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
+    let Ok(mut ctx) = ctx.load_state() else {
+        // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
+        return ctx.reply.expand(&0u32.to_be_bytes()[1..]);
+    };
+
     let resp = &ctx.state.internal.sign_count().to_be_bytes()[1..];
     ctx.reply.expand(resp)
 }
