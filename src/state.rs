@@ -1,5 +1,4 @@
 // Copyright (C) 2022 Nitrokey GmbH
-// let algo = ctx.state.internal.
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use core::mem::swap;

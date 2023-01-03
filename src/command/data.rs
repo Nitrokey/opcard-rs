@@ -564,8 +564,7 @@ fn pw_status_bytes<const R: usize, T: trussed::Client>(
             max_length_rc: MAX_PIN_LENGTH as u8,
             max_length_pw3: MAX_PIN_LENGTH as u8,
             error_counter_pw1: ctx.state.internal.remaining_tries(Password::Pw1),
-            // TODO when implementing RESET RETRY COUNTER
-            error_counter_rc: 3,
+            error_counter_rc: ctx.state.internal.remaining_tries(Password::ResetCode),
             error_counter_pw3: ctx.state.internal.remaining_tries(Password::Pw3),
         }
     } else {
