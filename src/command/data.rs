@@ -610,72 +610,69 @@ fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> 
 fn alg_attr_sign<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(ctx.state.internal.sign_alg().attributes())
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(SignatureAlgorithm::default().attributes());
-    };
-
-    ctx.reply
-        .expand(ctx.state.internal.sign_alg().attributes())?;
-    Ok(())
+        ctx.reply.expand(SignatureAlgorithm::default().attributes())
+    }
 }
 
 fn alg_attr_dec<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(ctx.state.internal.dec_alg().attributes())
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(DecryptionAlgorithm::default().attributes());
-    };
-
-    ctx.reply
-        .expand(ctx.state.internal.dec_alg().attributes())?;
-    Ok(())
+        ctx.reply
+            .expand(DecryptionAlgorithm::default().attributes())
+    }
 }
 
 fn alg_attr_aut<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(ctx.state.internal.aut_alg().attributes())
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(AuthenticationAlgorithm::default().attributes());
-    };
-    ctx.reply
-        .expand(ctx.state.internal.aut_alg().attributes())?;
-    Ok(())
+        ctx.reply
+            .expand(AuthenticationAlgorithm::default().attributes())
+    }
 }
 
 fn fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(&ctx.state.internal.fingerprints().0)
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(&[0;60]);
-    };
-    ctx.reply.expand(&ctx.state.internal.fingerprints().0)?;
-    Ok(())
+        ctx.reply.expand(&[0; 60])
+    }
 }
 
 fn ca_fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(&[0;60]);
-    };
-    ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)?;
-    Ok(())
+        ctx.reply.expand(&[0; 60])
+    }
 }
 
 fn keygen_dates<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(&ctx.state.internal.keygen_dates().0)
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(&[0;12]);
-    };
-    ctx.reply.expand(&ctx.state.internal.keygen_dates().0)?;
-    Ok(())
+        ctx.reply.expand(&[0; 12])
+    }
 }
 
 fn key_info_byte(data: Option<KeyOrigin>) -> u8 {
@@ -687,88 +684,95 @@ fn key_info_byte(data: Option<KeyOrigin>) -> u8 {
 }
 
 fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
+        ctx.reply.expand(&[
+            0x01,
+            key_info_byte(ctx.state.internal.key_origin(KeyType::Sign)),
+        ])?;
+        ctx.reply.expand(&[
+            0x02,
+            key_info_byte(ctx.state.internal.key_origin(KeyType::Dec)),
+        ])?;
+        ctx.reply.expand(&[
+            0x03,
+            key_info_byte(ctx.state.internal.key_origin(KeyType::Aut)),
+        ])?;
+        Ok(())
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(&hex!("010002000300"));
-    };
-    // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
-    ctx.reply.expand(&[
-        0x01,
-        key_info_byte(ctx.state.internal.key_origin(KeyType::Sign)),
-    ])?;
-    ctx.reply.expand(&[
-        0x02,
-        key_info_byte(ctx.state.internal.key_origin(KeyType::Dec)),
-    ])?;
-    ctx.reply.expand(&[
-        0x03,
-        key_info_byte(ctx.state.internal.key_origin(KeyType::Aut)),
-    ])?;
-    Ok(())
+        ctx.reply.expand(&hex!("010002000300"))
+    }
 }
 
 fn uif<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        if !ctx.options.button_available {
+            warn!("GET DAT for uif without a button available");
+            return Err(Status::FunctionNotSupported);
+        }
+
+        let state_byte = ctx.state.internal.uif(key).as_byte();
+        let button_byte = general_feature_management_byte(ctx.options);
+        ctx.reply.expand(&[state_byte, button_byte])
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(&[Uif::Disabled as u8, general_feature_management_byte(ctx.options)]);
-    };
-
-    if !ctx.options.button_available {
-        warn!("GET DAT for uif without a button available");
-        return Err(Status::FunctionNotSupported);
+        ctx.reply.expand(&[
+            Uif::Disabled as u8,
+            general_feature_management_byte(ctx.options),
+        ])
     }
-
-    let state_byte = ctx.state.internal.uif(key).as_byte();
-    let button_byte = general_feature_management_byte(ctx.options);
-    ctx.reply.expand(&[state_byte, button_byte])
 }
 
 fn cardholder_name<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(ctx.state.internal.cardholder_name())
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(b"Card state corrupted. Factory reset recommended");
-    };
-    ctx.reply.expand(ctx.state.internal.cardholder_name())
+        ctx.reply
+            .expand(b"Card state corrupted. Factory reset recommended")
+    }
 }
 
 fn cardholder_sex<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply
+            .expand(&[ctx.state.internal.cardholder_sex() as u8])
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-    return ctx.reply
-        .expand(&[Sex::NotKnown as u8])
-    };
-    ctx.reply
-        .expand(&[ctx.state.internal.cardholder_sex() as u8])
+        ctx.reply.expand(&[Sex::NotKnown as u8])
+    }
 }
 
 fn language_preferences<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        ctx.reply.expand(ctx.state.internal.language_preferences())
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(b"");
-    };
-    ctx.reply.expand(ctx.state.internal.language_preferences())
+        ctx.reply.expand(b"")
+    }
 }
 
 fn signature_counter<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
-    let Ok(mut ctx) = ctx.load_state() else {
+    if let Ok(mut ctx) = ctx.load_state() {
+        let resp = &ctx.state.internal.sign_count().to_be_bytes()[1..];
+        ctx.reply.expand(resp)
+    } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        return ctx.reply.expand(&0u32.to_be_bytes()[1..]);
-    };
-
-    let resp = &ctx.state.internal.sign_count().to_be_bytes()[1..];
-    ctx.reply.expand(resp)
+        ctx.reply.expand(&0u32.to_be_bytes()[1..])
+    }
 }
 
 fn get_arbitrary_do<const R: usize, T: trussed::Client>(
