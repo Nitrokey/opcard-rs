@@ -73,3 +73,11 @@ clean:
 	cargo clean
 	cd fuzz && cargo clean && rm -rf corpus
 	rm -f fuzz_coverage.html
+
+.PHONY: example-vpicc
+example-vpicc:
+	cargo run --example vpicc --features vpicc,rsa4096-gen
+
+.PHONY: example-usbip
+example-usbip:
+	cargo run --example usbip --features virt,rsa4096-gen,apdu-dispatch
