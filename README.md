@@ -23,9 +23,17 @@ is not guaranteed.
 ## Features
 
 `opcard` currently supports the basic OpenPGP Card functionality (key generation,
-key import, signing, decrypting, card administration) for Curve25519 and NIST
-P-256. See the [issues for the v1.0.0 milestone][v1.0.0 milestone] for all
-missing features for a first stable release.
+key import, signing, decrypting, card administration).
+
+Here are the currently supported algorithms:
+
+- RSA-2048
+- RSA-4096 (no key generation, key import only)
+- EcDSA and ECDH for P256
+- EdDSA and ECDH for Curve25519
+
+See the [issues for the v1.0.0 milestone][v1.0.0 milestone] for all missing
+features for a first stable release.
 
 [v1.0.0 milestone]: https://github.com/Nitrokey/opcard-rs/milestone/2
 
