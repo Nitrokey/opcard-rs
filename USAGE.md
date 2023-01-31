@@ -14,7 +14,7 @@ is not guaranteed.
 
 ## Installation
 
-Download the latest compiled [release](https://github.com/Nitrokey/opcard-rs/releases).
+Download the latest compiled [alpha release](https://github.com/Nitrokey/nitrokey-3-firmware/releases).
 Plug your Nitrokey 3 and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
 `nitropy nk3 update <path/to/release/file>`
 
