@@ -572,6 +572,8 @@ fn pw_status_bytes<const R: usize, T: trussed::Client>(
 }
 
 fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
+    ctx.reply.expand(&[0xFA])?;
+    let offset = ctx.reply.len();
     for alg in SignatureAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
@@ -590,6 +592,7 @@ fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> 
         ctx.reply.expand(alg.attributes())?;
         ctx.reply.prepend_len(offset)?;
     }
+    ctx.reply.prepend_len(offset)?;
     Ok(())
 }
 
