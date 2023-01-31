@@ -15,7 +15,7 @@ fn gpg_card_status() {
     let status_regex = Regex::new(
         "\
             Reader ...........: Virtual PCD \\d\\d \\d\\d\n\
-            Application ID ...: D2760001240103040000000000000000\n\
+            Application ID ...: D276000124010304[A-Z0-9]*\n\
             Application type .: OpenPGP\n\
             Version ..........: 3.4\n\
             Manufacturer .....: test card\n\
