@@ -69,7 +69,7 @@ pub fn take_len(data: &[u8]) -> Option<(usize, &[u8])> {
         let l2 = *data.get(1)?;
         let l3 = *data.get(2)?;
         let len = u16::from_be_bytes([l2, l3]) as usize;
-        Some((len as usize, &data[3..]))
+        Some((len, &data[3..]))
     }
 }
 

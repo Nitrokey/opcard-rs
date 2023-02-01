@@ -294,7 +294,7 @@ impl Default for OutputMatcher {
 
 fn parse_hex(data: &str) -> Vec<u8> {
     let tmp: String = data.split_whitespace().collect();
-    hex::decode(&tmp).unwrap()
+    hex::decode(tmp).unwrap()
 }
 
 impl OutputMatcher {
@@ -414,10 +414,10 @@ impl IoCmd {
         expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
-        println!("Command: {:x?}", input);
+        println!("Command: {input:x?}");
         let mut rep: heapless::Vec<u8, 1024> = heapless::Vec::new();
         let cmd: iso7816::Command<1024> = iso7816::Command::try_from(input).unwrap_or_else(|err| {
-            panic!("Bad command: {err:?}, for command: {}", hex::encode(&input))
+            panic!("Bad command: {err:?}, for command: {}", hex::encode(input))
         });
         let status: Status = card
             .handle(&cmd, &mut rep)
@@ -428,10 +428,10 @@ impl IoCmd {
         println!("Output: {:?}\nStatus: {status:?}", hex::encode(&rep));
 
         if !output.validate(&rep) {
-            panic!("Bad output. Expected {:?}", output);
+            panic!("Bad output. Expected {output:?}");
         }
         if status != expected_status {
-            panic!("Bad status. Expected {:?}", expected_status);
+            panic!("Bad status. Expected {expected_status:?}");
         }
     }
 
