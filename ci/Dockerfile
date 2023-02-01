@@ -1,7 +1,7 @@
 # Copyright (C) 2022 Nitrokey GmbH
 # SPDX-License-Identifier: CC0-1.0
 
-FROM rust:latest
+FROM docker.io/rust:latest
 
 RUN apt update
 RUN apt install --yes gnupg scdaemon libclang-dev llvm python3-pip vsmartcard-vpcd pkg-config nettle-dev libpcsclite-dev
