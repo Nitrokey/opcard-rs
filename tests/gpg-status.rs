@@ -47,7 +47,7 @@ fn gpg_card_status() {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         println!("=== stdout ===");
-        println!("{}", stdout);
+        println!("{stdout}");
         println!("=== end stdout ===");
 
         println!();
