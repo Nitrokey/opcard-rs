@@ -733,8 +733,7 @@ fn cardholder_name<const R: usize, T: trussed::Client>(
         ctx.reply.expand(ctx.state.internal.cardholder_name())
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
-        ctx.reply
-            .expand(b"Card state corrupted. Factory reset recommended")
+        ctx.reply.expand(b"Card state corrupted.")
     }
 }
 
