@@ -39,6 +39,18 @@ features for a first stable release.
 
 Check out the [user guide](USAGE.md) for more information on what can be done.
 
+## Development
+
+Opcard uses [virtualsmartcard](https://frankmorgner.github.io/vsmartcard/) for testing.
+`make test` will run `opcard` on the host through virtualsmartcard and test it.
+
+`make dangerous-real-card-test` will instead run the tests against a real card.
+The vendor id and serial numbers can be configured with variables:
+
+```
+make dangerous-real-card-test  OPCARD_DANGEROUS_TEST_CARD_VENDOR="0000" OPCARD_DANGEROUS_TEST_CARD_SERIAL="000000" OPCARD_DANGEROUS_TEST_CARD_NAME="test card"
+```
+
 ## Installation
 
 Currently only available for the Nitrokey 3A Mini.
