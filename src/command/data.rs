@@ -975,6 +975,17 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
 fn put_resetting_code<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
+    if ctx.data.is_empty() {
+        info!("Removing resetting code");
+        return ctx
+            .state
+            .internal
+            .remove_reset_code(ctx.backend.client_mut())
+            .map_err(|_err| {
+                error!("Failed to remove resetting code: {_err}");
+                Status::UnspecifiedNonpersistentExecutionError
+            });
+    }
     if ctx.data.len() < MIN_LENGTH_RESET_CODE || ctx.data.len() > MAX_PIN_LENGTH {
         warn!(
             "Attempt to set invalid size of resetting code: {}",

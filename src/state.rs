@@ -481,6 +481,12 @@ impl Internal {
         self.save(client)
     }
 
+    pub fn remove_reset_code<T: trussed::Client>(&mut self, client: &mut T) -> Result<(), Error> {
+        self.reset_code_tries = 0;
+        self.reset_code_pin = None;
+        self.save(client)
+    }
+
     pub fn sign_alg(&self) -> SignatureAlgorithm {
         self.sign_alg
     }
