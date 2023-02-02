@@ -809,7 +809,7 @@ impl ArbitraryDO {
         #[allow(clippy::unwrap_used)]
         match self {
             // KDF-DO initialized to NONE
-            Self::KdfDo => Bytes::from_slice(&hex!("81 01 00")).unwrap(),
+            Self::KdfDo => Bytes::from_slice(&hex!("F9 03 81 01 00")).unwrap(),
             _ => Bytes::new(),
         }
     }
