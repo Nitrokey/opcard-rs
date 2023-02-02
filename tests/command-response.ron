@@ -16,10 +16,99 @@
         ]
     ),
     IoTest(
+        name: "Pw1 changes and verification",
+        cmd_resp:  [
+            Verify(pin: Pw1),
+            Change(pin: Pw1, new_value: Str("New Pin")),
+            Select,
+            Verify(pin: Pw1, value: Str("New Pin")),
+            Verify(pin: Pw1, expected_status: RemainingRetries(2)),
+            Verify(pin: Pw1, expected_status: RemainingRetries(1)),
+            Verify(pin: Pw1, expected_status: RemainingRetries(0)),
+            Verify(pin: Pw1, expected_status: RemainingRetries(0)),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(0)),
+            FactoryReset(),
+            Verify(pin: Pw1),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(2)),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(1)),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(0)),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(0)),
+            Select,
+            Verify(pin: Pw1, expected_status: RemainingRetries(0)),
+        ]
+    ),
+    IoTest(
+        name: "Pw3 changes and verification",
+        cmd_resp:  [
+            Verify(pin: Pw3),
+            Change(pin: Pw3, new_value: Str("New Pin but long enough for PW3")),
+            Select,
+            Verify(pin: Pw3, value: Str("New Pin but long enough for PW3")),
+            Verify(pin: Pw3, expected_status: RemainingRetries(2)),
+            Verify(pin: Pw3, expected_status: RemainingRetries(1)),
+            Verify(pin: Pw3, expected_status: RemainingRetries(0)),
+            Verify(pin: Pw3, expected_status: RemainingRetries(0)),
+            Verify(pin: Pw3, value: Str("New Pin but long enough for PW3"), expected_status: RemainingRetries(0)),
+            FactoryReset(already_failed: 3),
+            Verify(pin: Pw3),
+        ]
+    ),
+    IoTest(
+        name: "Reset with admin",
+        cmd_resp:  [
+            Verify(pin: Pw1),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(2)),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(1)),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(0)),
+            Verify(pin: Pw1, value: Str("New pin"), expected_status: RemainingRetries(0)),
+            UnblockPin(expected_status: SecurityStatusNotSatisfied),
+            Verify(pin: Pw3),
+            Verify(pin: Pw1, expected_status: RemainingRetries(0)),
+            UnblockPin(),
+        ]
+    ),
+    IoTest(
+        name: "Reset with bad code",
+        cmd_resp:  [
+            Verify(pin: Pw3),
+            PutData(tag: ResettingCode, value: "AABBCCDDEEFF0011223344556677889900"),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(2)),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(1)),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(0)),
+            UnblockPin(reset_code: "BADBADBADBADBADBADBADBAD", expected_status: RemainingRetries(2)),
+            UnblockPin(reset_code: "BADBADBADBADBADBADBADBAD", expected_status: RemainingRetries(1)),
+            UnblockPin(reset_code: "BADBADBADBADBADBADBADBAD", expected_status: RemainingRetries(0)),
+            UnblockPin(reset_code: "AABBCCDDEEFF0011223344556677889900", expected_status: RemainingRetries(0)),
+        ]
+    ),
+    IoTest(
+        name: "Reset with code",
+        cmd_resp:  [
+            Verify(pin: Pw3),
+            PutData(tag: ResettingCode, value: "AABBCCDDEEFF0011223344556677889900"),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(2)),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(1)),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(0)),
+            UnblockPin(reset_code: "AABBCCDDEEFF0011223344556677889900"),
+        ]
+    ),
+    IoTest(
+        name: "Reset with deleted code",
+        cmd_resp:  [
+            Verify(pin: Pw3),
+            PutData(tag: ResettingCode, value: "AABBCCDDEEFF0011223344556677889900"),
+            PutData(tag: ResettingCode, value: ""),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(2)),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(1)),
+            Verify(pin: Pw1, value: Str("bad pin"), expected_status: RemainingRetries(0)),
+            UnblockPin(reset_code: "AABBCCDDEEFF0011223344556677889900", expected_status: SecurityStatusNotSatisfied),
+        ]
+    ),
+    IoTest(
         name: "AES",
         cmd_resp: [
             Verify(pin: Pw3),
-            Verify(pin: Pw1),
+            Verify(pin: Pw82),
             ImportKey(
                 key: "FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211",
                 key_kind: Aes,
@@ -41,7 +130,7 @@
         name: "X25519 import",
         cmd_resp: [
             Verify(pin: Pw3),
-            Verify(pin: Pw1),
+            Verify(pin: Pw82),
             SetAttributes (key_type: Dec, key_kind: X25519),
             ImportKey(
                 key: "2a2cb91da5fb77b12a99c0eb872f4cdf4566b25172c1163c7da518730a6d0777",
@@ -64,7 +153,7 @@
         name: "Ed25519 import",
         cmd_resp: [
             Verify(pin: Pw3),
-            Verify(pin: Pw1),
+            Verify(pin: Pw82),
             SetAttributes (key_type: Sign, key_kind: Ed25519),
             ImportKey(
                 key: "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
@@ -82,7 +171,7 @@
         name: "X25519 import",
         cmd_resp: [
             Verify(pin: Pw3),
-            Verify(pin: Pw1),
+            Verify(pin: Pw82),
             SetAttributes (key_type: Dec, key_kind: X25519),
             ImportKey(
                 key: "56ca9c48fec3ef2874f3e4c39730a7014da61cf77f50af086998957102837b00",

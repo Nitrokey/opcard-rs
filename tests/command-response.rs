@@ -34,6 +34,20 @@ enum Status {
     ClassNotSupported,
     UnspecifiedCheckingError,
 }
+#[derive(Debug, Clone, Deserialize)]
+enum HexOrStr {
+    Hex(String),
+    Str(String),
+}
+
+impl HexOrStr {
+    fn as_bytes(&self) -> Vec<u8> {
+        match self {
+            Self::Hex(s) => parse_hex(s),
+            Self::Str(s) => s.as_bytes().to_vec(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[repr(u16)]
@@ -319,15 +333,15 @@ impl OutputMatcher {
 #[derive(Deserialize, Debug, Copy, Clone)]
 #[repr(u8)]
 enum Pin {
-    Sign = 0x81,
-    Pw1 = 0x82,
+    Pw1 = 0x81,
+    Pw82 = 0x82,
     Pw3 = 0x83,
 }
 
 impl Pin {
     fn default_value(self) -> &'static [u8] {
         match self {
-            Pin::Sign | Pin::Pw1 => b"123456",
+            Pin::Pw1 | Pin::Pw82 => b"123456",
             Pin::Pw3 => b"12345678",
         }
     }
@@ -336,6 +350,7 @@ impl Pin {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 enum IoCmd {
+    Select,
     IoData {
         input: String,
         #[serde(default)]
@@ -347,7 +362,34 @@ enum IoCmd {
         pin: Pin,
         /// None means default value
         #[serde(default)]
-        value: Option<String>,
+        value: Option<HexOrStr>,
+        #[serde(default)]
+        expected_status: Status,
+    },
+    Change {
+        pin: Pin,
+        /// None means default value
+        #[serde(default)]
+        new_value: Option<HexOrStr>,
+        /// None means default value
+        #[serde(default)]
+        old_value: Option<HexOrStr>,
+        #[serde(default)]
+        expected_status: Status,
+    },
+    PutData {
+        tag: DataObject,
+        value: String,
+        /// None means default value
+        #[serde(default)]
+        expected_status: Status,
+    },
+    UnblockPin {
+        /// None means use admin pin
+        #[serde(default)]
+        reset_code: Option<String>,
+        #[serde(default)]
+        new_value: Option<HexOrStr>,
         #[serde(default)]
         expected_status: Status,
     },
@@ -377,6 +419,10 @@ enum IoCmd {
         input: String,
         output: String,
     },
+    FactoryReset {
+        #[serde(default)]
+        already_failed: u8,
+    },
 }
 
 const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
@@ -384,6 +430,8 @@ const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
 impl IoCmd {
     fn run<T: trussed::Client>(&self, card: &mut opcard::Card<T>) {
         match self {
+            Self::FactoryReset { already_failed } => Self::run_factory_reset(*already_failed, card),
+            Self::Select => Self::run_select(card),
             Self::IoData {
                 input,
                 output,
@@ -399,15 +447,13 @@ impl IoCmd {
                 pin,
                 value,
                 expected_status,
-            } => Self::run_verify(
-                *pin,
-                value
-                    .as_deref()
-                    .map(parse_hex)
-                    .unwrap_or_else(|| pin.default_value().into()),
-                *expected_status,
-                card,
-            ),
+            } => Self::run_verify(*pin, value, *expected_status, card),
+            Self::Change {
+                pin,
+                old_value,
+                new_value,
+                expected_status,
+            } => Self::run_change(*pin, old_value, new_value, *expected_status, card),
             Self::ImportKey {
                 key,
                 key_type,
@@ -422,6 +468,16 @@ impl IoCmd {
                 key_kind,
                 public_key,
             } => Self::run_read_key(key_kind, key_type, public_key, card),
+            Self::PutData {
+                tag,
+                value,
+                expected_status,
+            } => Self::run_put_data(*tag, &parse_hex(value), *expected_status, card),
+            Self::UnblockPin {
+                reset_code,
+                new_value,
+                expected_status,
+            } => Self::run_unblock_pin(reset_code, new_value, *expected_status, card),
         }
     }
 
@@ -450,6 +506,30 @@ impl IoCmd {
         if status != expected_status {
             panic!("Bad status. Expected {expected_status:?}");
         }
+    }
+
+    fn run_select<T: trussed::Client>(card: &mut opcard::Card<T>) {
+        Self::run_bytes(
+            &hex!("00 A4 0400 06 D27600012401"),
+            &MATCH_EMPTY,
+            Status::Success,
+            card,
+        )
+    }
+
+    fn run_factory_reset<T: trussed::Client>(already_failed: u8, card: &mut opcard::Card<T>) {
+        for i in 0..(3 - already_failed) {
+            Self::run_verify(
+                Pin::Pw3,
+                &Some(HexOrStr::Str(
+                    "Voluntarily bad pin for factory reset".into(),
+                )),
+                Status::RemainingRetries((3 - already_failed) - i - 1),
+                card,
+            );
+        }
+        Self::run_bytes(&hex!("00 E6 00 00"), &MATCH_EMPTY, Status::Success, card);
+        Self::run_bytes(&hex!("00 44 00 00"), &MATCH_EMPTY, Status::Success, card);
     }
 
     fn run_iodata<T: trussed::Client>(
@@ -517,13 +597,59 @@ impl IoCmd {
 
     fn run_verify<T: trussed::Client>(
         pin: Pin,
-        value: Vec<u8>,
+        value: &Option<HexOrStr>,
         expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
-        let input = build_command(0x00, 0x20, 0x00, pin as u8, &value, 0);
+        let tmp = value.as_ref().map(HexOrStr::as_bytes);
+        let value = tmp.as_deref().unwrap_or_else(|| pin.default_value());
+        let input = build_command(0x00, 0x20, 0x00, pin as u8, value, 0);
         Self::run_bytes(&input, &MATCH_EMPTY, expected_status, card)
     }
+    fn run_change<T: trussed::Client>(
+        pin: Pin,
+        old_value: &Option<HexOrStr>,
+        new_value: &Option<HexOrStr>,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let old_tmp = old_value.as_ref().map(HexOrStr::as_bytes);
+        let new_tmp = new_value.as_ref().map(HexOrStr::as_bytes);
+        let old_value = old_tmp.as_deref().unwrap_or_else(|| pin.default_value());
+        let new_value = new_tmp.as_deref().unwrap_or_else(|| pin.default_value());
+        let data = Vec::from_iter(old_value.iter().chain(new_value).copied());
+        let input = build_command(0x00, 0x24, 0x00, pin as u8, &data, 0);
+        Self::run_bytes(&input, &MATCH_EMPTY, expected_status, card)
+    }
+
+    fn run_unblock_pin<T: trussed::Client>(
+        reset_code: &Option<String>,
+        new_value: &Option<HexOrStr>,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let tmp = new_value.as_ref().map(HexOrStr::as_bytes);
+        let new_value = tmp.as_deref().unwrap_or_else(|| Pin::Pw3.default_value());
+        match reset_code {
+            Some(c) => {
+                let mut data = parse_hex(c);
+                data.extend_from_slice(new_value);
+                Self::run_bytes(
+                    &build_command(0x00, 0x2C, 0x00, 0x81, &data, 0),
+                    &MATCH_EMPTY,
+                    expected_status,
+                    card,
+                )
+            }
+            None => Self::run_bytes(
+                &build_command(0x00, 0x2C, 0x02, 0x81, new_value, 0),
+                &MATCH_EMPTY,
+                expected_status,
+                card,
+            ),
+        }
+    }
+
     fn run_read_key<T: trussed::Client>(
         key_kind: &KeyKind,
         key_type: &KeyType,
