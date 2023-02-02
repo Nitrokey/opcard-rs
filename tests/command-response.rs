@@ -316,6 +316,23 @@ impl OutputMatcher {
     }
 }
 
+#[derive(Deserialize, Debug, Copy, Clone)]
+#[repr(u8)]
+enum Pin {
+    Sign = 0x81,
+    Pw1 = 0x82,
+    Pw3 = 0x83,
+}
+
+impl Pin {
+    fn default_value(self) -> &'static [u8] {
+        match self {
+            Pin::Sign | Pin::Pw1 => b"123456",
+            Pin::Pw3 => b"12345678",
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 enum IoCmd {
@@ -326,9 +343,14 @@ enum IoCmd {
         #[serde(default)]
         expected_status: Status,
     },
-    VerifyDefaultSign,
-    VerifyDefaultPw1,
-    VerifyDefaultPw3,
+    Verify {
+        pin: Pin,
+        /// None means default value
+        #[serde(default)]
+        value: Option<String>,
+        #[serde(default)]
+        expected_status: Status,
+    },
     ImportKey {
         key: String,
         #[serde(default)]
@@ -373,22 +395,17 @@ impl IoCmd {
                 key_kind,
             } => Self::run_decrypt(input, output, key_kind, card),
             Self::Sign { input, output } => Self::run_sign(input, output, card),
-            Self::VerifyDefaultSign => Self::run_iodata(
-                "00200081 06 313233343536",
-                &MATCH_EMPTY,
-                Status::Success,
-                card,
-            ),
-            Self::VerifyDefaultPw1 => Self::run_iodata(
-                "00200082 06 313233343536",
-                &MATCH_EMPTY,
-                Status::Success,
-                card,
-            ),
-            Self::VerifyDefaultPw3 => Self::run_iodata(
-                "00200083 08 3132333435363738",
-                &MATCH_EMPTY,
-                Status::Success,
+            Self::Verify {
+                pin,
+                value,
+                expected_status,
+            } => Self::run_verify(
+                *pin,
+                value
+                    .as_deref()
+                    .map(parse_hex)
+                    .unwrap_or_else(|| pin.default_value().into()),
+                *expected_status,
                 card,
             ),
             Self::ImportKey {
@@ -498,6 +515,15 @@ impl IoCmd {
         Self::run_bytes(&input, &OutputMatcher::Len(0), Status::Success, card)
     }
 
+    fn run_verify<T: trussed::Client>(
+        pin: Pin,
+        value: Vec<u8>,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let input = build_command(0x00, 0x20, 0x00, pin as u8, &value, 0);
+        Self::run_bytes(&input, &MATCH_EMPTY, expected_status, card)
+    }
     fn run_read_key<T: trussed::Client>(
         key_kind: &KeyKind,
         key_type: &KeyType,

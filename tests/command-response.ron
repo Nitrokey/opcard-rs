@@ -18,8 +18,8 @@
     IoTest(
         name: "AES",
         cmd_resp: [
-            VerifyDefaultPw3,
-            VerifyDefaultPw1,
+            Verify(pin: Pw3),
+            Verify(pin: Pw1),
             ImportKey(
                 key: "FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211",
                 key_kind: Aes,
@@ -40,8 +40,8 @@
     IoTest(
         name: "X25519 import",
         cmd_resp: [
-            VerifyDefaultPw3,
-            VerifyDefaultPw1,
+            Verify(pin: Pw3),
+            Verify(pin: Pw1),
             SetAttributes (key_type: Dec, key_kind: X25519),
             ImportKey(
                 key: "2a2cb91da5fb77b12a99c0eb872f4cdf4566b25172c1163c7da518730a6d0777",
@@ -63,8 +63,8 @@
     IoTest(
         name: "Ed25519 import",
         cmd_resp: [
-            VerifyDefaultPw3,
-            VerifyDefaultPw1,
+            Verify(pin: Pw3),
+            Verify(pin: Pw1),
             SetAttributes (key_type: Sign, key_kind: Ed25519),
             ImportKey(
                 key: "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
@@ -81,8 +81,8 @@
     IoTest(
         name: "X25519 import",
         cmd_resp: [
-            VerifyDefaultPw3,
-            VerifyDefaultPw1,
+            Verify(pin: Pw3),
+            Verify(pin: Pw1),
             SetAttributes (key_type: Dec, key_kind: X25519),
             ImportKey(
                 key: "56ca9c48fec3ef2874f3e4c39730a7014da61cf77f50af086998957102837b00",
