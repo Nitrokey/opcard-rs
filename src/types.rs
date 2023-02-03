@@ -42,13 +42,13 @@ const ED255_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice()
 const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
 const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
-const RSA_2K_ATTRIBUTES: &[u8] = hex!("
+const RSA_2K_ATTRIBUTES_CRT: &[u8] = hex!("
     01
     0800 // Length modulus (in bit): 2048                                                                                                                                        
     0020 // Length exponent (in bit): 32
     02   // import in CRT Format
 ").as_slice();
-const RSA_4K_ATTRIBUTES: &[u8] = hex!(
+const RSA_4K_ATTRIBUTES_CRT: &[u8] = hex!(
     "
     01
     1000 // Length modulus (in bit): 4096
@@ -59,13 +59,13 @@ const RSA_4K_ATTRIBUTES: &[u8] = hex!(
 .as_slice();
 
 // Accepted for key generation, but overridden to always set the import format to CRT
-const RSA_2K_ATTRIBUTES_STANDARD_IMPORT: &[u8] = hex!("
+const RSA_2K_ATTRIBUTES: &[u8] = hex!("
     01
     0800 // Length modulus (in bit): 2048                                                                                                                                        
     0020 // Length exponent (in bit): 32
     00   // import in standard format
 ").as_slice();
-const RSA_4K_ATTRIBUTES_STANDARD_IMPORT: &[u8] = hex!(
+const RSA_4K_ATTRIBUTES: &[u8] = hex!(
     "
     01
     1000 // Length modulus (in bit): 4096
@@ -124,8 +124,8 @@ impl TryFrom<&[u8]> for SignatureAlgorithm {
         match v {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_STANDARD_IMPORT => Ok(Self::Rsa2048),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_STANDARD_IMPORT => Ok(Self::Rsa4096),
+            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
     }
@@ -177,8 +177,8 @@ impl TryFrom<&[u8]> for DecryptionAlgorithm {
         match v {
             X255_ATTRIBUTES => Ok(Self::X255),
             ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_STANDARD_IMPORT => Ok(Self::Rsa2048),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_STANDARD_IMPORT => Ok(Self::Rsa4096),
+            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
     }
@@ -230,8 +230,8 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
         match v {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_STANDARD_IMPORT => Ok(Self::Rsa2048),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_STANDARD_IMPORT => Ok(Self::Rsa4096),
+            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
     }

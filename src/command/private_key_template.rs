@@ -162,26 +162,28 @@ fn parse_rsa_template(data: &[u8]) -> Option<trussed::types::RsaCrtImportFormat<
     let mut template = get_do(&[PRIVATE_KEY_TEMPLATE_DO, TEMPLATE_DO], data)?;
     let mut res = [(0, 0); 6];
     let mut acc = 0;
-    for i in 0..6 {
-        if *template.first()? != i + 0x91 {
+    for i in 0..3 {
+        let Some(tag) = template.first() else {
+            warn!("Missing template data. Only got up to {:x}", i+0x90);
+            return None;
+        };
+        if *tag != i + 0x91 {
             warn!("Unexpected template data: {}", template.first()?);
             return None;
         }
-
         let (size, d) = take_len(&template[1..])?;
         res[i as usize] = (acc, acc + size);
         acc += size;
         template = d;
     }
-
     let key_data = get_do(&[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO], data)?;
     Some(trussed::types::RsaCrtImportFormat {
         e: key_data.get(res[0].0..res[0].1)?,
         p: key_data.get(res[1].0..res[1].1)?,
         q: key_data.get(res[2].0..res[2].1)?,
-        qinv: key_data.get(res[3].0..res[3].1)?,
-        dp: key_data.get(res[4].0..res[4].1)?,
-        dq: key_data.get(res[5].0..res[5].1)?,
+        qinv: &[],
+        dp: &[],
+        dq: &[],
     })
 }
 
