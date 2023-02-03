@@ -8,15 +8,73 @@ use card::with_tx_options;
 
 use opcard::Options;
 
-use openpgp_card::card_do::{ApplicationIdentifier, HistoricalBytes, Lang, Sex, TouchPolicy};
+use openpgp_card::card_do::{ApplicationIdentifier, Lang, Sex, TouchPolicy};
+
+#[test]
+fn historical_bytes() {
+    let mut options = Options::default();
+    options.chaining_supported = true;
+    options.extended_len_supported = false;
+    with_tx_options(options, |mut tx| {
+        let appdata = tx.application_related_data().unwrap();
+        let historical_bytes = appdata.historical_bytes().unwrap();
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .command_chaining());
+        assert!(!historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_length_information());
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_lc_le());
+    });
+    options.chaining_supported = false;
+    options.extended_len_supported = true;
+    with_tx_options(options, |mut tx| {
+        let appdata = tx.application_related_data().unwrap();
+        let historical_bytes = appdata.historical_bytes().unwrap();
+        assert!(!historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .command_chaining());
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_length_information());
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_lc_le());
+    });
+    options.chaining_supported = false;
+    options.extended_len_supported = false;
+    with_tx_options(options, |mut tx| {
+        let appdata = tx.application_related_data().unwrap();
+        let historical_bytes = appdata.historical_bytes().unwrap();
+        assert!(!historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .command_chaining());
+        assert!(!historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_length_information());
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_lc_le());
+    });
+}
 
 #[test]
 fn get_data() {
     let mut options = Options::default();
     options.button_available = false;
-    with_tx_options(options.clone(), |mut tx| {
+    with_tx_options(options, |mut tx| {
         let appdata = tx.application_related_data().unwrap();
-        dbg!(&appdata.uif_pso_cds());
         assert!(appdata.uif_pso_cds().unwrap().is_none());
         assert!(appdata.uif_pso_dec().unwrap().is_none());
         assert!(appdata.uif_pso_aut().unwrap().is_none());
@@ -39,10 +97,19 @@ fn get_data() {
             )
             .unwrap()
         );
-        assert_eq!(
-            appdata.historical_bytes().unwrap(),
-            HistoricalBytes::try_from(hex!("0031F573C00160059000").as_slice()).unwrap()
-        );
+        let historical_bytes = appdata.historical_bytes().unwrap();
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .command_chaining());
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_length_information());
+        assert!(historical_bytes
+            .card_capabilities()
+            .unwrap()
+            .extended_lc_le());
 
         let uif_cds = appdata.uif_pso_cds().unwrap().unwrap();
         assert_eq!(uif_cds.touch_policy(), TouchPolicy::Off);
