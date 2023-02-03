@@ -432,8 +432,8 @@ const EXTENDED_LENGTH_INFO: [u8; 8] = hex!("02 02 1DB9 02 02 1DB9");
 const EXTENDED_CAPABILITIES: [u8; 10] = [
     0x3F, //
     0x00, //
-    0x00, //
-    0x00, // Secure messaging not supported
+    MAX_GENERIC_LENGTH_BE[0],
+    MAX_GENERIC_LENGTH_BE[1],
     MAX_GENERIC_LENGTH_BE[0],
     MAX_GENERIC_LENGTH_BE[1],
     MAX_GENERIC_LENGTH_BE[0],
