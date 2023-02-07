@@ -25,10 +25,15 @@
 
 // TODO: add CLI
 
+#[cfg(not(feature = "rsa"))]
+use trussed::virt::with_ram_client;
+#[cfg(feature = "rsa")]
+use trussed_rsa_alloc::virt::with_ram_client;
+
 fn main() {
     env_logger::init();
 
-    trussed::virt::with_ram_client("opcard", |client| {
+    with_ram_client("opcard", |client| {
         let card = opcard::Card::new(client, opcard::Options::default());
         let mut virtual_card = opcard::VirtualCard::new(card);
         let vpicc = vpicc::connect().expect("failed to connect to vpicc");

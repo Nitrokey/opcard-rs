@@ -13,6 +13,9 @@ use crate::utils::InspectErr;
 
 const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
 
+#[cfg(feature = "rsa")]
+use trussed_rsa_alloc::RsaPublicParts;
+
 fn serialize_pub<const R: usize, T: trussed::Client>(
     algo: CurveAlgo,
     ctx: LoadedContext<'_, R, T>,
@@ -35,11 +38,11 @@ pub fn sign<const R: usize, T: trussed::Client>(
             gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP256)
         }
         SignatureAlgorithm::Rsa2048 => {
-            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs)
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
         }
         SignatureAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
-            return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs);
+            return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15);
             #[cfg(not(feature = "rsa4096-gen"))]
             return Err(Status::FunctionNotSupported);
         }
@@ -55,11 +58,11 @@ pub fn dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => {
-            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs)
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
         }
         DecryptionAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
-            return gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs);
+            return gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs1v15);
             #[cfg(not(feature = "rsa4096-gen"))]
             return Err(Status::FunctionNotSupported);
         }
@@ -77,18 +80,18 @@ pub fn aut<const R: usize, T: trussed::Client>(
             gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP256)
         }
         AuthenticationAlgorithm::Rsa2048 => {
-            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs)
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
-            return gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs);
+            return gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs1v15);
             #[cfg(not(feature = "rsa4096-gen"))]
             return Err(Status::FunctionNotSupported);
         }
     }
 }
 
-#[cfg(feature = "rsa2048")]
+#[cfg(feature = "rsa")]
 fn gen_rsa_key<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
@@ -175,8 +178,8 @@ pub fn read_sign<const R: usize, T: trussed::Client>(
     match algo {
         SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
-        SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs),
-        SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs),
+        SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
+        SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
     }
 }
 
@@ -193,8 +196,12 @@ pub fn read_dec<const R: usize, T: trussed::Client>(
     match algo {
         DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
-        DecryptionAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs),
-        DecryptionAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs),
+        DecryptionAlgorithm::Rsa2048 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
+        }
+        DecryptionAlgorithm::Rsa4096 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
+        }
     }
 }
 
@@ -212,10 +219,10 @@ pub fn read_aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
         AuthenticationAlgorithm::Rsa2048 => {
-            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs)
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa4096 => {
-            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs)
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
         }
     }
 }
@@ -267,7 +274,7 @@ fn read_ec_key<const R: usize, T: trussed::Client>(
     ctx.reply.prepend_len(offset)
 }
 
-#[cfg(feature = "rsa2048")]
+#[cfg(feature = "rsa")]
 fn read_rsa_key<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key_id: KeyId,
@@ -284,30 +291,27 @@ fn read_rsa_key<const R: usize, T: trussed::Client>(
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
 
-    let serialized_n =
-        try_syscall!(client.serialize_key(mechanism, public_key, KeySerialization::RsaN))
+    let pubkey_data =
+        try_syscall!(client.serialize_key(mechanism, public_key, KeySerialization::RsaParts))
             .map_err(|_err| {
                 error!("Failed to serialize public key N: {_err:?}");
                 syscall!(client.delete(public_key));
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
+    let parsed_pubkey_data: RsaPublicParts =
+        trussed::postcard_deserialize(&pubkey_data).map_err(|_err| {
+            error!("Failed to deserialize public key");
+            syscall!(client.delete(public_key));
+            Status::UnspecifiedNonpersistentExecutionError
+        })?;
     ctx.reply.expand(&[0x81])?;
-    ctx.reply.append_len(serialized_n.len())?;
-    ctx.reply.expand(&serialized_n)?;
-    drop(serialized_n);
+    ctx.reply.append_len(parsed_pubkey_data.n.len())?;
+    ctx.reply.expand(&parsed_pubkey_data.n)?;
 
-    let serialized_e =
-        try_syscall!(client.serialize_key(mechanism, public_key, KeySerialization::RsaE))
-            .map_err(|_err| {
-                error!("Failed to serialize public key E: {_err:?}");
-                syscall!(client.delete(public_key));
-                Status::UnspecifiedNonpersistentExecutionError
-            })?
-            .serialized_key;
     ctx.reply.expand(&[0x82])?;
-    ctx.reply.append_len(serialized_e.len())?;
-    ctx.reply.expand(&serialized_e)?;
+    ctx.reply.append_len(parsed_pubkey_data.e.len())?;
+    ctx.reply.expand(&parsed_pubkey_data.e)?;
 
     ctx.reply.prepend_len(offset)?;
 
@@ -315,7 +319,7 @@ fn read_rsa_key<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-#[cfg(not(feature = "rsa2048"))]
+#[cfg(not(feature = "rsa"))]
 fn gen_rsa_key<const R: usize, T: trussed::Client>(
     _ctx: LoadedContext<'_, R, T>,
     _key: KeyType,
@@ -324,7 +328,7 @@ fn gen_rsa_key<const R: usize, T: trussed::Client>(
     Err(Status::FunctionNotSupported)
 }
 
-#[cfg(not(feature = "rsa2048"))]
+#[cfg(not(feature = "rsa"))]
 fn read_rsa_key<const R: usize, T: trussed::Client>(
     _ctx: LoadedContext<'_, R, T>,
     _key_id: KeyId,

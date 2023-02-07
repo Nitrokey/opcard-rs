@@ -17,6 +17,11 @@ use regex::{Regex, RegexSet};
 #[cfg(feature = "virtual")]
 use stoppable_thread::spawn;
 
+#[cfg(not(feature = "rsa"))]
+use trussed::virt::with_ram_client;
+#[cfg(feature = "rsa")]
+use trussed_rsa_alloc::virt::with_ram_client;
+
 const STDOUT_FILTER: &[&str] = &[
     r"\[GNUPG:\] KEY_CONSIDERED [0-9A-F]{40} \d",
     r"\[GNUPG:\] ENCRYPTION_COMPLIANCE_MODE \d*",
@@ -43,7 +48,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 
     let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
-        trussed::virt::with_ram_client("opcard", |client| {
+        with_ram_client("opcard", |client| {
             let card = opcard::Card::new(client, opcard::Options::default());
             let mut virtual_card = opcard::VirtualCard::new(card);
             let mut result = Ok(());

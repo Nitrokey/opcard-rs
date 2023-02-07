@@ -10,9 +10,14 @@ use openpgp_card::{
     CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
 };
 use trussed::{
-    virt::{Client, Platform, Ram},
+    virt::{Platform, Ram},
     Service,
 };
+
+#[cfg(not(feature = "rsa"))]
+use trussed::virt::{with_ram_client, Client};
+#[cfg(feature = "rsa")]
+use trussed_rsa_alloc::virt::{with_ram_client, Client};
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
@@ -113,7 +118,7 @@ impl<T: trussed::Client + Send + Sync + 'static> CardTransaction for Transaction
 }
 
 pub fn with_card_options<F: FnOnce(Card<Client<Ram>>) -> R, R>(options: Options, f: F) -> R {
-    trussed::virt::with_ram_client("opcard", |client| {
+    with_ram_client("opcard", |client| {
         f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }
