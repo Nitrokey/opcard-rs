@@ -158,37 +158,37 @@ pub enum LifeCycle {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
     // Persistent state may not be loaded, or may error when loaded
-    pub internal: Option<Persistent>,
+    pub persistent: Option<Persistent>,
     pub runtime: Runtime,
 }
 
 impl State {
-    /// Loads the internal state from flash
+    /// Loads the persistent state from flash
     pub fn load<'s, T: trussed::Client>(
         &'s mut self,
         client: &mut T,
     ) -> Result<LoadedState<'s>, Error> {
         // This would be the correct way but it doesn't compile because of
         // https://github.com/rust-lang/rust/issues/47680 (I think)
-        //if let Some(internal) = self.internal.as_mut() {
+        //if let Some(persistent) = self.persistent.as_mut() {
         //    Ok(LoadedState {
-        //        internal,
+        //        persistent,
         //        runtime: &mut self.runtime,
         //    })
         //} else {
         //    Ok(LoadedState {
-        //        internal: self.internal.insert(Persistent::load(client)?),
+        //        persistent: self.persistent.insert(Persistent::load(client)?),
         //        runtime: &mut self.runtime,
         //    })
         //}
 
-        if self.internal.is_none() {
-            self.internal = Some(Persistent::load(client)?);
+        if self.persistent.is_none() {
+            self.persistent = Some(Persistent::load(client)?);
         }
 
         #[allow(clippy::unwrap_used)]
         Ok(LoadedState {
-            internal: self.internal.as_mut().unwrap(),
+            persistent: self.persistent.as_mut().unwrap(),
             runtime: &mut self.runtime,
         })
     }
@@ -228,7 +228,7 @@ impl State {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct LoadedState<'s> {
-    pub internal: &'s mut Persistent,
+    pub persistent: &'s mut Persistent,
     pub runtime: &'s mut Runtime,
 }
 
@@ -239,7 +239,7 @@ impl<'a> LoadedState<'a> {
     /// can be passed by value to other functions and the original state can then be used again
     pub fn lend(&mut self) -> LoadedState {
         LoadedState {
-            internal: self.internal,
+            persistent: self.persistent,
             runtime: self.runtime,
         }
     }
@@ -347,7 +347,7 @@ impl Persistent {
     pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
         if let Some(data) = load_if_exists(client, Location::Internal, &Self::path())? {
             trussed::cbor_deserialize(&data).map_err(|_err| {
-                error!("failed to deserialize internal state: {_err}");
+                error!("failed to deserialize persistent state: {_err}");
                 Error::Loading
             })
         } else {

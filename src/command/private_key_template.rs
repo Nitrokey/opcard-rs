@@ -36,7 +36,7 @@ pub fn put_private_key_template<const R: usize, T: trussed::Client>(
 pub fn put_sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let attr = ctx.state.internal.sign_alg();
+    let attr = ctx.state.persistent.sign_alg();
     let key_id = match attr {
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
@@ -46,7 +46,7 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
         .state
-        .internal
+        .persistent
         .set_key_id(KeyType::Sign, key_id, ctx.backend.client_mut())
         .map_err(|_err| {
             error!("Failed to store new key: {_err:?}");
@@ -61,7 +61,7 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
 pub fn put_dec<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let attr = ctx.state.internal.dec_alg();
+    let attr = ctx.state.persistent.dec_alg();
     let key_id = match attr {
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
@@ -71,7 +71,7 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
         .state
-        .internal
+        .persistent
         .set_key_id(KeyType::Dec, key_id, ctx.backend.client_mut())
         .map_err(|_err| {
             error!("Failed to store new key: {_err:?}");
@@ -86,7 +86,7 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
 pub fn put_aut<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let attr = ctx.state.internal.aut_alg();
+    let attr = ctx.state.persistent.aut_alg();
     let key_id = match attr {
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
@@ -96,7 +96,7 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
         .state
-        .internal
+        .persistent
         .set_key_id(KeyType::Aut, key_id, ctx.backend.client_mut())
         .map_err(|_err| {
             error!("Failed to store new key: {_err:?}");

@@ -27,7 +27,7 @@ fn serialize_pub<const R: usize, T: trussed::Client>(
 pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let algo = ctx.state.internal.sign_alg();
+    let algo = ctx.state.persistent.sign_alg();
     info!("Generating sign key with algorithm: {algo:?}");
     match algo {
         SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::Ed255),
@@ -49,7 +49,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
 pub fn dec<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let algo = ctx.state.internal.dec_alg();
+    let algo = ctx.state.persistent.dec_alg();
     info!("Generating dec key with algorithm: {algo:?}");
     match algo {
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
@@ -69,7 +69,7 @@ pub fn dec<const R: usize, T: trussed::Client>(
 pub fn aut<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let algo = ctx.state.internal.aut_alg();
+    let algo = ctx.state.persistent.aut_alg();
     info!("Generating aut key with algorithm: {algo:?}");
     match algo {
         AuthenticationAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::Ed255),
@@ -107,7 +107,7 @@ fn gen_rsa_key<const R: usize, T: trussed::Client>(
 
     if let Some((old_key, _)) = ctx
         .state
-        .internal
+        .persistent
         .set_key_id(key, Some((key_id, KeyOrigin::Generated)), client)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
@@ -138,7 +138,7 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
     .key;
     if let Some((old_key, _)) = ctx
         .state
-        .internal
+        .persistent
         .set_key_id(key, Some((key_id, KeyOrigin::Generated)), client)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
@@ -157,11 +157,11 @@ pub fn read_sign<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     let key_id = ctx
         .state
-        .internal
+        .persistent
         .key_id(KeyType::Sign)
         .ok_or(Status::KeyReferenceNotFound)?;
 
-    let algo = ctx.state.internal.sign_alg();
+    let algo = ctx.state.persistent.sign_alg();
     match algo {
         SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
@@ -175,11 +175,11 @@ pub fn read_dec<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     let key_id = ctx
         .state
-        .internal
+        .persistent
         .key_id(KeyType::Dec)
         .ok_or(Status::KeyReferenceNotFound)?;
 
-    let algo = ctx.state.internal.dec_alg();
+    let algo = ctx.state.persistent.dec_alg();
     match algo {
         DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
@@ -193,11 +193,11 @@ pub fn read_aut<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     let key_id = ctx
         .state
-        .internal
+        .persistent
         .key_id(KeyType::Aut)
         .ok_or(Status::KeyReferenceNotFound)?;
 
-    let algo = ctx.state.internal.aut_alg();
+    let algo = ctx.state.persistent.aut_alg();
     match algo {
         AuthenticationAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),

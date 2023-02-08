@@ -196,7 +196,7 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
 }
 
 #[derive(Debug)]
-/// Context with the internal state loaded from flash
+/// Context with the persistent state loaded from flash
 pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
     pub backend: &'a mut Backend<T>,
     pub options: &'a Options,

@@ -350,14 +350,14 @@ fn verify<const R: usize, T: trussed::Client>(
                     Ok(())
                 } else {
                     Err(Status::RemainingRetries(
-                        context.state.internal.remaining_tries(password.into()),
+                        context.state.persistent.remaining_tries(password.into()),
                     ))
                 }
             } else {
                 let pin = password.into();
                 if context
                     .backend
-                    .verify_pin(pin, context.data, context.state.internal)
+                    .verify_pin(pin, context.data, context.state.persistent)
                 {
                     match password {
                         PasswordMode::Pw1Sign => context.state.runtime.sign_verified = true,
@@ -367,7 +367,7 @@ fn verify<const R: usize, T: trussed::Client>(
                     Ok(())
                 } else {
                     Err(Status::RemainingRetries(
-                        context.state.internal.remaining_tries(password.into()),
+                        context.state.persistent.remaining_tries(password.into()),
                     ))
                 }
             }
@@ -398,7 +398,7 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
         return Err(Status::WrongLength);
     }
 
-    let current_len = context.state.internal.pin_len(password);
+    let current_len = context.state.persistent.pin_len(password);
     let (old, new) = if context.data.len() < current_len {
         (context.data, [].as_slice())
     } else {
@@ -409,7 +409,7 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     // length of the PIN
     context
         .state
-        .internal
+        .persistent
         .verify_pin(client_mut, old, password)
         .map_err(|_| Status::VerificationFailed)?;
 
@@ -418,7 +418,7 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
     }
     context
         .state
-        .internal
+        .persistent
         .change_pin(client_mut, new, password)
         .map_err(|_| Status::WrongLength)
 }
@@ -454,7 +454,7 @@ fn terminate_df<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(ctx) = context.load_state() {
-        if ctx.state.runtime.admin_verified || ctx.state.internal.is_locked(Password::Pw3) {
+        if ctx.state.runtime.admin_verified || ctx.state.persistent.is_locked(Password::Pw3) {
             State::terminate_df(context.backend.client_mut())?;
         } else {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -503,7 +503,7 @@ fn activate_file<const R: usize, T: trussed::Client>(
     let context = context.load_state()?;
     context
         .state
-        .internal
+        .persistent
         .save(context.backend.client_mut())
         .map_err(|_err| {
             error!("Failed to store data {_err:?}");
@@ -540,7 +540,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
     }
 
     ctx.state
-        .internal
+        .persistent
         .change_pin(ctx.backend.client_mut(), ctx.data, Password::Pw1)
         .map_err(|_err| {
             error!("Failed to change PIN: {_err}");
@@ -551,7 +551,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
 fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let code_len = ctx.state.internal.reset_code_len().ok_or_else(|| {
+    let code_len = ctx.state.persistent.reset_code_len().ok_or_else(|| {
         warn!("Attempt to use reset when not set");
         Status::SecurityStatusNotSatisfied
     })?;
@@ -567,12 +567,12 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
 
     let res = ctx
         .state
-        .internal
+        .persistent
         .verify_pin(ctx.backend.client_mut(), old, Password::ResetCode);
     match res {
         Err(Error::TooManyTries) | Err(Error::InvalidPin) => {
             return Err(Status::RemainingRetries(
-                ctx.state.internal.remaining_tries(Password::ResetCode),
+                ctx.state.persistent.remaining_tries(Password::ResetCode),
             ))
         }
         Err(_err) => {
@@ -588,7 +588,7 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
     }
 
     ctx.state
-        .internal
+        .persistent
         .change_pin(ctx.backend.client_mut(), new, Password::Pw1)
         .map_err(|_err| {
             error!("Failed to change PIN: {_err:?}");
