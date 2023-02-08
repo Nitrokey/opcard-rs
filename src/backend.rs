@@ -10,6 +10,7 @@
 use core::fmt::Debug;
 
 use trussed::try_syscall;
+use trussed::types::Location;
 
 use crate::command::Password;
 use crate::error::Error;
@@ -43,11 +44,14 @@ impl<T: trussed::Client> Backend<T> {
     /// Checks whether the given value matches the pin of the given type.
     pub fn verify_pin(
         &mut self,
+        storage: Location,
         pin: Password,
         value: &[u8],
         state: &mut state::Persistent,
     ) -> bool {
-        state.verify_pin(&mut self.client, value, pin).is_ok()
+        state
+            .verify_pin(&mut self.client, storage, value, pin)
+            .is_ok()
     }
 
     /// Ask for confirmation of presence from the user with a default timeout of 15 seconds

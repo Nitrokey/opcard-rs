@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::Status;
-use trussed::types::{KeyId, KeySerialization, Location, Mechanism};
+use trussed::types::{KeyId, KeySerialization, Mechanism};
 use trussed::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
@@ -47,7 +47,12 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
     let old_key_id = ctx
         .state
         .persistent
-        .set_key_id(KeyType::Sign, key_id, ctx.backend.client_mut())
+        .set_key_id(
+            KeyType::Sign,
+            key_id,
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+        )
         .map_err(|_err| {
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -72,7 +77,12 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
     let old_key_id = ctx
         .state
         .persistent
-        .set_key_id(KeyType::Dec, key_id, ctx.backend.client_mut())
+        .set_key_id(
+            KeyType::Dec,
+            key_id,
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+        )
         .map_err(|_err| {
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -97,7 +107,12 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
     let old_key_id = ctx
         .state
         .persistent
-        .set_key_id(KeyType::Aut, key_id, ctx.backend.client_mut())
+        .set_key_id(
+            KeyType::Aut,
+            key_id,
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+        )
         .map_err(|_err| {
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -143,7 +158,7 @@ fn put_ec<const R: usize, T: trussed::Client>(
     let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         curve.mechanism(),
         message,
-        Location::Internal,
+        ctx.options.storage,
         KeySerialization::Raw
     ))
     .map_err(|_err| {
@@ -206,7 +221,7 @@ fn put_rsa<const R: usize, T: trussed::Client>(
     let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         mechanism,
         &key_message,
-        Location::Internal,
+        ctx.options.storage,
         KeySerialization::RsaCrt
     ))
     .map_err(|_err| {

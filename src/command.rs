@@ -56,35 +56,38 @@ impl Command {
 
     pub fn exec<const R: usize, T: trussed::Client>(
         &self,
-        mut context: Context<'_, R, T>,
+        mut ctx: Context<'_, R, T>,
     ) -> Result<(), Status> {
-        if !self.can_lifecycle_run(State::lifecycle(context.backend.client_mut())) {
+        if !self.can_lifecycle_run(State::lifecycle(
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+        )) {
             warn!(
                 "Command {self:?} called in lifecycle {:?}",
-                State::lifecycle(context.backend.client_mut())
+                State::lifecycle(ctx.backend.client_mut(), ctx.options.storage)
             );
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         match self {
-            Self::Select => select(context),
-            Self::GetData(mode, tag) => data::get_data(context, *mode, *tag),
-            Self::GetNextData(tag) => data::get_next_data(context, *tag),
-            Self::PutData(mode, tag) => data::put_data(context, *mode, *tag),
-            Self::Verify(mode, password) => verify(context.load_state()?, *mode, *password),
+            Self::Select => select(ctx),
+            Self::GetData(mode, tag) => data::get_data(ctx, *mode, *tag),
+            Self::GetNextData(tag) => data::get_next_data(ctx, *tag),
+            Self::PutData(mode, tag) => data::put_data(ctx, *mode, *tag),
+            Self::Verify(mode, password) => verify(ctx.load_state()?, *mode, *password),
             Self::ChangeReferenceData(password) => {
-                change_reference_data(context.load_state()?, *password)
+                change_reference_data(ctx.load_state()?, *password)
             }
-            Self::ComputeDigitalSignature => pso::sign(context.load_state()?),
-            Self::InternalAuthenticate => pso::internal_authenticate(context.load_state()?),
-            Self::Decipher => pso::decipher(context.load_state()?),
-            Self::Encipher => pso::encipher(context.load_state()?),
-            Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(context.load_state()?, *mode),
-            Self::TerminateDf => terminate_df(context),
-            Self::ActivateFile => activate_file(context),
-            Self::SelectData(occurrence) => select_data(context, *occurrence),
-            Self::GetChallenge(length) => get_challenge(context, *length),
-            Self::ResetRetryCounter(mode) => reset_retry_conter(context.load_state()?, *mode),
-            Self::ManageSecurityEnvironment(mode) => manage_security_environment(context, *mode),
+            Self::ComputeDigitalSignature => pso::sign(ctx.load_state()?),
+            Self::InternalAuthenticate => pso::internal_authenticate(ctx.load_state()?),
+            Self::Decipher => pso::decipher(ctx.load_state()?),
+            Self::Encipher => pso::encipher(ctx.load_state()?),
+            Self::GenerateAsymmetricKeyPair(mode) => gen_keypair(ctx.load_state()?, *mode),
+            Self::TerminateDf => terminate_df(ctx),
+            Self::ActivateFile => activate_file(ctx),
+            Self::SelectData(occurrence) => select_data(ctx, *occurrence),
+            Self::GetChallenge(length) => get_challenge(ctx, *length),
+            Self::ResetRetryCounter(mode) => reset_retry_conter(ctx.load_state()?, *mode),
+            Self::ManageSecurityEnvironment(mode) => manage_security_environment(ctx, *mode),
             _ => {
                 error!("Command not yet implemented: {:x?}", self);
                 Err(Status::FunctionNotSupported)
@@ -334,49 +337,49 @@ fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Res
 
 // § 7.2.2
 fn verify<const R: usize, T: trussed::Client>(
-    context: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {
     match mode {
         VerifyMode::SetOrCheck => {
-            if context.data.is_empty() {
+            if ctx.data.is_empty() {
                 let already_validated = match password {
-                    PasswordMode::Pw1Sign => context.state.volatile.sign_verified,
-                    PasswordMode::Pw1Other => context.state.volatile.other_verified,
-                    PasswordMode::Pw3 => context.state.volatile.admin_verified,
+                    PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified,
+                    PasswordMode::Pw1Other => ctx.state.volatile.other_verified,
+                    PasswordMode::Pw3 => ctx.state.volatile.admin_verified,
                 };
                 if already_validated {
                     Ok(())
                 } else {
                     Err(Status::RemainingRetries(
-                        context.state.persistent.remaining_tries(password.into()),
+                        ctx.state.persistent.remaining_tries(password.into()),
                     ))
                 }
             } else {
                 let pin = password.into();
-                if context
+                if ctx
                     .backend
-                    .verify_pin(pin, context.data, context.state.persistent)
+                    .verify_pin(ctx.options.storage, pin, ctx.data, ctx.state.persistent)
                 {
                     match password {
-                        PasswordMode::Pw1Sign => context.state.volatile.sign_verified = true,
-                        PasswordMode::Pw1Other => context.state.volatile.other_verified = true,
-                        PasswordMode::Pw3 => context.state.volatile.admin_verified = true,
+                        PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified = true,
+                        PasswordMode::Pw1Other => ctx.state.volatile.other_verified = true,
+                        PasswordMode::Pw3 => ctx.state.volatile.admin_verified = true,
                     }
                     Ok(())
                 } else {
                     Err(Status::RemainingRetries(
-                        context.state.persistent.remaining_tries(password.into()),
+                        ctx.state.persistent.remaining_tries(password.into()),
                     ))
                 }
             }
         }
         VerifyMode::Reset => {
             match password {
-                PasswordMode::Pw1Sign => context.state.volatile.sign_verified = false,
-                PasswordMode::Pw1Other => context.state.volatile.other_verified = false,
-                PasswordMode::Pw3 => context.state.volatile.admin_verified = false,
+                PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified = false,
+                PasswordMode::Pw1Other => ctx.state.volatile.other_verified = false,
+                PasswordMode::Pw3 => ctx.state.volatile.admin_verified = false,
             }
             Ok(())
         }
@@ -385,7 +388,7 @@ fn verify<const R: usize, T: trussed::Client>(
 
 // § 7.2.3
 fn change_reference_data<const R: usize, T: trussed::Client>(
-    context: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
     let min_len = match password {
@@ -394,32 +397,30 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
         Password::ResetCode => unreachable!(),
     };
 
-    if context.data.len() < 2 * min_len {
+    if ctx.data.len() < 2 * min_len {
         return Err(Status::WrongLength);
     }
 
-    let current_len = context.state.persistent.pin_len(password);
-    let (old, new) = if context.data.len() < current_len {
-        (context.data, [].as_slice())
+    let current_len = ctx.state.persistent.pin_len(password);
+    let (old, new) = if ctx.data.len() < current_len {
+        (ctx.data, [].as_slice())
     } else {
-        context.data.split_at(current_len)
+        ctx.data.split_at(current_len)
     };
-    let client_mut = context.backend.client_mut();
+    let client_mut = ctx.backend.client_mut();
     // Verify the old pin before returning for wrong length to avoid leaking information about the
     // length of the PIN
-    context
-        .state
+    ctx.state
         .persistent
-        .verify_pin(client_mut, old, password)
+        .verify_pin(client_mut, ctx.options.storage, old, password)
         .map_err(|_| Status::VerificationFailed)?;
 
-    if current_len + min_len > context.data.len() {
+    if current_len + min_len > ctx.data.len() {
         return Err(Status::WrongLength);
     }
-    context
-        .state
+    ctx.state
         .persistent
-        .change_pin(client_mut, new, password)
+        .change_pin(client_mut, ctx.options.storage, new, password)
         .map_err(|_| Status::WrongLength)
 }
 
@@ -451,16 +452,16 @@ fn gen_keypair<const R: usize, T: trussed::Client>(
 
 // § 7.2.16
 fn terminate_df<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    if let Ok(ctx) = context.load_state() {
+    if let Ok(ctx) = ctx.load_state() {
         if ctx.state.volatile.admin_verified || ctx.state.persistent.is_locked(Password::Pw3) {
-            State::terminate_df(context.backend.client_mut())?;
+            State::terminate_df(ctx.backend.client_mut(), ctx.options.storage)?;
         } else {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
     } else {
-        State::terminate_df(context.backend.client_mut())?;
+        State::terminate_df(ctx.backend.client_mut(), ctx.options.storage)?;
     }
 
     Ok(())
@@ -483,6 +484,13 @@ fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> 
     try_syscall!(ctx
         .backend
         .client_mut()
+        .remove_dir_all(Location::External, PathBuf::new()))
+    .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx.backend.client_mut().delete_all(Location::External))
+        .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx
+        .backend
+        .client_mut()
         .remove_dir_all(Location::Volatile, PathBuf::new()))
     .map_err(unspecified_delete_error)?;
     try_syscall!(ctx.backend.client_mut().delete_all(Location::Volatile))
@@ -492,24 +500,23 @@ fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> 
 
 // § 7.2.17
 fn activate_file<const R: usize, T: trussed::Client>(
-    mut context: Context<'_, R, T>,
+    mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    if State::lifecycle(context.backend.client_mut()) == LifeCycle::Operational {
+    if State::lifecycle(ctx.backend.client_mut(), ctx.options.storage) == LifeCycle::Operational {
         return Ok(());
     }
 
-    factory_reset(context.lend())?;
-    *context.state = Default::default();
-    let context = context.load_state()?;
-    context
-        .state
+    factory_reset(ctx.lend())?;
+    *ctx.state = Default::default();
+    let ctx = ctx.load_state()?;
+    ctx.state
         .persistent
-        .save(context.backend.client_mut())
+        .save(ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_err| {
             error!("Failed to store data {_err:?}");
             Status::UnspecifiedPersistentExecutionError
         })?;
-    State::activate_file(context.backend.client_mut())?;
+    State::activate_file(ctx.backend.client_mut(), ctx.options.storage)?;
     Ok(())
 }
 
@@ -541,7 +548,12 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .change_pin(ctx.backend.client_mut(), ctx.data, Password::Pw1)
+        .change_pin(
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+            ctx.data,
+            Password::Pw1,
+        )
         .map_err(|_err| {
             error!("Failed to change PIN: {_err}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -565,10 +577,12 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
         ctx.data.split_at(code_len)
     };
 
-    let res = ctx
-        .state
-        .persistent
-        .verify_pin(ctx.backend.client_mut(), old, Password::ResetCode);
+    let res = ctx.state.persistent.verify_pin(
+        ctx.backend.client_mut(),
+        ctx.options.storage,
+        old,
+        Password::ResetCode,
+    );
     match res {
         Err(Error::TooManyTries) | Err(Error::InvalidPin) => {
             return Err(Status::RemainingRetries(
@@ -589,7 +603,12 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .change_pin(ctx.backend.client_mut(), new, Password::Pw1)
+        .change_pin(
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+            new,
+            Password::Pw1,
+        )
         .map_err(|_err| {
             error!("Failed to change PIN: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError

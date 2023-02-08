@@ -57,7 +57,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
     }
     ctx.state
         .persistent
-        .increment_sign_count(ctx.backend.client_mut())
+        .increment_sign_count(ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_err| {
             error!("Failed to increment sign count");
             Status::UnspecifiedPersistentExecutionError

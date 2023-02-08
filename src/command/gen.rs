@@ -97,7 +97,7 @@ fn gen_rsa_key<const R: usize, T: trussed::Client>(
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
         mechanism,
-        StorageAttributes::new().set_persistence(Location::Internal)
+        StorageAttributes::new().set_persistence(ctx.options.storage)
     ))
     .map_err(|_err| {
         error!("Failed to generate key: {_err:?}");
@@ -108,7 +108,12 @@ fn gen_rsa_key<const R: usize, T: trussed::Client>(
     if let Some((old_key, _)) = ctx
         .state
         .persistent
-        .set_key_id(key, Some((key_id, KeyOrigin::Generated)), client)
+        .set_key_id(
+            key,
+            Some((key_id, KeyOrigin::Generated)),
+            client,
+            ctx.options.storage,
+        )
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
         // Deletion is not a fatal error
@@ -129,7 +134,7 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
         curve.mechanism(),
-        StorageAttributes::new().set_persistence(Location::Internal)
+        StorageAttributes::new().set_persistence(ctx.options.storage)
     ))
     .map_err(|_err| {
         error!("Failed to generate key: {_err:?}");
@@ -139,7 +144,12 @@ fn gen_ec_key<const R: usize, T: trussed::Client>(
     if let Some((old_key, _)) = ctx
         .state
         .persistent
-        .set_key_id(key, Some((key_id, KeyOrigin::Generated)), client)
+        .set_key_id(
+            key,
+            Some((key_id, KeyOrigin::Generated)),
+            client,
+            ctx.options.storage,
+        )
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
     {
         // Deletion is not a fatal error

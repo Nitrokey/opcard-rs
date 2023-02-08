@@ -6,7 +6,7 @@ use hex_literal::hex;
 use iso7816::Status;
 use trussed::{
     syscall, try_syscall,
-    types::{KeySerialization, Location, Mechanism},
+    types::{KeySerialization, Mechanism},
 };
 
 use crate::{
@@ -534,7 +534,8 @@ pub fn historical_bytes<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.options.historical_bytes)?;
     let lifecycle_idx = ctx.reply.len() - 3;
-    ctx.reply[lifecycle_idx] = State::lifecycle(ctx.backend.client_mut()) as u8;
+    ctx.reply[lifecycle_idx] =
+        State::lifecycle(ctx.backend.client_mut(), ctx.options.storage) as u8;
     Ok(())
 }
 
@@ -791,7 +792,7 @@ fn get_arbitrary_do<const R: usize, T: trussed::Client>(
     }
 
     let data = obj
-        .load(ctx.backend.client_mut())
+        .load(ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     ctx.reply.expand(&data)
 }
@@ -952,7 +953,7 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
     let new_key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         Mechanism::Aes256Cbc,
         ctx.data,
-        Location::Internal,
+        ctx.options.storage,
         KeySerialization::Raw,
     ))
     .map_err(|_err| {
@@ -964,7 +965,7 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
     let old_key = ctx
         .state
         .persistent
-        .set_aes_key_id(Some(new_key), ctx.backend.client_mut())
+        .set_aes_key_id(Some(new_key), ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_err| {
             error!("Failed to set new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -984,7 +985,7 @@ fn put_resetting_code<const R: usize, T: trussed::Client>(
         return ctx
             .state
             .persistent
-            .remove_reset_code(ctx.backend.client_mut())
+            .remove_reset_code(ctx.backend.client_mut(), ctx.options.storage)
             .map_err(|_err| {
                 error!("Failed to remove resetting code: {_err}");
                 Status::UnspecifiedNonpersistentExecutionError
@@ -999,7 +1000,12 @@ fn put_resetting_code<const R: usize, T: trussed::Client>(
     }
     ctx.state
         .persistent
-        .change_pin(ctx.backend.client_mut(), ctx.data, Password::ResetCode)
+        .change_pin(
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+            ctx.data,
+            Password::ResetCode,
+        )
         .map_err(|_err| {
             error!("Failed to change resetting code: {_err}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -1032,7 +1038,7 @@ fn put_uif<const R: usize, T: trussed::Client>(
     let uif = Uif::try_from(ctx.data[0]).map_err(|_| Status::IncorrectDataParameter)?;
     ctx.state
         .persistent
-        .set_uif(ctx.backend.client_mut(), uif, key)
+        .set_uif(ctx.backend.client_mut(), ctx.options.storage, uif, key)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1060,7 +1066,7 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .set_pw1_valid_multiple(flag, ctx.backend.client_mut())
+        .set_pw1_valid_multiple(flag, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
 
     Ok(())
@@ -1085,7 +1091,7 @@ fn put_language_prefs<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .set_language_preferences(bytes, ctx.backend.client_mut())
+        .set_language_preferences(bytes, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1106,7 +1112,7 @@ fn put_cardholder_sex<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .set_cardholder_sex(sex, ctx.backend.client_mut())
+        .set_cardholder_sex(sex, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1124,7 +1130,7 @@ fn put_cardholder_name<const R: usize, T: trussed::Client>(
         .into();
     ctx.state
         .persistent
-        .set_cardholder_name(bytes, ctx.backend.client_mut())
+        .set_cardholder_name(bytes, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1141,7 +1147,7 @@ fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .set_sign_alg(ctx.backend.client_mut(), alg)
+        .set_sign_alg(ctx.backend.client_mut(), ctx.options.storage, alg)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1158,7 +1164,7 @@ fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .set_dec_alg(ctx.backend.client_mut(), alg)
+        .set_dec_alg(ctx.backend.client_mut(), ctx.options.storage, alg)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1175,7 +1181,7 @@ fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
 
     ctx.state
         .persistent
-        .set_aut_alg(ctx.backend.client_mut(), alg)
+        .set_aut_alg(ctx.backend.client_mut(), ctx.options.storage, alg)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1186,7 +1192,7 @@ fn put_arbitrary_do<const R: usize, T: trussed::Client>(
     if ctx.data.len() > MAX_GENERIC_LENGTH {
         return Err(Status::WrongLength);
     }
-    obj.save(ctx.backend.client_mut(), ctx.data)
+    obj.save(ctx.backend.client_mut(), ctx.options.storage, ctx.data)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1202,7 +1208,7 @@ fn put_fingerprint<const R: usize, T: trussed::Client>(
     fp.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
         .persistent
-        .set_fingerprints(ctx.backend.client_mut(), fp)
+        .set_fingerprints(ctx.backend.client_mut(), ctx.options.storage, fp)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1217,7 +1223,7 @@ fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
     fp.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
         .persistent
-        .set_ca_fingerprints(ctx.backend.client_mut(), fp)
+        .set_ca_fingerprints(ctx.backend.client_mut(), ctx.options.storage, fp)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1232,7 +1238,7 @@ fn put_keygen_date<const R: usize, T: trussed::Client>(
     dates.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
         .persistent
-        .set_keygen_dates(ctx.backend.client_mut(), dates)
+        .set_keygen_dates(ctx.backend.client_mut(), ctx.options.storage, dates)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
