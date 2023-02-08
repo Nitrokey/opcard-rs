@@ -1336,7 +1336,7 @@ mod tests {
             let mut backend = crate::backend::Backend::new(client);
             let mut reply: heapless::Vec<u8, 1024> = Default::default();
             let runtime = Default::default();
-            let internal = state::Internal::test_default();
+            let internal = state::Persistent::test_default();
             let options = Default::default();
             let mut state = State {
                 internal: Some(internal),

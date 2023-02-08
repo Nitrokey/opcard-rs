@@ -157,8 +157,8 @@ pub enum LifeCycle {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
-    // Internal state may not be loaded, or may error when loaded
-    pub internal: Option<Internal>,
+    // Persistent state may not be loaded, or may error when loaded
+    pub internal: Option<Persistent>,
     pub runtime: Runtime,
 }
 
@@ -177,13 +177,13 @@ impl State {
         //    })
         //} else {
         //    Ok(LoadedState {
-        //        internal: self.internal.insert(Internal::load(client)?),
+        //        internal: self.internal.insert(Persistent::load(client)?),
         //        runtime: &mut self.runtime,
         //    })
         //}
 
         if self.internal.is_none() {
-            self.internal = Some(Internal::load(client)?);
+            self.internal = Some(Persistent::load(client)?);
         }
 
         #[allow(clippy::unwrap_used)]
@@ -228,7 +228,7 @@ impl State {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct LoadedState<'s> {
-    pub internal: &'s mut Internal,
+    pub internal: &'s mut Persistent,
     pub runtime: &'s mut Runtime,
 }
 
@@ -269,7 +269,7 @@ pub enum KeyOrigin {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Internal {
+pub struct Persistent {
     user_pin_tries: u8,
     admin_pin_tries: u8,
     reset_code_tries: u8,
@@ -297,7 +297,7 @@ pub struct Internal {
     uif_aut: Uif,
 }
 
-impl Internal {
+impl Persistent {
     const FILENAME: &'static str = "persistent-state.cbor";
     // § 4.3
     const MAX_RETRIES: u8 = 3;
