@@ -323,8 +323,8 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
 // § 7.2.1
 fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
-        context.state.runtime.cur_do = None;
-        context.state.runtime.keyrefs = Default::default();
+        context.state.volatile.cur_do = None;
+        context.state.volatile.keyrefs = Default::default();
         Ok(())
     } else {
         info!("Selected application {:x?} not found", context.data);
@@ -342,9 +342,9 @@ fn verify<const R: usize, T: trussed::Client>(
         VerifyMode::SetOrCheck => {
             if context.data.is_empty() {
                 let already_validated = match password {
-                    PasswordMode::Pw1Sign => context.state.runtime.sign_verified,
-                    PasswordMode::Pw1Other => context.state.runtime.other_verified,
-                    PasswordMode::Pw3 => context.state.runtime.admin_verified,
+                    PasswordMode::Pw1Sign => context.state.volatile.sign_verified,
+                    PasswordMode::Pw1Other => context.state.volatile.other_verified,
+                    PasswordMode::Pw3 => context.state.volatile.admin_verified,
                 };
                 if already_validated {
                     Ok(())
@@ -360,9 +360,9 @@ fn verify<const R: usize, T: trussed::Client>(
                     .verify_pin(pin, context.data, context.state.persistent)
                 {
                     match password {
-                        PasswordMode::Pw1Sign => context.state.runtime.sign_verified = true,
-                        PasswordMode::Pw1Other => context.state.runtime.other_verified = true,
-                        PasswordMode::Pw3 => context.state.runtime.admin_verified = true,
+                        PasswordMode::Pw1Sign => context.state.volatile.sign_verified = true,
+                        PasswordMode::Pw1Other => context.state.volatile.other_verified = true,
+                        PasswordMode::Pw3 => context.state.volatile.admin_verified = true,
                     }
                     Ok(())
                 } else {
@@ -374,9 +374,9 @@ fn verify<const R: usize, T: trussed::Client>(
         }
         VerifyMode::Reset => {
             match password {
-                PasswordMode::Pw1Sign => context.state.runtime.sign_verified = false,
-                PasswordMode::Pw1Other => context.state.runtime.other_verified = false,
-                PasswordMode::Pw3 => context.state.runtime.admin_verified = false,
+                PasswordMode::Pw1Sign => context.state.volatile.sign_verified = false,
+                PasswordMode::Pw1Other => context.state.volatile.other_verified = false,
+                PasswordMode::Pw3 => context.state.volatile.admin_verified = false,
             }
             Ok(())
         }
@@ -438,7 +438,7 @@ fn gen_keypair<const R: usize, T: trussed::Client>(
         };
     }
 
-    if !context.state.runtime.admin_verified {
+    if !context.state.volatile.admin_verified {
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
@@ -454,7 +454,7 @@ fn terminate_df<const R: usize, T: trussed::Client>(
     mut context: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(ctx) = context.load_state() {
-        if ctx.state.runtime.admin_verified || ctx.state.persistent.is_locked(Password::Pw3) {
+        if ctx.state.volatile.admin_verified || ctx.state.persistent.is_locked(Password::Pw3) {
             State::terminate_df(context.backend.client_mut())?;
         } else {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -535,7 +535,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
         return Err(Status::IncorrectDataParameter);
     }
 
-    if !ctx.state.runtime.admin_verified {
+    if !ctx.state.volatile.admin_verified {
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
@@ -609,7 +609,7 @@ fn select_data<const R: usize, T: trussed::Client>(
             return Err(Status::IncorrectDataParameter);
         }
     };
-    ctx.state.runtime.cur_do = Some((tag, occurrence));
+    ctx.state.volatile.cur_do = Some((tag, occurrence));
     Ok(())
 }
 
@@ -654,9 +654,9 @@ fn manage_security_environment<const R: usize, T: trussed::Client>(
     info!("MANAGE SECURITY ENVIRONMENT: mode = {mode:?}, ref = {key_ref:?}");
 
     match mode {
-        ManageSecurityEnvironmentMode::Dec => ctx.state.runtime.keyrefs.pso_decipher = key_ref,
+        ManageSecurityEnvironmentMode::Dec => ctx.state.volatile.keyrefs.pso_decipher = key_ref,
         ManageSecurityEnvironmentMode::Authentication => {
-            ctx.state.runtime.keyrefs.internal_aut = key_ref
+            ctx.state.volatile.keyrefs.internal_aut = key_ref
         }
     }
     Ok(())

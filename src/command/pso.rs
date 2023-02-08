@@ -46,14 +46,14 @@ pub fn sign<const R: usize, T: trussed::Client>(
         warn!("Attempt to sign without a key set");
         Status::KeyReferenceNotFound
     })?;
-    if !ctx.state.runtime.sign_verified {
+    if !ctx.state.volatile.sign_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
     check_uif(ctx.lend(), KeyType::Sign)?;
     if !ctx.state.persistent.pw1_valid_multiple() {
-        ctx.state.runtime.sign_verified = false;
+        ctx.state.volatile.sign_verified = false;
     }
     ctx.state
         .persistent
@@ -122,7 +122,7 @@ enum RsaOrEcc {
 fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
-    let (key_type, (mechanism, key_kind)) = match ctx.state.runtime.keyrefs.internal_aut {
+    let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.internal_aut {
         KeyRef::Aut => (
             KeyType::Aut,
             match ctx.state.persistent.aut_alg() {
@@ -170,7 +170,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
 pub fn internal_authenticate<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.runtime.other_verified {
+    if !ctx.state.volatile.other_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
@@ -189,7 +189,7 @@ pub fn internal_authenticate<const R: usize, T: trussed::Client>(
 fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
-    let (key_type, (mechanism, key_kind)) = match ctx.state.runtime.keyrefs.pso_decipher {
+    let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.pso_decipher {
         KeyRef::Dec => (
             KeyType::Dec,
             match ctx.state.persistent.dec_alg() {
@@ -229,7 +229,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
 pub fn decipher<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.runtime.other_verified {
+    if !ctx.state.volatile.other_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
@@ -390,7 +390,7 @@ fn decipher_aes<const R: usize, T: trussed::Client>(
 pub fn encipher<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.runtime.other_verified {
+    if !ctx.state.volatile.other_verified {
         warn!("Attempt to encipher without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }

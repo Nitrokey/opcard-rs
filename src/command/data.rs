@@ -465,7 +465,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         GetDataDoType::Constructed(objs) => get_constructed_data(context.lend(), objs)?,
     }
 
-    let cur_do = &mut context.state.runtime.cur_do;
+    let cur_do = &mut context.state.volatile.cur_do;
     *cur_do = match cur_do {
         Some((t, occ)) if *t == tag => Some((tag, *occ)),
         _ => Some((tag, Occurrence::First)),
@@ -478,7 +478,7 @@ pub fn get_next_data<const R: usize, T: trussed::Client>(
     context: Context<'_, R, T>,
     tag: Tag,
 ) -> Result<(), Status> {
-    let cur_do = &mut context.state.runtime.cur_do;
+    let cur_do = &mut context.state.volatile.cur_do;
     *cur_do = match cur_do {
         Some((t, Occurrence::First)) if *t == tag => Some((tag, Occurrence::Second)),
         Some((t, Occurrence::Second)) if *t == tag => Some((tag, Occurrence::Third)),
@@ -541,7 +541,7 @@ pub fn historical_bytes<const R: usize, T: trussed::Client>(
 fn cardholder_cert<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let occ = match ctx.state.runtime.cur_do {
+    let occ = match ctx.state.volatile.cur_do {
         Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
         _ => Occurrence::First,
     };
@@ -781,10 +781,10 @@ fn get_arbitrary_do<const R: usize, T: trussed::Client>(
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     match obj.read_permission() {
-        PermissionRequirement::User if !ctx.state.runtime.other_verified => {
+        PermissionRequirement::User if !ctx.state.volatile.other_verified => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
-        PermissionRequirement::Admin if !ctx.state.runtime.admin_verified => {
+        PermissionRequirement::Admin if !ctx.state.volatile.admin_verified => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
         _ => {}
@@ -812,11 +812,11 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     }
 
     match object.write_perm() {
-        PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
+        PermissionRequirement::Admin if !context.state.volatile.admin_verified => {
             warn!("Put data for admin authorized object: {object:?}");
             return Err(Status::SecurityStatusNotSatisfied);
         }
-        PermissionRequirement::User if !context.state.runtime.other_verified => {
+        PermissionRequirement::User if !context.state.volatile.other_verified => {
             warn!("Put data for user authorized object: {object:?}");
             return Err(Status::SecurityStatusNotSatisfied);
         }
@@ -826,7 +826,7 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     debug!("Writing data for tag {:?}", tag);
     object.put_data(context.lend())?;
 
-    let cur_do = &mut context.state.runtime.cur_do;
+    let cur_do = &mut context.state.volatile.cur_do;
     *cur_do = match cur_do {
         Some((t, occ)) if *t == tag => Some((tag, *occ)),
         _ => Some((tag, Occurrence::First)),
@@ -924,7 +924,7 @@ impl PutDataObject {
 fn put_cardholder_cert<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let occ = match ctx.state.runtime.cur_do {
+    let occ = match ctx.state.volatile.cur_do {
         Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
         _ => Occurrence::First,
     };
@@ -1339,12 +1339,12 @@ mod tests {
             use crate::tlv::*;
             let mut backend = crate::backend::Backend::new(client);
             let mut reply: heapless::Vec<u8, 1024> = Default::default();
-            let runtime = Default::default();
+            let volatile = Default::default();
             let persistent = state::Persistent::test_default();
             let options = Default::default();
             let mut state = State {
                 persistent: Some(persistent),
-                runtime,
+                volatile,
             };
 
             let context = Context {

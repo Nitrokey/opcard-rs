@@ -159,7 +159,7 @@ pub enum LifeCycle {
 pub struct State {
     // Persistent state may not be loaded, or may error when loaded
     pub persistent: Option<Persistent>,
-    pub runtime: Runtime,
+    pub volatile: Volatile,
 }
 
 impl State {
@@ -173,12 +173,12 @@ impl State {
         //if let Some(persistent) = self.persistent.as_mut() {
         //    Ok(LoadedState {
         //        persistent,
-        //        runtime: &mut self.runtime,
+        //        volatile: &mut self.volatile,
         //    })
         //} else {
         //    Ok(LoadedState {
         //        persistent: self.persistent.insert(Persistent::load(client)?),
-        //        runtime: &mut self.runtime,
+        //        volatile: &mut self.volatile,
         //    })
         //}
 
@@ -189,7 +189,7 @@ impl State {
         #[allow(clippy::unwrap_used)]
         Ok(LoadedState {
             persistent: self.persistent.as_mut().unwrap(),
-            runtime: &mut self.runtime,
+            volatile: &mut self.volatile,
         })
     }
 
@@ -229,7 +229,7 @@ impl State {
 #[derive(Debug, Eq, PartialEq)]
 pub struct LoadedState<'s> {
     pub persistent: &'s mut Persistent,
-    pub runtime: &'s mut Runtime,
+    pub volatile: &'s mut Volatile,
 }
 
 impl<'a> LoadedState<'a> {
@@ -240,7 +240,7 @@ impl<'a> LoadedState<'a> {
     pub fn lend(&mut self) -> LoadedState {
         LoadedState {
             persistent: self.persistent,
-            runtime: self.runtime,
+            volatile: self.volatile,
         }
     }
 }
@@ -762,7 +762,7 @@ impl Default for KeyRefs {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Runtime {
+pub struct Volatile {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
