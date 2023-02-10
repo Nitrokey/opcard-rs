@@ -157,39 +157,40 @@ pub enum LifeCycle {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct State {
-    // Internal state may not be loaded, or may error when loaded
-    pub internal: Option<Internal>,
-    pub runtime: Runtime,
+    // Persistent state may not be loaded, or may error when loaded
+    pub persistent: Option<Persistent>,
+    pub volatile: Volatile,
 }
 
 impl State {
-    /// Loads the internal state from flash
+    /// Loads the persistent state from flash
     pub fn load<'s, T: trussed::Client>(
         &'s mut self,
         client: &mut T,
+        storage: Location,
     ) -> Result<LoadedState<'s>, Error> {
         // This would be the correct way but it doesn't compile because of
         // https://github.com/rust-lang/rust/issues/47680 (I think)
-        //if let Some(internal) = self.internal.as_mut() {
+        //if let Some(persistent) = self.persistent.as_mut() {
         //    Ok(LoadedState {
-        //        internal,
-        //        runtime: &mut self.runtime,
+        //        persistent,
+        //        volatile: &mut self.volatile,
         //    })
         //} else {
         //    Ok(LoadedState {
-        //        internal: self.internal.insert(Internal::load(client)?),
-        //        runtime: &mut self.runtime,
+        //        persistent: self.persistent.insert(Persistent::load(client)?),
+        //        volatile: &mut self.volatile,
         //    })
         //}
 
-        if self.internal.is_none() {
-            self.internal = Some(Internal::load(client)?);
+        if self.persistent.is_none() {
+            self.persistent = Some(Persistent::load(client, storage)?);
         }
 
         #[allow(clippy::unwrap_used)]
         Ok(LoadedState {
-            internal: self.internal.as_mut().unwrap(),
-            runtime: &mut self.runtime,
+            persistent: self.persistent.as_mut().unwrap(),
+            volatile: &mut self.volatile,
         })
     }
 
@@ -197,29 +198,30 @@ impl State {
     fn lifecycle_path() -> PathBuf {
         PathBuf::from(Self::LIFECYCLE_PATH)
     }
-    pub fn lifecycle(client: &mut impl trussed::Client) -> LifeCycle {
-        match try_syscall!(client.entry_metadata(Location::Internal, Self::lifecycle_path())) {
+    pub fn lifecycle(client: &mut impl trussed::Client, storage: Location) -> LifeCycle {
+        match try_syscall!(client.entry_metadata(storage, Self::lifecycle_path())) {
             Ok(Metadata { metadata: Some(_) }) => LifeCycle::Initialization,
             _ => LifeCycle::Operational,
         }
     }
 
-    pub fn terminate_df(client: &mut impl trussed::Client) -> Result<(), Status> {
-        try_syscall!(client.write_file(
-            Location::Internal,
-            Self::lifecycle_path(),
-            Bytes::new(),
-            None,
-        ))
-        .map(|_| {})
-        .map_err(|_err| {
-            error!("Failed to write lifecycle: {_err:?}");
-            Status::UnspecifiedPersistentExecutionError
-        })
+    pub fn terminate_df(
+        client: &mut impl trussed::Client,
+        storage: Location,
+    ) -> Result<(), Status> {
+        try_syscall!(client.write_file(storage, Self::lifecycle_path(), Bytes::new(), None,))
+            .map(|_| {})
+            .map_err(|_err| {
+                error!("Failed to write lifecycle: {_err:?}");
+                Status::UnspecifiedPersistentExecutionError
+            })
     }
 
-    pub fn activate_file(client: &mut impl trussed::Client) -> Result<(), Status> {
-        try_syscall!(client.remove_file(Location::Internal, Self::lifecycle_path(),)).ok();
+    pub fn activate_file(
+        client: &mut impl trussed::Client,
+        storage: Location,
+    ) -> Result<(), Status> {
+        try_syscall!(client.remove_file(storage, Self::lifecycle_path(),)).ok();
         // Errors can happen because of the removal of all files before the call to activate_file
         // so they are silenced
         Ok(())
@@ -228,8 +230,8 @@ impl State {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct LoadedState<'s> {
-    pub internal: &'s mut Internal,
-    pub runtime: &'s mut Runtime,
+    pub persistent: &'s mut Persistent,
+    pub volatile: &'s mut Volatile,
 }
 
 impl<'a> LoadedState<'a> {
@@ -239,8 +241,8 @@ impl<'a> LoadedState<'a> {
     /// can be passed by value to other functions and the original state can then be used again
     pub fn lend(&mut self) -> LoadedState {
         LoadedState {
-            internal: self.internal,
-            runtime: self.runtime,
+            persistent: self.persistent,
+            volatile: self.volatile,
         }
     }
 }
@@ -269,7 +271,7 @@ pub enum KeyOrigin {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Internal {
+pub struct Persistent {
     user_pin_tries: u8,
     admin_pin_tries: u8,
     reset_code_tries: u8,
@@ -297,7 +299,7 @@ pub struct Internal {
     uif_aut: Uif,
 }
 
-impl Internal {
+impl Persistent {
     const FILENAME: &'static str = "persistent-state.cbor";
     // § 4.3
     const MAX_RETRIES: u8 = 3;
@@ -344,10 +346,10 @@ impl Internal {
         PathBuf::from(Self::FILENAME)
     }
 
-    pub fn load<T: trussed::Client>(client: &mut T) -> Result<Self, Error> {
-        if let Some(data) = load_if_exists(client, Location::Internal, &Self::path())? {
+    pub fn load<T: trussed::Client>(client: &mut T, storage: Location) -> Result<Self, Error> {
+        if let Some(data) = load_if_exists(client, storage, &Self::path())? {
             trussed::cbor_deserialize(&data).map_err(|_err| {
-                error!("failed to deserialize internal state: {_err}");
+                error!("failed to deserialize persistent state: {_err}");
                 Error::Loading
             })
         } else {
@@ -355,17 +357,15 @@ impl Internal {
         }
     }
 
-    pub fn save<T: trussed::Client>(&self, client: &mut T) -> Result<(), Error> {
+    pub fn save<T: trussed::Client>(&self, client: &mut T, storage: Location) -> Result<(), Error> {
         let msg = trussed::cbor_serialize_bytes(&self).map_err(|_err| {
             error!("Failed to serialize: {_err}");
             Error::Saving
         })?;
-        try_syscall!(client.write_file(Location::Internal, Self::path(), msg, None)).map_err(
-            |_err| {
-                error!("Failed to store data: {_err:?}");
-                Error::Saving
-            },
-        )?;
+        try_syscall!(client.write_file(storage, Self::path(), msg, None)).map_err(|_err| {
+            error!("Failed to store data: {_err:?}");
+            Error::Saving
+        })?;
         Ok(())
     }
 
@@ -388,6 +388,7 @@ impl Internal {
     pub fn decrement_counter<T: trussed::Client>(
         &mut self,
         client: &mut T,
+        storage: Location,
         password: Password,
     ) -> Result<(), Error> {
         if !self.is_locked(password) {
@@ -396,7 +397,7 @@ impl Internal {
                 Password::Pw3 => self.admin_pin_tries += 1,
                 Password::ResetCode => self.reset_code_tries += 1,
             }
-            self.save(client)
+            self.save(client, storage)
         } else {
             Ok(())
         }
@@ -405,6 +406,7 @@ impl Internal {
     pub fn reset_counter<T: trussed::Client>(
         &mut self,
         client: &mut T,
+        storage: Location,
         password: Password,
     ) -> Result<(), Error> {
         match password {
@@ -412,7 +414,7 @@ impl Internal {
             Password::Pw3 => self.admin_pin_tries = 0,
             Password::ResetCode => self.reset_code_tries = 0,
         }
-        self.save(client)
+        self.save(client, storage)
     }
 
     fn pin(&self, password: Password) -> Option<&[u8]> {
@@ -426,6 +428,7 @@ impl Internal {
     pub fn verify_pin<T: trussed::Client>(
         &mut self,
         client: &mut T,
+        storage: Location,
         value: &[u8],
         password: Password,
     ) -> Result<(), Error> {
@@ -433,13 +436,13 @@ impl Internal {
             return Err(Error::TooManyTries);
         }
 
-        self.decrement_counter(client, password)?;
+        self.decrement_counter(client, storage, password)?;
         let pin = self.pin(password).ok_or(Error::BadRequest)?;
         if (!value.ct_eq(pin)).into() {
             return Err(Error::InvalidPin);
         }
 
-        self.reset_counter(client, password)?;
+        self.reset_counter(client, storage, password)?;
         Ok(())
     }
 
@@ -460,6 +463,7 @@ impl Internal {
     pub fn change_pin<T: trussed::Client>(
         &mut self,
         client: &mut T,
+        storage: Location,
         value: &[u8],
         password: Password,
     ) -> Result<(), Error> {
@@ -478,13 +482,17 @@ impl Internal {
         };
         *pin = new_pin;
         *tries = 0;
-        self.save(client)
+        self.save(client, storage)
     }
 
-    pub fn remove_reset_code<T: trussed::Client>(&mut self, client: &mut T) -> Result<(), Error> {
+    pub fn remove_reset_code<T: trussed::Client>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+    ) -> Result<(), Error> {
         self.reset_code_tries = 0;
         self.reset_code_pin = None;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn sign_alg(&self) -> SignatureAlgorithm {
@@ -494,14 +502,15 @@ impl Internal {
     pub fn set_sign_alg(
         &mut self,
         client: &mut impl trussed::Client,
+        storage: Location,
         alg: SignatureAlgorithm,
     ) -> Result<(), Error> {
         if self.sign_alg == alg {
             return Ok(());
         }
-        self.delete_key(KeyType::Sign, client)?;
+        self.delete_key(KeyType::Sign, client, storage)?;
         self.sign_alg = alg;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn dec_alg(&self) -> DecryptionAlgorithm {
@@ -511,14 +520,15 @@ impl Internal {
     pub fn set_dec_alg(
         &mut self,
         client: &mut impl trussed::Client,
+        storage: Location,
         alg: DecryptionAlgorithm,
     ) -> Result<(), Error> {
         if self.dec_alg == alg {
             return Ok(());
         }
-        self.delete_key(KeyType::Dec, client)?;
+        self.delete_key(KeyType::Dec, client, storage)?;
         self.dec_alg = alg;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn aut_alg(&self) -> AuthenticationAlgorithm {
@@ -528,14 +538,15 @@ impl Internal {
     pub fn set_aut_alg(
         &mut self,
         client: &mut impl trussed::Client,
+        storage: Location,
         alg: AuthenticationAlgorithm,
     ) -> Result<(), Error> {
         if self.aut_alg == alg {
             return Ok(());
         }
-        self.delete_key(KeyType::Aut, client)?;
+        self.delete_key(KeyType::Aut, client, storage)?;
         self.aut_alg = alg;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn fingerprints(&self) -> Fingerprints {
@@ -545,10 +556,11 @@ impl Internal {
     pub fn set_fingerprints(
         &mut self,
         client: &mut impl trussed::Client,
+        storage: Location,
         data: Fingerprints,
     ) -> Result<(), Error> {
         self.fingerprints = data;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn ca_fingerprints(&self) -> CaFingerprints {
@@ -558,10 +570,11 @@ impl Internal {
     pub fn set_ca_fingerprints(
         &mut self,
         client: &mut impl trussed::Client,
+        storage: Location,
         data: CaFingerprints,
     ) -> Result<(), Error> {
         self.ca_fingerprints = data;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn keygen_dates(&self) -> KeyGenDates {
@@ -571,10 +584,11 @@ impl Internal {
     pub fn set_keygen_dates(
         &mut self,
         client: &mut impl trussed::Client,
+        storage: Location,
         data: KeyGenDates,
     ) -> Result<(), Error> {
         self.keygen_dates = data;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn uif(&self, key: KeyType) -> Uif {
@@ -588,6 +602,7 @@ impl Internal {
     pub fn set_uif(
         &mut self,
         client: &mut impl trussed::Client,
+        storage: Location,
         uif: Uif,
         key: KeyType,
     ) -> Result<(), Error> {
@@ -596,7 +611,7 @@ impl Internal {
             KeyType::Dec => self.uif_dec = uif,
             KeyType::Aut => self.uif_aut = uif,
         }
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn pw1_valid_multiple(&self) -> bool {
@@ -607,9 +622,10 @@ impl Internal {
         &mut self,
         value: bool,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<(), Error> {
         self.pw1_valid_multiple = value;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn cardholder_name(&self) -> &[u8] {
@@ -620,9 +636,10 @@ impl Internal {
         &mut self,
         value: Bytes<39>,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<(), Error> {
         self.cardholder_name = value;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn cardholder_sex(&self) -> Sex {
@@ -633,9 +650,10 @@ impl Internal {
         &mut self,
         value: Sex,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<(), Error> {
         self.cardholder_sex = value;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn language_preferences(&self) -> &[u8] {
@@ -646,22 +664,27 @@ impl Internal {
         &mut self,
         value: Bytes<8>,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<(), Error> {
         self.language_preferences = value;
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn sign_count(&self) -> u32 {
         self.sign_count
     }
 
-    pub fn increment_sign_count(&mut self, client: &mut impl trussed::Client) -> Result<(), Error> {
+    pub fn increment_sign_count(
+        &mut self,
+        client: &mut impl trussed::Client,
+        storage: Location,
+    ) -> Result<(), Error> {
         self.sign_count += 1;
         // Sign count is returned on 3 bytes
         if self.sign_count & 0xffffff == 0 {
             self.sign_count = 0xffffff;
         }
-        self.save(client)
+        self.save(client, storage)
     }
 
     pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
@@ -688,6 +711,7 @@ impl Internal {
         ty: KeyType,
         mut new: Option<(KeyId, KeyOrigin)>,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<Option<(KeyId, KeyOrigin)>, Error> {
         match ty {
             KeyType::Sign => {
@@ -697,7 +721,7 @@ impl Internal {
             KeyType::Dec => swap(&mut self.confidentiality_key, &mut new),
             KeyType::Aut => swap(&mut self.aut_key, &mut new),
         }
-        self.save(client)?;
+        self.save(client, storage)?;
         Ok(new)
     }
 
@@ -709,9 +733,10 @@ impl Internal {
         &mut self,
         mut new: Option<KeyId>,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<Option<KeyId>, Error> {
         swap(&mut self.aes_key, &mut new);
-        self.save(client)?;
+        self.save(client, storage)?;
         Ok(new)
     }
 
@@ -719,6 +744,7 @@ impl Internal {
         &mut self,
         ty: KeyType,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<(), Error> {
         let key = match ty {
             KeyType::Sign => self.signing_key.take(),
@@ -727,7 +753,7 @@ impl Internal {
         };
 
         if let Some((key_id, _)) = key {
-            self.save(client)?;
+            self.save(client, storage)?;
             try_syscall!(client.delete(key_id)).map_err(|_err| {
                 error!("Failed to delete key {_err:?}");
                 Error::Saving
@@ -762,7 +788,7 @@ impl Default for KeyRefs {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Runtime {
+pub struct Volatile {
     pub sign_verified: bool,
     pub other_verified: bool,
     pub admin_verified: bool,
@@ -831,22 +857,26 @@ impl ArbitraryDO {
     pub fn load(
         self,
         client: &mut impl trussed::Client,
+        storage: Location,
     ) -> Result<Bytes<MAX_GENERIC_LENGTH>, Error> {
-        load_if_exists(client, Location::Internal, &self.path())
+        load_if_exists(client, storage, &self.path())
             .map(|data| data.unwrap_or_else(|| self.default()))
     }
 
-    pub fn save(self, client: &mut impl trussed::Client, bytes: &[u8]) -> Result<(), Error> {
+    pub fn save(
+        self,
+        client: &mut impl trussed::Client,
+        storage: Location,
+        bytes: &[u8],
+    ) -> Result<(), Error> {
         let msg = Bytes::from(heapless::Vec::try_from(bytes).map_err(|_| {
             error!("Buffer full");
             Error::Saving
         })?);
-        try_syscall!(client.write_file(Location::Internal, self.path(), msg, None)).map_err(
-            |_err| {
-                error!("Failed to store data: {_err:?}");
-                Error::Saving
-            },
-        )?;
+        try_syscall!(client.write_file(storage, self.path(), msg, None)).map_err(|_err| {
+            error!("Failed to store data: {_err:?}");
+            Error::Saving
+        })?;
         Ok(())
     }
 }

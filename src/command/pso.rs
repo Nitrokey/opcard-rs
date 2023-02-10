@@ -15,7 +15,7 @@ fn check_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
-    if ctx.state.internal.uif(key).is_enabled() {
+    if ctx.state.persistent.uif(key).is_enabled() {
         prompt_uif(ctx)
     } else {
         Ok(())
@@ -42,28 +42,28 @@ fn prompt_uif<const R: usize, T: trussed::Client>(
 pub fn sign<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let key_id = ctx.state.internal.key_id(KeyType::Sign).ok_or_else(|| {
+    let key_id = ctx.state.persistent.key_id(KeyType::Sign).ok_or_else(|| {
         warn!("Attempt to sign without a key set");
         Status::KeyReferenceNotFound
     })?;
-    if !ctx.state.runtime.sign_verified {
+    if !ctx.state.volatile.sign_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
     check_uif(ctx.lend(), KeyType::Sign)?;
-    if !ctx.state.internal.pw1_valid_multiple() {
-        ctx.state.runtime.sign_verified = false;
+    if !ctx.state.persistent.pw1_valid_multiple() {
+        ctx.state.volatile.sign_verified = false;
     }
     ctx.state
-        .internal
-        .increment_sign_count(ctx.backend.client_mut())
+        .persistent
+        .increment_sign_count(ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_err| {
             error!("Failed to increment sign count");
             Status::UnspecifiedPersistentExecutionError
         })?;
 
-    match ctx.state.internal.sign_alg() {
+    match ctx.state.persistent.sign_alg() {
         SignatureAlgorithm::Ed255 => sign_ec(ctx, key_id, Mechanism::Ed255),
         SignatureAlgorithm::EcDsaP256 => {
             if ctx.data.len() != 32 {
@@ -122,10 +122,10 @@ enum RsaOrEcc {
 fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
-    let (key_type, (mechanism, key_kind)) = match ctx.state.runtime.keyrefs.internal_aut {
+    let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.internal_aut {
         KeyRef::Aut => (
             KeyType::Aut,
-            match ctx.state.internal.aut_alg() {
+            match ctx.state.persistent.aut_alg() {
                 AuthenticationAlgorithm::EcDsaP256 => (Mechanism::P256Prehashed, RsaOrEcc::Ecc),
                 AuthenticationAlgorithm::Ed255 => (Mechanism::Ed255, RsaOrEcc::Ecc),
 
@@ -135,7 +135,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
         ),
         KeyRef::Dec => (
             KeyType::Dec,
-            match ctx.state.internal.dec_alg() {
+            match ctx.state.persistent.dec_alg() {
                 DecryptionAlgorithm::X255 => {
                     warn!("Attempt to authenticate with X25519 key");
                     return Err(Status::ConditionsOfUseNotSatisfied);
@@ -156,12 +156,12 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
     }
 
     Ok((
-        ctx.state.internal.key_id(key_type).ok_or_else(|| {
+        ctx.state.persistent.key_id(key_type).ok_or_else(|| {
             warn!("Attempt to INTERNAL AUTHENTICATE without a key set");
             Status::KeyReferenceNotFound
         })?,
         mechanism,
-        ctx.state.internal.uif(key_type).is_enabled(),
+        ctx.state.persistent.uif(key_type).is_enabled(),
         key_kind,
     ))
 }
@@ -170,7 +170,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
 pub fn internal_authenticate<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.runtime.other_verified {
+    if !ctx.state.volatile.other_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
@@ -189,10 +189,10 @@ pub fn internal_authenticate<const R: usize, T: trussed::Client>(
 fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
-    let (key_type, (mechanism, key_kind)) = match ctx.state.runtime.keyrefs.pso_decipher {
+    let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.pso_decipher {
         KeyRef::Dec => (
             KeyType::Dec,
-            match ctx.state.internal.dec_alg() {
+            match ctx.state.persistent.dec_alg() {
                 DecryptionAlgorithm::X255 => (Mechanism::X255, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::EcDhP256 => (Mechanism::P256, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs, RsaOrEcc::Rsa),
@@ -201,7 +201,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
         ),
         KeyRef::Aut => (
             KeyType::Aut,
-            match ctx.state.internal.aut_alg() {
+            match ctx.state.persistent.aut_alg() {
                 AuthenticationAlgorithm::EcDsaP256 => (Mechanism::P256, RsaOrEcc::Ecc),
                 AuthenticationAlgorithm::Ed255 => {
                     warn!("Attempt to decipher with Ed255 key");
@@ -215,12 +215,12 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
     };
 
     Ok((
-        ctx.state.internal.key_id(key_type).ok_or_else(|| {
+        ctx.state.persistent.key_id(key_type).ok_or_else(|| {
             warn!("Attempt to decrypt without a key set");
             Status::KeyReferenceNotFound
         })?,
         mechanism,
-        ctx.state.internal.uif(key_type).is_enabled(),
+        ctx.state.persistent.uif(key_type).is_enabled(),
         key_kind,
     ))
 }
@@ -229,7 +229,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
 pub fn decipher<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.runtime.other_verified {
+    if !ctx.state.volatile.other_verified {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
@@ -361,7 +361,7 @@ fn decrypt_ec<const R: usize, T: trussed::Client>(
 fn decipher_aes<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let key_id = ctx.state.internal.aes_key().ok_or_else(|| {
+    let key_id = ctx.state.persistent.aes_key().ok_or_else(|| {
         warn!("Attempt to decipher with AES and no key set");
         Status::ConditionsOfUseNotSatisfied
     })?;
@@ -390,12 +390,12 @@ fn decipher_aes<const R: usize, T: trussed::Client>(
 pub fn encipher<const R: usize, T: trussed::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.runtime.other_verified {
+    if !ctx.state.volatile.other_verified {
         warn!("Attempt to encipher without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
-    let key_id = ctx.state.internal.aes_key().ok_or_else(|| {
+    let key_id = ctx.state.persistent.aes_key().ok_or_else(|| {
         warn!("Attempt to decipher with AES and no key set");
         Status::ConditionsOfUseNotSatisfied
     })?;

@@ -6,7 +6,7 @@ use hex_literal::hex;
 use iso7816::Status;
 use trussed::{
     syscall, try_syscall,
-    types::{KeySerialization, Location, Mechanism},
+    types::{KeySerialization, Mechanism},
 };
 
 use crate::{
@@ -465,7 +465,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
         GetDataDoType::Constructed(objs) => get_constructed_data(context.lend(), objs)?,
     }
 
-    let cur_do = &mut context.state.runtime.cur_do;
+    let cur_do = &mut context.state.volatile.cur_do;
     *cur_do = match cur_do {
         Some((t, occ)) if *t == tag => Some((tag, *occ)),
         _ => Some((tag, Occurrence::First)),
@@ -478,7 +478,7 @@ pub fn get_next_data<const R: usize, T: trussed::Client>(
     context: Context<'_, R, T>,
     tag: Tag,
 ) -> Result<(), Status> {
-    let cur_do = &mut context.state.runtime.cur_do;
+    let cur_do = &mut context.state.volatile.cur_do;
     *cur_do = match cur_do {
         Some((t, Occurrence::First)) if *t == tag => Some((tag, Occurrence::Second)),
         Some((t, Occurrence::Second)) if *t == tag => Some((tag, Occurrence::Third)),
@@ -534,14 +534,15 @@ pub fn historical_bytes<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.options.historical_bytes)?;
     let lifecycle_idx = ctx.reply.len() - 3;
-    ctx.reply[lifecycle_idx] = State::lifecycle(ctx.backend.client_mut()) as u8;
+    ctx.reply[lifecycle_idx] =
+        State::lifecycle(ctx.backend.client_mut(), ctx.options.storage) as u8;
     Ok(())
 }
 
 fn cardholder_cert<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let occ = match ctx.state.runtime.cur_do {
+    let occ = match ctx.state.volatile.cur_do {
         Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
         _ => Occurrence::First,
     };
@@ -558,13 +559,13 @@ fn pw_status_bytes<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     let status = if let Ok(ctx) = ctx.load_state() {
         PasswordStatus {
-            pw1_valid_multiple: ctx.state.internal.pw1_valid_multiple(),
+            pw1_valid_multiple: ctx.state.persistent.pw1_valid_multiple(),
             max_length_pw1: MAX_PIN_LENGTH as u8,
             max_length_rc: MAX_PIN_LENGTH as u8,
             max_length_pw3: MAX_PIN_LENGTH as u8,
-            error_counter_pw1: ctx.state.internal.remaining_tries(Password::Pw1),
-            error_counter_rc: ctx.state.internal.remaining_tries(Password::ResetCode),
-            error_counter_pw3: ctx.state.internal.remaining_tries(Password::Pw3),
+            error_counter_pw1: ctx.state.persistent.remaining_tries(Password::Pw1),
+            error_counter_rc: ctx.state.persistent.remaining_tries(Password::ResetCode),
+            error_counter_pw3: ctx.state.persistent.remaining_tries(Password::Pw3),
         }
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
@@ -609,7 +610,8 @@ fn alg_attr_sign<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(ctx.state.internal.sign_alg().attributes())
+        ctx.reply
+            .expand(ctx.state.persistent.sign_alg().attributes())
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply.expand(SignatureAlgorithm::default().attributes())
@@ -620,7 +622,8 @@ fn alg_attr_dec<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(ctx.state.internal.dec_alg().attributes())
+        ctx.reply
+            .expand(ctx.state.persistent.dec_alg().attributes())
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply
@@ -632,7 +635,8 @@ fn alg_attr_aut<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(ctx.state.internal.aut_alg().attributes())
+        ctx.reply
+            .expand(ctx.state.persistent.aut_alg().attributes())
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply
@@ -644,7 +648,7 @@ fn fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(&ctx.state.internal.fingerprints().0)
+        ctx.reply.expand(&ctx.state.persistent.fingerprints().0)
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply.expand(&[0; 60])
@@ -655,7 +659,7 @@ fn ca_fingerprints<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(&ctx.state.internal.ca_fingerprints().0)
+        ctx.reply.expand(&ctx.state.persistent.ca_fingerprints().0)
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply.expand(&[0; 60])
@@ -666,7 +670,7 @@ fn keygen_dates<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(&ctx.state.internal.keygen_dates().0)
+        ctx.reply.expand(&ctx.state.persistent.keygen_dates().0)
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply.expand(&[0; 12])
@@ -686,15 +690,15 @@ fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> R
         // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
         ctx.reply.expand(&[
             0x01,
-            key_info_byte(ctx.state.internal.key_origin(KeyType::Sign)),
+            key_info_byte(ctx.state.persistent.key_origin(KeyType::Sign)),
         ])?;
         ctx.reply.expand(&[
             0x02,
-            key_info_byte(ctx.state.internal.key_origin(KeyType::Dec)),
+            key_info_byte(ctx.state.persistent.key_origin(KeyType::Dec)),
         ])?;
         ctx.reply.expand(&[
             0x03,
-            key_info_byte(ctx.state.internal.key_origin(KeyType::Aut)),
+            key_info_byte(ctx.state.persistent.key_origin(KeyType::Aut)),
         ])?;
         Ok(())
     } else {
@@ -713,7 +717,7 @@ fn uif<const R: usize, T: trussed::Client>(
             return Err(Status::FunctionNotSupported);
         }
 
-        let state_byte = ctx.state.internal.uif(key).as_byte();
+        let state_byte = ctx.state.persistent.uif(key).as_byte();
         let button_byte = general_feature_management_byte(ctx.options);
         ctx.reply.expand(&[state_byte, button_byte])
     } else {
@@ -729,7 +733,7 @@ fn cardholder_name<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(ctx.state.internal.cardholder_name())
+        ctx.reply.expand(ctx.state.persistent.cardholder_name())
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply.expand(b"Card state corrupted.")
@@ -741,7 +745,7 @@ fn cardholder_sex<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply
-            .expand(&[ctx.state.internal.cardholder_sex() as u8])
+            .expand(&[ctx.state.persistent.cardholder_sex() as u8])
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply.expand(&[Sex::NotKnown as u8])
@@ -752,7 +756,8 @@ fn language_preferences<const R: usize, T: trussed::Client>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
-        ctx.reply.expand(ctx.state.internal.language_preferences())
+        ctx.reply
+            .expand(ctx.state.persistent.language_preferences())
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
         ctx.reply.expand(b"")
@@ -764,7 +769,7 @@ fn signature_counter<const R: usize, T: trussed::Client>(
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
     if let Ok(mut ctx) = ctx.load_state() {
-        let resp = &ctx.state.internal.sign_count().to_be_bytes()[1..];
+        let resp = &ctx.state.persistent.sign_count().to_be_bytes()[1..];
         ctx.reply.expand(resp)
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
@@ -777,17 +782,17 @@ fn get_arbitrary_do<const R: usize, T: trussed::Client>(
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     match obj.read_permission() {
-        PermissionRequirement::User if !ctx.state.runtime.other_verified => {
+        PermissionRequirement::User if !ctx.state.volatile.other_verified => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
-        PermissionRequirement::Admin if !ctx.state.runtime.admin_verified => {
+        PermissionRequirement::Admin if !ctx.state.volatile.admin_verified => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
         _ => {}
     }
 
     let data = obj
-        .load(ctx.backend.client_mut())
+        .load(ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
     ctx.reply.expand(&data)
 }
@@ -808,11 +813,11 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     }
 
     match object.write_perm() {
-        PermissionRequirement::Admin if !context.state.runtime.admin_verified => {
+        PermissionRequirement::Admin if !context.state.volatile.admin_verified => {
             warn!("Put data for admin authorized object: {object:?}");
             return Err(Status::SecurityStatusNotSatisfied);
         }
-        PermissionRequirement::User if !context.state.runtime.other_verified => {
+        PermissionRequirement::User if !context.state.volatile.other_verified => {
             warn!("Put data for user authorized object: {object:?}");
             return Err(Status::SecurityStatusNotSatisfied);
         }
@@ -822,7 +827,7 @@ pub fn put_data<const R: usize, T: trussed::Client>(
     debug!("Writing data for tag {:?}", tag);
     object.put_data(context.lend())?;
 
-    let cur_do = &mut context.state.runtime.cur_do;
+    let cur_do = &mut context.state.volatile.cur_do;
     *cur_do = match cur_do {
         Some((t, occ)) if *t == tag => Some((tag, *occ)),
         _ => Some((tag, Occurrence::First)),
@@ -920,7 +925,7 @@ impl PutDataObject {
 fn put_cardholder_cert<const R: usize, T: trussed::Client>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
-    let occ = match ctx.state.runtime.cur_do {
+    let occ = match ctx.state.volatile.cur_do {
         Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
         _ => Occurrence::First,
     };
@@ -948,7 +953,7 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
     let new_key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         Mechanism::Aes256Cbc,
         ctx.data,
-        Location::Internal,
+        ctx.options.storage,
         KeySerialization::Raw,
     ))
     .map_err(|_err| {
@@ -959,8 +964,8 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
 
     let old_key = ctx
         .state
-        .internal
-        .set_aes_key_id(Some(new_key), ctx.backend.client_mut())
+        .persistent
+        .set_aes_key_id(Some(new_key), ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_err| {
             error!("Failed to set new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -979,8 +984,8 @@ fn put_resetting_code<const R: usize, T: trussed::Client>(
         info!("Removing resetting code");
         return ctx
             .state
-            .internal
-            .remove_reset_code(ctx.backend.client_mut())
+            .persistent
+            .remove_reset_code(ctx.backend.client_mut(), ctx.options.storage)
             .map_err(|_err| {
                 error!("Failed to remove resetting code: {_err}");
                 Status::UnspecifiedNonpersistentExecutionError
@@ -994,8 +999,13 @@ fn put_resetting_code<const R: usize, T: trussed::Client>(
         return Err(Status::IncorrectDataParameter);
     }
     ctx.state
-        .internal
-        .change_pin(ctx.backend.client_mut(), ctx.data, Password::ResetCode)
+        .persistent
+        .change_pin(
+            ctx.backend.client_mut(),
+            ctx.options.storage,
+            ctx.data,
+            Password::ResetCode,
+        )
         .map_err(|_err| {
             error!("Failed to change resetting code: {_err}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -1021,14 +1031,14 @@ fn put_uif<const R: usize, T: trussed::Client>(
         return Err(Status::OperationBlocked);
     }
 
-    if ctx.state.internal.uif(key) == Uif::PermanentlyEnabled {
+    if ctx.state.persistent.uif(key) == Uif::PermanentlyEnabled {
         return Err(Status::OperationBlocked);
     }
 
     let uif = Uif::try_from(ctx.data[0]).map_err(|_| Status::IncorrectDataParameter)?;
     ctx.state
-        .internal
-        .set_uif(ctx.backend.client_mut(), uif, key)
+        .persistent
+        .set_uif(ctx.backend.client_mut(), ctx.options.storage, uif, key)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1055,8 +1065,8 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
     };
 
     ctx.state
-        .internal
-        .set_pw1_valid_multiple(flag, ctx.backend.client_mut())
+        .persistent
+        .set_pw1_valid_multiple(flag, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
 
     Ok(())
@@ -1080,8 +1090,8 @@ fn put_language_prefs<const R: usize, T: trussed::Client>(
     })?;
 
     ctx.state
-        .internal
-        .set_language_preferences(bytes, ctx.backend.client_mut())
+        .persistent
+        .set_language_preferences(bytes, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1101,8 +1111,8 @@ fn put_cardholder_sex<const R: usize, T: trussed::Client>(
     })?;
 
     ctx.state
-        .internal
-        .set_cardholder_sex(sex, ctx.backend.client_mut())
+        .persistent
+        .set_cardholder_sex(sex, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1119,8 +1129,8 @@ fn put_cardholder_name<const R: usize, T: trussed::Client>(
         })?
         .into();
     ctx.state
-        .internal
-        .set_cardholder_name(bytes, ctx.backend.client_mut())
+        .persistent
+        .set_cardholder_name(bytes, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1136,8 +1146,8 @@ fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
     })?;
 
     ctx.state
-        .internal
-        .set_sign_alg(ctx.backend.client_mut(), alg)
+        .persistent
+        .set_sign_alg(ctx.backend.client_mut(), ctx.options.storage, alg)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1153,8 +1163,8 @@ fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
     })?;
 
     ctx.state
-        .internal
-        .set_dec_alg(ctx.backend.client_mut(), alg)
+        .persistent
+        .set_dec_alg(ctx.backend.client_mut(), ctx.options.storage, alg)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1170,8 +1180,8 @@ fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
     })?;
 
     ctx.state
-        .internal
-        .set_aut_alg(ctx.backend.client_mut(), alg)
+        .persistent
+        .set_aut_alg(ctx.backend.client_mut(), ctx.options.storage, alg)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1182,7 +1192,7 @@ fn put_arbitrary_do<const R: usize, T: trussed::Client>(
     if ctx.data.len() > MAX_GENERIC_LENGTH {
         return Err(Status::WrongLength);
     }
-    obj.save(ctx.backend.client_mut(), ctx.data)
+    obj.save(ctx.backend.client_mut(), ctx.options.storage, ctx.data)
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
@@ -1194,11 +1204,11 @@ fn put_fingerprint<const R: usize, T: trussed::Client>(
         return Err(Status::WrongLength);
     }
 
-    let mut fp = ctx.state.internal.fingerprints();
+    let mut fp = ctx.state.persistent.fingerprints();
     fp.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
-        .internal
-        .set_fingerprints(ctx.backend.client_mut(), fp)
+        .persistent
+        .set_fingerprints(ctx.backend.client_mut(), ctx.options.storage, fp)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1209,11 +1219,11 @@ fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
     if ctx.data.len() != 20 {
         return Err(Status::WrongLength);
     }
-    let mut fp = ctx.state.internal.ca_fingerprints();
+    let mut fp = ctx.state.persistent.ca_fingerprints();
     fp.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
-        .internal
-        .set_ca_fingerprints(ctx.backend.client_mut(), fp)
+        .persistent
+        .set_ca_fingerprints(ctx.backend.client_mut(), ctx.options.storage, fp)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1224,11 +1234,11 @@ fn put_keygen_date<const R: usize, T: trussed::Client>(
     if ctx.data.len() != 4 {
         return Err(Status::WrongLength);
     }
-    let mut dates = ctx.state.internal.keygen_dates();
+    let mut dates = ctx.state.persistent.keygen_dates();
     dates.key_part_mut(for_key).copy_from_slice(ctx.data);
     ctx.state
-        .internal
-        .set_keygen_dates(ctx.backend.client_mut(), dates)
+        .persistent
+        .set_keygen_dates(ctx.backend.client_mut(), ctx.options.storage, dates)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
@@ -1335,12 +1345,12 @@ mod tests {
             use crate::tlv::*;
             let mut backend = crate::backend::Backend::new(client);
             let mut reply: heapless::Vec<u8, 1024> = Default::default();
-            let runtime = Default::default();
-            let internal = state::Internal::test_default();
+            let volatile = Default::default();
+            let persistent = state::Persistent::test_default();
             let options = Default::default();
             let mut state = State {
-                internal: Some(internal),
-                runtime,
+                persistent: Some(persistent),
+                volatile,
             };
 
             let context = Context {

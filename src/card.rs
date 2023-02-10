@@ -3,6 +3,7 @@
 
 use hex_literal::hex;
 use iso7816::Status;
+use trussed::types::Location;
 
 pub(crate) mod reply;
 
@@ -116,6 +117,8 @@ pub struct Options {
 
     /// Does the card have a button for user input?
     pub button_available: bool,
+    /// Which trussed storage to use
+    pub storage: Location,
 }
 
 impl Options {
@@ -153,6 +156,7 @@ impl Default for Options {
             // TODO: Copied from Nitrokey Pro
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
+            storage: Location::External,
         }
     }
 }
@@ -171,7 +175,7 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
         Ok(LoadedContext {
             state: self
                 .state
-                .load(self.backend.client_mut())
+                .load(self.backend.client_mut(), self.options.storage)
                 .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?,
             options: self.options,
             backend: self.backend,
@@ -196,7 +200,7 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
 }
 
 #[derive(Debug)]
-/// Context with the internal state loaded from flash
+/// Context with the persistent state loaded from flash
 pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
     pub backend: &'a mut Backend<T>,
     pub options: &'a Options,
