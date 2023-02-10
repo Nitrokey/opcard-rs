@@ -40,6 +40,9 @@ pub fn sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
         }
+        SignatureAlgorithm::Rsa3072 => {
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15)
+        }
         SignatureAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
             return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15);
@@ -59,6 +62,9 @@ pub fn dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
+        }
+        DecryptionAlgorithm::Rsa3072 => {
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15)
         }
         DecryptionAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
@@ -81,6 +87,9 @@ pub fn aut<const R: usize, T: trussed::Client>(
         }
         AuthenticationAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
+        }
+        AuthenticationAlgorithm::Rsa3072 => {
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
@@ -179,6 +188,7 @@ pub fn read_sign<const R: usize, T: trussed::Client>(
         SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
         SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
+        SignatureAlgorithm::Rsa3072 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15),
         SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
     }
 }
@@ -198,6 +208,9 @@ pub fn read_dec<const R: usize, T: trussed::Client>(
         DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
+        }
+        DecryptionAlgorithm::Rsa3072 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15)
         }
         DecryptionAlgorithm::Rsa4096 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
@@ -220,6 +233,9 @@ pub fn read_aut<const R: usize, T: trussed::Client>(
         AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
         AuthenticationAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
+        }
+        AuthenticationAlgorithm::Rsa3072 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa4096 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
@@ -307,11 +323,11 @@ fn read_rsa_key<const R: usize, T: trussed::Client>(
         })?;
     ctx.reply.expand(&[0x81])?;
     ctx.reply.append_len(parsed_pubkey_data.n.len())?;
-    ctx.reply.expand(&parsed_pubkey_data.n)?;
+    ctx.reply.expand(parsed_pubkey_data.n)?;
 
     ctx.reply.expand(&[0x82])?;
     ctx.reply.append_len(parsed_pubkey_data.e.len())?;
-    ctx.reply.expand(&parsed_pubkey_data.e)?;
+    ctx.reply.expand(parsed_pubkey_data.e)?;
 
     ctx.reply.prepend_len(offset)?;
 

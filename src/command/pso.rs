@@ -72,6 +72,7 @@ pub fn sign<const R: usize, T: trussed::Client>(
             sign_ec(ctx, key_id, Mechanism::P256Prehashed)
         }
         SignatureAlgorithm::Rsa2048 => sign_rsa(ctx, key_id, Mechanism::Rsa2048Pkcs1v15),
+        SignatureAlgorithm::Rsa3072 => sign_rsa(ctx, key_id, Mechanism::Rsa3072Pkcs1v15),
         SignatureAlgorithm::Rsa4096 => sign_rsa(ctx, key_id, Mechanism::Rsa4096Pkcs1v15),
     }
 }
@@ -130,6 +131,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
                 AuthenticationAlgorithm::Ed255 => (Mechanism::Ed255, RsaOrEcc::Ecc),
 
                 AuthenticationAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs1v15, RsaOrEcc::Rsa),
+                AuthenticationAlgorithm::Rsa3072 => (Mechanism::Rsa3072Pkcs1v15, RsaOrEcc::Rsa),
                 AuthenticationAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs1v15, RsaOrEcc::Rsa),
             },
         ),
@@ -142,6 +144,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client>(
                 }
                 DecryptionAlgorithm::EcDhP256 => (Mechanism::P256Prehashed, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs1v15, RsaOrEcc::Rsa),
+                DecryptionAlgorithm::Rsa3072 => (Mechanism::Rsa3072Pkcs1v15, RsaOrEcc::Rsa),
                 DecryptionAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs1v15, RsaOrEcc::Rsa),
             },
         ),
@@ -196,6 +199,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
                 DecryptionAlgorithm::X255 => (Mechanism::X255, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::EcDhP256 => (Mechanism::P256, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs1v15, RsaOrEcc::Rsa),
+                DecryptionAlgorithm::Rsa3072 => (Mechanism::Rsa3072Pkcs1v15, RsaOrEcc::Rsa),
                 DecryptionAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs1v15, RsaOrEcc::Rsa),
             },
         ),
@@ -209,6 +213,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client>(
                 }
 
                 AuthenticationAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs1v15, RsaOrEcc::Rsa),
+                AuthenticationAlgorithm::Rsa3072 => (Mechanism::Rsa3072Pkcs1v15, RsaOrEcc::Rsa),
                 AuthenticationAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs1v15, RsaOrEcc::Rsa),
             },
         ),
