@@ -71,7 +71,7 @@ interchange = { git = "https://github.com/trussed-dev/interchange", rev = "fe563
 littlefs2 = { git = "https://github.com/Nitrokey/littlefs2", tag = "v0.3.2-nitrokey-1" }
 littlefs2-sys = { git = "https://github.com/Nitrokey/littlefs2-sys", tag = "v0.1.6-nitrokey-1" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/Nitrokey/trussed" , tag = "v0.1.0-nitrokey-4" }
+trussed = { git = "https://github.com/Nitrokey/trussed" , tag = "v0.1.0-nitrokey.6" }
 
 [package.metadata.docs.rs]
 all-features = true
