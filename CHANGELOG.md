@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
-## [Unreleased][]
+## [v0.3.0][] (2023-24-02)
 
 ### Features
 
@@ -15,6 +15,7 @@ SPDX-License-Identifier: CC0-1.0
 ### Bugfixes
 
 - Fix OpenSC compatibility ([#96][])
+- Fix crash when attempting to sign large payloads with RSA ([nitrokey/trussed/#11][])
 
 ### Developement
 
@@ -30,7 +31,8 @@ SPDX-License-Identifier: CC0-1.0
 [#107]: https://github.com/Nitrokey/opcard-rs/pull/107
 [#108]: https://github.com/Nitrokey/opcard-rs/pull/108
 [#109]: https://github.com/Nitrokey/opcard-rs/pull/109
-[Unreleased]: https://github.com/Nitrokey/opcard-rs/compare/v0.2.0...main
+[nitrokey/trussed/#11]: https://github.com/Nitrokey/trussed/pull/11
+[v0.3.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v0.3.0
 
 ## [v0.2.0][] (2022-11-18)
 
