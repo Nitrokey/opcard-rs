@@ -53,11 +53,9 @@ make dangerous-real-card-test  OPCARD_DANGEROUS_TEST_CARD_VENDOR="0000" OPCARD_D
 
 ## Installation
 
-Currently only available for the Nitrokey 3A Mini.
-
-Download the latest compiled [release](https://github.com/Nitrokey/opcard-rs/releases) ZIP file.
-Plug your Nitrokey 3A Mini and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
-`nitropy nk3 update <path/to/release/zip/file>`
+Download the latest compiled [alpha release](https://github.com/Nitrokey/nitrokey-3-firmware/releases).
+Plug your Nitrokey 3 and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
+`nitropy nk3 update <path/to/release/file>`
 
 
 ## Bug reports
