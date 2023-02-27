@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
-## [v0.3.0][] (2023-24-02)
+## [v0.3.0][] (2023-02-24)
 
 ### Features
 
@@ -28,6 +28,7 @@ SPDX-License-Identifier: CC0-1.0
 [#97]: https://github.com/Nitrokey/opcard-rs/pull/97
 [#98]: https://github.com/Nitrokey/opcard-rs/pull/98
 [#101]: https://github.com/Nitrokey/opcard-rs/pull/101
+[#103]: https://github.com/Nitrokey/opcard-rs/pull/103
 [#107]: https://github.com/Nitrokey/opcard-rs/pull/107
 [#108]: https://github.com/Nitrokey/opcard-rs/pull/108
 [#109]: https://github.com/Nitrokey/opcard-rs/pull/109
