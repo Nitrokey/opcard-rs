@@ -14,6 +14,10 @@ FUZZ_DURATION?="0"
 .PHONY: check
 check:
 	cargo check --all-features --all-targets --workspace
+
+.PHONY: lint
+lint:
+	RUSTFLAGS='-Dwarnings' cargo check --all-features --all-targets --workspace
 	cargo check --no-default-features --all-targets
 	cargo clippy --all-features --all-targets -- --deny warnings
 	cargo fmt -- --check
@@ -57,7 +61,7 @@ tarpaulin:
 	cargo tarpaulin --features virtual,rsa4096-gen -o Html -o Xml
 
 .PHONY: ci
-ci: check tarpaulin
+ci: lint tarpaulin
 
 .PHONY: clean
 clean:
