@@ -1,5 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
+#![cfg(feature = "virt")]
 
 use test_log::test;
 

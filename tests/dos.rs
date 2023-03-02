@@ -1,5 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
+#![cfg(feature = "virt")]
+
 use hex_literal::hex;
 mod card;
 use test_log::test;

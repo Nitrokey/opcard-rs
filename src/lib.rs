@@ -59,6 +59,9 @@ mod utils;
 #[cfg(feature = "virtual")]
 mod vpicc;
 
+#[cfg(feature = "virt")]
+pub mod virt;
+
 #[cfg(feature = "virtual")]
 pub use self::vpicc::VirtualCard;
 pub use card::{Card, Options};

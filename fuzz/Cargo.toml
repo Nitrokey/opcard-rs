@@ -25,7 +25,7 @@ log = { version = "0.4", optional = true }
 
 [dependencies.opcard]
 path = ".."
-features = ["virtual"]
+features = ["virt"]
 
 [[bin]]
 name = "fuzz_target_1"

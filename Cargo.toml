@@ -30,6 +30,7 @@ trussed = "0.1.0"
 trussed-rsa-alloc = { git = "https://github.com/Nitrokey/trussed-rsa-backend", rev = "311d2366f99cc300b03d61e7f6a0a07abd3e8700", optional = true }
 serde_repr = "0.1"
 hex-literal = "0.3.4"
+trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", rev= "29c3f37251d5e470802358db0ef2d002d9a6098a"}
 
 # optional dependencies
 apdu-dispatch = { version = "0.1", optional = true }
@@ -53,12 +54,16 @@ serde_cbor = "0.11"
 hex = { version = "0.4", features = ["serde"] }
 
 [features]
+default = ["virt"]
 std = []
+virt = ["std", "trussed/virt"]
 virtual = ["std", "vpicc"]
+
 rsa = ["trussed-rsa-alloc"]
 rsa2048 = ["rsa"]
 rsa4096 = ["rsa2048"]
 rsa4096-gen = ["rsa4096"]
+
 dangerous-test-real-card = []
 
 # used for delog

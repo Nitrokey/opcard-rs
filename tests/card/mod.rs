@@ -5,6 +5,7 @@
 use std::sync::{Arc, Mutex};
 
 use iso7816::{command::FromSliceError, Command, Status};
+use opcard::virt::VirtClient;
 use opcard::Options;
 use openpgp_card::{
     CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
@@ -13,11 +14,6 @@ use trussed::{
     virt::{Platform, Ram},
     Service,
 };
-
-#[cfg(not(feature = "rsa"))]
-use trussed::virt::{with_ram_client, Client};
-#[cfg(feature = "rsa")]
-use trussed_rsa_alloc::virt::{with_ram_client, Client};
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
@@ -117,13 +113,13 @@ impl<T: trussed::Client + Send + Sync + 'static> CardTransaction for Transaction
     }
 }
 
-pub fn with_card_options<F: FnOnce(Card<Client<Ram>>) -> R, R>(options: Options, f: F) -> R {
-    with_ram_client("opcard", |client| {
+pub fn with_card_options<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(options: Options, f: F) -> R {
+    opcard::virt::with_ram_client("opcard", |client| {
         f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }
 
-pub fn with_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(f: F) -> R {
+pub fn with_card<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(f: F) -> R {
     with_card_options(Options::default(), f)
 }
 
