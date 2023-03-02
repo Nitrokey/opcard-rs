@@ -8,6 +8,7 @@ mod pso;
 
 use hex_literal::hex;
 use iso7816::Status;
+use trussed_auth::AuthClient;
 
 use crate::card::{Context, LoadedContext, RID};
 use crate::error::Error;
@@ -54,7 +55,7 @@ impl Command {
         }
     }
 
-    pub fn exec<const R: usize, T: trussed::Client>(
+    pub fn exec<const R: usize, T: trussed::Client + AuthClient>(
         &self,
         mut ctx: Context<'_, R, T>,
     ) -> Result<(), Status> {
@@ -324,7 +325,9 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
 }
 
 // § 7.2.1
-fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Result<(), Status> {
+fn select<const R: usize, T: trussed::Client + AuthClient>(
+    context: Context<'_, R, T>,
+) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
         context.state.volatile.cur_do = None;
         context.state.volatile.keyrefs = Default::default();
@@ -336,7 +339,7 @@ fn select<const R: usize, T: trussed::Client>(context: Context<'_, R, T>) -> Res
 }
 
 // § 7.2.2
-fn verify<const R: usize, T: trussed::Client>(
+fn verify<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     mode: VerifyMode,
     password: PasswordMode,
@@ -387,7 +390,7 @@ fn verify<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.3
-fn change_reference_data<const R: usize, T: trussed::Client>(
+fn change_reference_data<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
@@ -425,7 +428,7 @@ fn change_reference_data<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.14
-fn gen_keypair<const R: usize, T: trussed::Client>(
+fn gen_keypair<const R: usize, T: trussed::Client + AuthClient>(
     context: LoadedContext<'_, R, T>,
     mode: GenerateAsymmetricKeyPairMode,
 ) -> Result<(), Status> {
@@ -451,7 +454,7 @@ fn gen_keypair<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.16
-fn terminate_df<const R: usize, T: trussed::Client>(
+fn terminate_df<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(ctx) = ctx.load_state() {
@@ -472,7 +475,9 @@ fn unspecified_delete_error<E: core::fmt::Debug>(_err: E) -> Status {
     Status::UnspecifiedPersistentExecutionError
 }
 
-fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> Result<(), Status> {
+fn factory_reset<const R: usize, T: trussed::Client + AuthClient>(
+    ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
     *ctx.state = Default::default();
     try_syscall!(ctx
         .backend
@@ -499,7 +504,7 @@ fn factory_reset<const R: usize, T: trussed::Client>(ctx: Context<'_, R, T>) -> 
 }
 
 // § 7.2.17
-fn activate_file<const R: usize, T: trussed::Client>(
+fn activate_file<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if State::lifecycle(ctx.backend.client_mut(), ctx.options.storage) == LifeCycle::Operational {
@@ -521,7 +526,7 @@ fn activate_file<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.4
-fn reset_retry_conter<const R: usize, T: trussed::Client>(
+fn reset_retry_conter<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     mode: ResetRetryCounterMode,
 ) -> Result<(), Status> {
@@ -531,7 +536,7 @@ fn reset_retry_conter<const R: usize, T: trussed::Client>(
     }
 }
 
-fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
+fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() < MIN_LENGTH_USER_PIN || ctx.data.len() > MAX_PIN_LENGTH {
@@ -560,7 +565,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client>(
         })
 }
 
-fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
+fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let code_len = ctx.state.persistent.reset_code_len().ok_or_else(|| {
@@ -616,7 +621,7 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.5
-fn select_data<const R: usize, T: trussed::Client>(
+fn select_data<const R: usize, T: trussed::Client + AuthClient>(
     ctx: Context<'_, R, T>,
     occurrence: Occurrence,
 ) -> Result<(), Status> {
@@ -633,7 +638,7 @@ fn select_data<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.15
-fn get_challenge<const R: usize, T: trussed::Client>(
+fn get_challenge<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
     expected: usize,
 ) -> Result<(), Status> {
@@ -655,7 +660,7 @@ fn get_challenge<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.18
-fn manage_security_environment<const R: usize, T: trussed::Client>(
+fn manage_security_environment<const R: usize, T: trussed::Client + AuthClient>(
     ctx: Context<'_, R, T>,
     mode: ManageSecurityEnvironmentMode,
 ) -> Result<(), Status> {

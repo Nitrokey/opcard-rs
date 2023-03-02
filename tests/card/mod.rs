@@ -14,14 +14,17 @@ use trussed::{
     virt::{Platform, Ram},
     Service,
 };
+use trussed_auth::AuthClient;
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
 
 #[derive(Debug)]
-pub struct Card<T: trussed::Client + Send + Sync + 'static>(Arc<Mutex<opcard::Card<T>>>);
+pub struct Card<T: trussed::Client + AuthClient + Send + Sync + 'static>(
+    Arc<Mutex<opcard::Card<T>>>,
+);
 
-impl<T: trussed::Client + Send + Sync + 'static> Card<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> Card<T> {
     pub fn new(client: T) -> Self {
         Self::with_options(client, Options::default())
     }
@@ -47,7 +50,7 @@ impl<T: trussed::Client + Send + Sync + 'static> Card<T> {
     }
 }
 
-impl<T: trussed::Client + Send + Sync + 'static> CardBackend for Card<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> CardBackend for Card<T> {
     fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync + Sync>, Error> {
         // TODO: use reference instead of cloning
         Ok(Box::new(Transaction {
@@ -58,12 +61,12 @@ impl<T: trussed::Client + Send + Sync + 'static> CardBackend for Card<T> {
 }
 
 #[derive(Debug)]
-pub struct Transaction<T: trussed::Client + Send + Sync + 'static> {
+pub struct Transaction<T: trussed::Client + AuthClient + Send + Sync + 'static> {
     card: Arc<Mutex<opcard::Card<T>>>,
     buffer: heapless::Vec<u8, RESPONSE_LEN>,
 }
 
-impl<T: trussed::Client + Send + Sync + 'static> Transaction<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> Transaction<T> {
     fn handle(&mut self, command: &[u8]) -> Result<(), Status> {
         self.buffer.clear();
         let command = Command::<REQUEST_LEN>::try_from(command).map_err(|err| match err {
@@ -78,7 +81,7 @@ impl<T: trussed::Client + Send + Sync + 'static> Transaction<T> {
     }
 }
 
-impl<T: trussed::Client + Send + Sync + 'static> CardTransaction for Transaction<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> CardTransaction for Transaction<T> {
     fn transmit(&mut self, command: &[u8], _buf_size: usize) -> Result<Vec<u8>, Error> {
         let status = self.handle(command).err().unwrap_or_default();
         let status: [u8; 2] = status.into();

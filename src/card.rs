@@ -4,6 +4,7 @@
 use hex_literal::hex;
 use iso7816::Status;
 use trussed::types::Location;
+use trussed_auth::AuthClient;
 
 pub(crate) mod reply;
 
@@ -24,13 +25,13 @@ pub const PGP_SMARTCARD_VERSION: [u8; 2] = [3, 4];
 /// This is the main entry point for this crate.  It takes care of the command handling and state
 /// management.
 #[derive(Clone, Debug)]
-pub struct Card<T: trussed::Client> {
+pub struct Card<T: trussed::Client + AuthClient> {
     backend: Backend<T>,
     options: Options,
     state: State,
 }
 
-impl<T: trussed::Client> Card<T> {
+impl<T: trussed::Client + AuthClient> Card<T> {
     /// Creates a new OpenPGP card with the given backend and options.
     pub fn new(client: T, options: Options) -> Self {
         let state = State::default();
@@ -71,7 +72,7 @@ impl<T: trussed::Client> Card<T> {
     }
 }
 
-impl<T: trussed::Client> iso7816::App for Card<T> {
+impl<T: trussed::Client + AuthClient> iso7816::App for Card<T> {
     fn aid(&self) -> iso7816::Aid {
         // TODO: check truncation length
         iso7816::Aid::new_truncatable(&self.options.aid(), RID.len())
@@ -79,7 +80,9 @@ impl<T: trussed::Client> iso7816::App for Card<T> {
 }
 
 #[cfg(feature = "apdu-dispatch")]
-impl<T: trussed::Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Card<T> {
+impl<T: trussed::Client + AuthClient, const C: usize, const R: usize> apdu_dispatch::App<C, R>
+    for Card<T>
+{
     fn select(
         &mut self,
         command: &iso7816::Command<C>,
@@ -162,7 +165,7 @@ impl Default for Options {
 }
 
 #[derive(Debug)]
-pub struct Context<'a, const R: usize, T: trussed::Client> {
+pub struct Context<'a, const R: usize, T: trussed::Client + AuthClient> {
     pub backend: &'a mut Backend<T>,
     pub options: &'a Options,
     pub state: &'a mut State,
@@ -170,7 +173,7 @@ pub struct Context<'a, const R: usize, T: trussed::Client> {
     pub reply: Reply<'a, R>,
 }
 
-impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
+impl<'a, const R: usize, T: trussed::Client + AuthClient> Context<'a, R, T> {
     pub fn load_state(&mut self) -> Result<LoadedContext<'_, R, T>, Status> {
         Ok(LoadedContext {
             state: self
@@ -201,7 +204,7 @@ impl<'a, const R: usize, T: trussed::Client> Context<'a, R, T> {
 
 #[derive(Debug)]
 /// Context with the persistent state loaded from flash
-pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
+pub struct LoadedContext<'a, const R: usize, T: trussed::Client + AuthClient> {
     pub backend: &'a mut Backend<T>,
     pub options: &'a Options,
     pub state: LoadedState<'a>,
@@ -209,7 +212,7 @@ pub struct LoadedContext<'a, const R: usize, T: trussed::Client> {
     pub reply: Reply<'a, R>,
 }
 
-impl<'a, const R: usize, T: trussed::Client> LoadedContext<'a, R, T> {
+impl<'a, const R: usize, T: trussed::Client + AuthClient> LoadedContext<'a, R, T> {
     /// Lend the context
     ///
     /// The resulting `LoadedContext` has a shorter lifetime than the original one, meaning that it

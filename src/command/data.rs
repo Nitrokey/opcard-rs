@@ -8,6 +8,7 @@ use trussed::{
     syscall, try_syscall,
     types::{KeySerialization, Mechanism},
 };
+use trussed_auth::AuthClient;
 
 use crate::{
     card::{Context, LoadedContext, Options},
@@ -341,7 +342,7 @@ impl GetDataObject {
                 | Self::DigitalSignatureCounter
         )
     }
-    fn reply<const R: usize, T: trussed::Client>(
+    fn reply<const R: usize, T: trussed::Client + AuthClient>(
         self,
         mut context: Context<'_, R, T>,
     ) -> Result<(), Status> {
@@ -443,7 +444,7 @@ const EXTENDED_CAPABILITIES: [u8; 10] = [
 ];
 
 // § 7.2.6
-pub fn get_data<const R: usize, T: trussed::Client>(
+pub fn get_data<const R: usize, T: trussed::Client + AuthClient>(
     mut context: Context<'_, R, T>,
     mode: GetDataMode,
     tag: Tag,
@@ -474,7 +475,7 @@ pub fn get_data<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.7
-pub fn get_next_data<const R: usize, T: trussed::Client>(
+pub fn get_next_data<const R: usize, T: trussed::Client + AuthClient>(
     context: Context<'_, R, T>,
     tag: Tag,
 ) -> Result<(), Status> {
@@ -505,7 +506,7 @@ fn filtered_objects(
     objects.iter().filter(move |o| !to_filter.contains(o))
 }
 
-fn get_constructed_data<const R: usize, T: trussed::Client>(
+fn get_constructed_data<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
     objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
@@ -529,7 +530,7 @@ fn get_constructed_data<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-pub fn historical_bytes<const R: usize, T: trussed::Client>(
+pub fn historical_bytes<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     ctx.reply.expand(&ctx.options.historical_bytes)?;
@@ -539,7 +540,7 @@ pub fn historical_bytes<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-fn cardholder_cert<const R: usize, T: trussed::Client>(
+fn cardholder_cert<const R: usize, T: trussed::Client + AuthClient>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     let occ = match ctx.state.volatile.cur_do {
@@ -554,7 +555,7 @@ fn cardholder_cert<const R: usize, T: trussed::Client>(
     get_arbitrary_do(ctx, to_load)
 }
 
-fn pw_status_bytes<const R: usize, T: trussed::Client>(
+fn pw_status_bytes<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     let status = if let Ok(ctx) = ctx.load_state() {
@@ -584,7 +585,9 @@ fn pw_status_bytes<const R: usize, T: trussed::Client>(
     ctx.reply.expand(&status)
 }
 
-fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
+fn algo_info<const R: usize, T: trussed::Client + AuthClient>(
+    mut ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
     for alg in SignatureAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
@@ -606,7 +609,7 @@ fn algo_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> 
     Ok(())
 }
 
-fn alg_attr_sign<const R: usize, T: trussed::Client>(
+fn alg_attr_sign<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -618,7 +621,7 @@ fn alg_attr_sign<const R: usize, T: trussed::Client>(
     }
 }
 
-fn alg_attr_dec<const R: usize, T: trussed::Client>(
+fn alg_attr_dec<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -631,7 +634,7 @@ fn alg_attr_dec<const R: usize, T: trussed::Client>(
     }
 }
 
-fn alg_attr_aut<const R: usize, T: trussed::Client>(
+fn alg_attr_aut<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -644,7 +647,7 @@ fn alg_attr_aut<const R: usize, T: trussed::Client>(
     }
 }
 
-fn fingerprints<const R: usize, T: trussed::Client>(
+fn fingerprints<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -655,7 +658,7 @@ fn fingerprints<const R: usize, T: trussed::Client>(
     }
 }
 
-fn ca_fingerprints<const R: usize, T: trussed::Client>(
+fn ca_fingerprints<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -666,7 +669,7 @@ fn ca_fingerprints<const R: usize, T: trussed::Client>(
     }
 }
 
-fn keygen_dates<const R: usize, T: trussed::Client>(
+fn keygen_dates<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -685,7 +688,9 @@ fn key_info_byte(data: Option<KeyOrigin>) -> u8 {
     }
 }
 
-fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> Result<(), Status> {
+fn key_info<const R: usize, T: trussed::Client + AuthClient>(
+    mut ctx: Context<'_, R, T>,
+) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
         ctx.reply.expand(&[
@@ -707,7 +712,7 @@ fn key_info<const R: usize, T: trussed::Client>(mut ctx: Context<'_, R, T>) -> R
     }
 }
 
-fn uif<const R: usize, T: trussed::Client>(
+fn uif<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
@@ -729,7 +734,7 @@ fn uif<const R: usize, T: trussed::Client>(
     }
 }
 
-fn cardholder_name<const R: usize, T: trussed::Client>(
+fn cardholder_name<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -740,7 +745,7 @@ fn cardholder_name<const R: usize, T: trussed::Client>(
     }
 }
 
-fn cardholder_sex<const R: usize, T: trussed::Client>(
+fn cardholder_sex<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -752,7 +757,7 @@ fn cardholder_sex<const R: usize, T: trussed::Client>(
     }
 }
 
-fn language_preferences<const R: usize, T: trussed::Client>(
+fn language_preferences<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
@@ -764,7 +769,7 @@ fn language_preferences<const R: usize, T: trussed::Client>(
     }
 }
 
-fn signature_counter<const R: usize, T: trussed::Client>(
+fn signature_counter<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     // Counter is only on 3 bytes
@@ -777,7 +782,7 @@ fn signature_counter<const R: usize, T: trussed::Client>(
     }
 }
 
-fn get_arbitrary_do<const R: usize, T: trussed::Client>(
+fn get_arbitrary_do<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
@@ -798,7 +803,7 @@ fn get_arbitrary_do<const R: usize, T: trussed::Client>(
 }
 
 // § 7.2.8
-pub fn put_data<const R: usize, T: trussed::Client>(
+pub fn put_data<const R: usize, T: trussed::Client + AuthClient>(
     mut context: Context<'_, R, T>,
     mode: PutDataMode,
     tag: Tag,
@@ -880,7 +885,7 @@ impl PutDataObject {
         }
     }
 
-    fn put_data<const R: usize, T: trussed::Client>(
+    fn put_data<const R: usize, T: trussed::Client + AuthClient>(
         self,
         mut ctx: Context<'_, R, T>,
     ) -> Result<(), Status> {
@@ -922,7 +927,7 @@ impl PutDataObject {
     }
 }
 
-fn put_cardholder_cert<const R: usize, T: trussed::Client>(
+fn put_cardholder_cert<const R: usize, T: trussed::Client + AuthClient>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     let occ = match ctx.state.volatile.cur_do {
@@ -939,7 +944,7 @@ fn put_cardholder_cert<const R: usize, T: trussed::Client>(
 
 const AES256_KEY_LEN: usize = 32;
 
-fn put_enc_dec_key<const R: usize, T: trussed::Client>(
+fn put_enc_dec_key<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() != AES256_KEY_LEN {
@@ -977,7 +982,7 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-fn put_resetting_code<const R: usize, T: trussed::Client>(
+fn put_resetting_code<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.is_empty() {
@@ -1012,7 +1017,7 @@ fn put_resetting_code<const R: usize, T: trussed::Client>(
         })
 }
 
-fn put_uif<const R: usize, T: trussed::Client>(
+fn put_uif<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
@@ -1042,7 +1047,7 @@ fn put_uif<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_status_bytes<const R: usize, T: trussed::Client>(
+fn put_status_bytes<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() != 4 && ctx.data.len() != 1 {
@@ -1072,7 +1077,7 @@ fn put_status_bytes<const R: usize, T: trussed::Client>(
     Ok(())
 }
 
-fn put_language_prefs<const R: usize, T: trussed::Client>(
+fn put_language_prefs<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let bytes = if ctx.data.len() % 2 == 0 {
@@ -1095,7 +1100,7 @@ fn put_language_prefs<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_cardholder_sex<const R: usize, T: trussed::Client>(
+fn put_cardholder_sex<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() != 1 {
@@ -1116,7 +1121,7 @@ fn put_cardholder_sex<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_cardholder_name<const R: usize, T: trussed::Client>(
+fn put_cardholder_name<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let bytes = heapless::Vec::try_from(ctx.data)
@@ -1134,7 +1139,7 @@ fn put_cardholder_name<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
+fn put_alg_attributes_sign<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let alg = SignatureAlgorithm::try_from(ctx.data).map_err(|_| {
@@ -1151,7 +1156,7 @@ fn put_alg_attributes_sign<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
+fn put_alg_attributes_dec<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let alg = DecryptionAlgorithm::try_from(ctx.data).map_err(|_| {
@@ -1168,7 +1173,7 @@ fn put_alg_attributes_dec<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
+fn put_alg_attributes_aut<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let alg = AuthenticationAlgorithm::try_from(ctx.data).map_err(|_| {
@@ -1185,7 +1190,7 @@ fn put_alg_attributes_aut<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_arbitrary_do<const R: usize, T: trussed::Client>(
+fn put_arbitrary_do<const R: usize, T: trussed::Client + AuthClient>(
     ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
@@ -1196,7 +1201,7 @@ fn put_arbitrary_do<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_fingerprint<const R: usize, T: trussed::Client>(
+fn put_fingerprint<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     for_key: KeyType,
 ) -> Result<(), Status> {
@@ -1212,7 +1217,7 @@ fn put_fingerprint<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
+fn put_ca_fingerprint<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     for_key: KeyType,
 ) -> Result<(), Status> {
@@ -1227,7 +1232,7 @@ fn put_ca_fingerprint<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_keygen_date<const R: usize, T: trussed::Client>(
+fn put_keygen_date<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     for_key: KeyType,
 ) -> Result<(), Status> {
@@ -1242,7 +1247,7 @@ fn put_keygen_date<const R: usize, T: trussed::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "virt"))]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
@@ -1340,7 +1345,7 @@ mod tests {
 
     #[test]
     fn constructed_dos_tlv() {
-        trussed::virt::with_ram_client("constructed_dos_tlv", |client| {
+        crate::virt::with_ram_client("constructed_dos_tlv", |client| {
             use crate::state::{self, State};
             use crate::tlv::*;
             let mut backend = crate::backend::Backend::new(client);
