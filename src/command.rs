@@ -8,7 +8,7 @@ mod pso;
 
 use hex_literal::hex;
 use iso7816::Status;
-use trussed_auth::AuthClient;
+use trussed_auth::{AuthClient, PinId};
 
 use crate::card::{Context, LoadedContext, RID};
 use crate::error::Error;
@@ -199,6 +199,17 @@ pub enum Password {
     ResetCode,
 }
 
+impl From<Password> for PinId {
+    fn from(v: Password) -> Self {
+        match v {
+            Password::Pw1 => 0,
+            Password::Pw3 => 1,
+            Password::ResetCode => 2,
+        }
+        .into()
+    }
+}
+
 impl From<PasswordMode> for Password {
     fn from(value: PasswordMode) -> Password {
         match value {
@@ -356,7 +367,9 @@ fn verify<const R: usize, T: trussed::Client + AuthClient>(
                     Ok(())
                 } else {
                     Err(Status::RemainingRetries(
-                        ctx.state.persistent.remaining_tries(password.into()),
+                        ctx.state
+                            .persistent
+                            .remaining_tries(ctx.backend.client_mut(), password.into()),
                     ))
                 }
             } else {
@@ -373,7 +386,9 @@ fn verify<const R: usize, T: trussed::Client + AuthClient>(
                     Ok(())
                 } else {
                     Err(Status::RemainingRetries(
-                        ctx.state.persistent.remaining_tries(password.into()),
+                        ctx.state
+                            .persistent
+                            .remaining_tries(ctx.backend.client_mut(), password.into()),
                     ))
                 }
             }
@@ -423,7 +438,7 @@ fn change_reference_data<const R: usize, T: trussed::Client + AuthClient>(
     }
     ctx.state
         .persistent
-        .change_pin(client_mut, ctx.options.storage, new, password)
+        .change_pin(client_mut, ctx.options.storage, old, new, password)
         .map_err(|_| Status::WrongLength)
 }
 
@@ -458,7 +473,12 @@ fn terminate_df<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(ctx) = ctx.load_state() {
-        if ctx.state.volatile.admin_verified || ctx.state.persistent.is_locked(Password::Pw3) {
+        if ctx.state.volatile.admin_verified
+            || ctx
+                .state
+                .persistent
+                .is_locked(ctx.backend.client_mut(), Password::Pw3)
+        {
             State::terminate_df(ctx.backend.client_mut(), ctx.options.storage)?;
         } else {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -553,7 +573,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client + AuthClient>(
 
     ctx.state
         .persistent
-        .change_pin(
+        .set_pin(
             ctx.backend.client_mut(),
             ctx.options.storage,
             ctx.data,
@@ -589,9 +609,11 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
         Password::ResetCode,
     );
     match res {
-        Err(Error::TooManyTries) | Err(Error::InvalidPin) => {
+        Err(Error::InvalidPin) => {
             return Err(Status::RemainingRetries(
-                ctx.state.persistent.remaining_tries(Password::ResetCode),
+                ctx.state
+                    .persistent
+                    .remaining_tries(ctx.backend.client_mut(), Password::ResetCode),
             ))
         }
         Err(_err) => {
@@ -608,7 +630,7 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
 
     ctx.state
         .persistent
-        .change_pin(
+        .set_pin(
             ctx.backend.client_mut(),
             ctx.options.storage,
             new,

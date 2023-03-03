@@ -564,9 +564,18 @@ fn pw_status_bytes<const R: usize, T: trussed::Client + AuthClient>(
             max_length_pw1: MAX_PIN_LENGTH as u8,
             max_length_rc: MAX_PIN_LENGTH as u8,
             max_length_pw3: MAX_PIN_LENGTH as u8,
-            error_counter_pw1: ctx.state.persistent.remaining_tries(Password::Pw1),
-            error_counter_rc: ctx.state.persistent.remaining_tries(Password::ResetCode),
-            error_counter_pw3: ctx.state.persistent.remaining_tries(Password::Pw3),
+            error_counter_pw1: ctx
+                .state
+                .persistent
+                .remaining_tries(ctx.backend.client_mut(), Password::Pw1),
+            error_counter_rc: ctx
+                .state
+                .persistent
+                .remaining_tries(ctx.backend.client_mut(), Password::ResetCode),
+            error_counter_pw3: ctx
+                .state
+                .persistent
+                .remaining_tries(ctx.backend.client_mut(), Password::Pw3),
         }
     } else {
         // If the state doesn't load, return placeholder so that gpg presents the option to factory reset
@@ -1003,9 +1012,10 @@ fn put_resetting_code<const R: usize, T: trussed::Client + AuthClient>(
         );
         return Err(Status::IncorrectDataParameter);
     }
+
     ctx.state
         .persistent
-        .change_pin(
+        .set_pin(
             ctx.backend.client_mut(),
             ctx.options.storage,
             ctx.data,
@@ -1250,6 +1260,7 @@ fn put_keygen_date<const R: usize, T: trussed::Client + AuthClient>(
 #[cfg(all(test, feature = "virt"))]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use hex_literal::hex;
 
@@ -1351,7 +1362,7 @@ mod tests {
             let mut backend = crate::backend::Backend::new(client);
             let mut reply: heapless::Vec<u8, 1024> = Default::default();
             let volatile = Default::default();
-            let persistent = state::Persistent::test_default();
+            let persistent = state::Persistent::test_default(backend.client_mut()).unwrap();
             let options = Default::default();
             let mut state = State {
                 persistent: Some(persistent),
