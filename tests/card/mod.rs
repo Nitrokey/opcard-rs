@@ -5,6 +5,7 @@
 use std::sync::{Arc, Mutex};
 
 use iso7816::{command::FromSliceError, Command, Status};
+#[cfg(not(feature = "dangerous-test-real-card"))]
 use opcard::virt::VirtClient;
 use opcard::Options;
 use openpgp_card::{
@@ -116,24 +117,29 @@ impl<T: trussed::Client + AuthClient + Send + Sync + 'static> CardTransaction fo
     }
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_card_options<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(options: Options, f: F) -> R {
     opcard::virt::with_ram_client("opcard", |client| {
         f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_card<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(f: F) -> R {
     with_card_options(Options::default(), f)
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_tx_options<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(options: Options, f: F) -> R {
     with_card_options(options, move |mut card| card.with_tx(f))
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
     with_card(move |mut card| card.with_tx(f))
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
     match err {
         Ok(()) => None,
