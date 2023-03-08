@@ -350,13 +350,13 @@ impl Persistent {
             Password::Pw1,
             default_user_pin,
             Some(Self::MAX_RETRIES),
-            false
+            true,
         ));
         syscall!(client.set_pin(
             Password::Pw3,
             default_admin_pin,
             Some(Self::MAX_RETRIES),
-            false
+            true,
         ));
         Ok(())
     }
