@@ -177,19 +177,23 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
     let (reader, serial, vendor) = (
         concat!(
             r"Reader:",
-            env!("OPCARD_DANGEROUS_TEST_CARD_VENDOR"),
+            env!("OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR"),
             ":",
-            env!("OPCARD_DANGEROUS_TEST_CARD_SERIAL"),
+            env!("OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT"),
             ":X:0:AID:D276000124010304[A-Z0-9]*:openpgp-card"
         ),
         concat!(
             r"vendor:",
-            env!("OPCARD_DANGEROUS_TEST_CARD_VENDOR"),
+            env!("OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR"),
             ":",
             env!("OPCARD_DANGEROUS_TEST_CARD_NAME"),
             ":"
         ),
-        concat!(r"serial:", env!("OPCARD_DANGEROUS_TEST_CARD_SERIAL"), ":"),
+        concat!(
+            r"serial:",
+            env!("OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT"),
+            ":"
+        ),
     );
 
     [

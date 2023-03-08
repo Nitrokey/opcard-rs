@@ -20,9 +20,9 @@ use test_log::test;
 const IDENT: &str = "0000:00000000";
 #[cfg(feature = "dangerous-test-real-card")]
 const IDENT: &str = concat!(
-    env!("OPCARD_DANGEROUS_TEST_CARD_VENDOR"),
+    env!("OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR"),
     ":",
-    env!("OPCARD_DANGEROUS_TEST_CARD_SERIAL")
+    env!("OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL")
 );
 
 #[cfg(feature = "rsa2048")]
@@ -75,6 +75,7 @@ fn rsa2048() {
     let ciphertext = dec_pubk.encrypt(&session).unwrap();
     let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
     assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
+    open.factory_reset().unwrap();
 }
 
 #[cfg(feature = "rsa4096-gen")]
@@ -126,6 +127,7 @@ fn rsa4096() {
     let ciphertext = dec_pubk.encrypt(&session).unwrap();
     let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
     assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
+    open.factory_reset().unwrap();
 }
 
 fn p256() {
@@ -206,6 +208,7 @@ fn p256() {
     let ciphertext = aut_pubk_dec.encrypt(&session).unwrap();
     let mut decryptor = user_card.decryptor_from_public(aut_pubk_dec, &|| {});
     assert_eq!(session, decryptor.decrypt(&ciphertext, Some(32)).unwrap());
+    open.factory_reset().unwrap();
 }
 
 fn curve25519() {
@@ -278,6 +281,7 @@ fn curve25519() {
 
     // X25519 with and EdDSA key should fail
     decryptor.decrypt(&ciphertext, None).unwrap_err();
+    open.factory_reset().unwrap();
 }
 
 #[cfg(all(feature = "virtual", not(feature = "dangerous-test-real-card")))]
