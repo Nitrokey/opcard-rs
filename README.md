@@ -52,6 +52,8 @@ The vendor id and serial numbers can be configured with variables:
 - `OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR` configures the PGP vendor id of the dveice
 - `OPCARD_DANGEROUS_TEST_CARD_PGP_PRODUCT` configures the PGP serial number of the dveice
 
+Be aware that due to conflicts between gpg-agent and `pcscd` (the smartcard daemon), this test suite will start then  stop `pcscd`
+
 ```
 make dangerous-real-card-test \
   OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR="20A0" \
