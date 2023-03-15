@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: CC0-1.0
 
 export RUST_LOG ?= info,cargo_tarpaulin=off
-export OPCARD_DANGEROUS_TEST_CARD_VENDOR ?= 0000
-export OPCARD_DANGEROUS_TEST_CARD_SERIAL ?= 000000
+export OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR ?= 0000
+export OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT ?= 000000
+export OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR ?= 0000
+export OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL ?= 000000
 export OPCARD_DANGEROUS_TEST_CARD_NAME ?= test card
 
 FUZZ_JOBS?=$(shell nproc)
@@ -37,7 +39,10 @@ test:
 
 .PHONY: test
 dangerous-real-card-test:
-	cargo test --features rsa4096,dangerous-test-real-card
+	ps aux | grep pcscd | grep -v grep || sudo pcscd
+	cargo test --features rsa4096,dangerous-test-real-card sequoia
+	sudo pkill pcscd
+	cargo test --features rsa4096,dangerous-test-real-card gpg
 
 .PHONY: fuzz
 fuzz: fuzz-corpus

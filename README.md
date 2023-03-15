@@ -47,8 +47,20 @@ Opcard uses [virtualsmartcard](https://frankmorgner.github.io/vsmartcard/) for t
 `make dangerous-real-card-test` will instead run the tests against a real card.
 The vendor id and serial numbers can be configured with variables:
 
+- `OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR` configures the USB vendor id of the dveice
+- `OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT` configures the USB product id of the dveice
+- `OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR` configures the PGP vendor id of the dveice
+- `OPCARD_DANGEROUS_TEST_CARD_PGP_PRODUCT` configures the PGP serial number of the dveice
+
+Be aware that due to conflicts between gpg-agent and `pcscd` (the smartcard daemon), this test suite will start then  stop `pcscd`
+
 ```
-make dangerous-real-card-test  OPCARD_DANGEROUS_TEST_CARD_VENDOR="0000" OPCARD_DANGEROUS_TEST_CARD_SERIAL="000000" OPCARD_DANGEROUS_TEST_CARD_NAME="test card"
+make dangerous-real-card-test \
+  OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR="20A0" \
+  OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT="42B2" \
+  OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR="0000" \
+  OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL="A020DF77" \
+  OPCARD_DANGEROUS_TEST_CARD_NAME="test card"
 ```
 
 ## Installation
