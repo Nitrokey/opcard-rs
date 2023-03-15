@@ -248,6 +248,29 @@ impl<'a> LoadedState<'a> {
             volatile: self.volatile,
         }
     }
+
+    pub fn verify_pin<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        value: &[u8],
+        password: Password,
+    ) -> Result<(), Error> {
+        let pin = Bytes::from_slice(value).map_err(|_| {
+            warn!("Attempt to verify pin that is too long");
+            Error::InvalidPin
+        })?;
+        let res = try_syscall!(client.check_pin(password, pin.clone()))
+            .map_err(|_err| Error::InvalidPin)?;
+
+        if !res.success {
+            return Err(Error::InvalidPin);
+        }
+        // Reset the pin length in case it was incorrect due to the lack of atomicity of operations.
+        self.persistent
+            .set_pin_len(client, storage, pin.len(), password)?;
+        Ok(())
+    }
 }
 
 enum_u8! {
@@ -399,28 +422,6 @@ impl Persistent {
         password: Password,
     ) -> bool {
         self.remaining_tries(client, password) == 0
-    }
-
-    pub fn verify_pin<T: trussed::Client + AuthClient>(
-        &mut self,
-        client: &mut T,
-        storage: Location,
-        value: &[u8],
-        password: Password,
-    ) -> Result<(), Error> {
-        let pin = Bytes::from_slice(value).map_err(|_| {
-            warn!("Attempt to verify pin that is too long");
-            Error::InvalidPin
-        })?;
-        let res = try_syscall!(client.check_pin(password, pin.clone()))
-            .map_err(|_err| Error::InvalidPin)?;
-
-        if !res.success {
-            return Err(Error::InvalidPin);
-        }
-        // Reset the pin length in case it was incorrect due to the lack of atomicity of operations.
-        self.set_pin_len(client, storage, pin.len(), password)?;
-        Ok(())
     }
 
     /// Panics if password is ResetCode, use [reset_code_len](Self::reset_code_len) instead

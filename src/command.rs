@@ -351,7 +351,7 @@ fn select<const R: usize, T: trussed::Client + AuthClient>(
 
 // § 7.2.2
 fn verify<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {
@@ -375,8 +375,9 @@ fn verify<const R: usize, T: trussed::Client + AuthClient>(
             } else {
                 let pin = password.into();
                 if ctx
-                    .backend
-                    .verify_pin(ctx.options.storage, pin, ctx.data, ctx.state.persistent)
+                    .state
+                    .verify_pin(ctx.backend.client_mut(), ctx.options.storage, ctx.data, pin)
+                    .is_ok()
                 {
                     match password {
                         PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified = true,
@@ -406,7 +407,7 @@ fn verify<const R: usize, T: trussed::Client + AuthClient>(
 
 // § 7.2.3
 fn change_reference_data<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
     password: Password,
 ) -> Result<(), Status> {
     let min_len = match password {
@@ -429,7 +430,6 @@ fn change_reference_data<const R: usize, T: trussed::Client + AuthClient>(
     // Verify the old pin before returning for wrong length to avoid leaking information about the
     // length of the PIN
     ctx.state
-        .persistent
         .verify_pin(client_mut, ctx.options.storage, old, password)
         .map_err(|_| Status::VerificationFailed)?;
 
@@ -586,7 +586,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let code_len = ctx.state.persistent.reset_code_len().ok_or_else(|| {
         warn!("Attempt to use reset when not set");
@@ -602,7 +602,7 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
         ctx.data.split_at(code_len)
     };
 
-    let res = ctx.state.persistent.verify_pin(
+    let res = ctx.state.verify_pin(
         ctx.backend.client_mut(),
         ctx.options.storage,
         old,
