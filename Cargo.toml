@@ -56,8 +56,8 @@ hex = { version = "0.4", features = ["serde"] }
 [features]
 default = []
 std = []
+virtual = ["std", "vpicc", "virt"]
 virt = ["std", "trussed/virt"]
-virtual = ["std", "vpicc"]
 
 rsa = ["trussed-rsa-alloc"]
 rsa2048 = ["rsa"]
