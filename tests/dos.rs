@@ -18,7 +18,6 @@ fn get_data() {
     options.button_available = false;
     with_tx_options(options.clone(), |mut tx| {
         let appdata = tx.application_related_data().unwrap();
-        dbg!(&appdata.uif_pso_cds());
         assert!(appdata.uif_pso_cds().unwrap().is_none());
         assert!(appdata.uif_pso_dec().unwrap().is_none());
         assert!(appdata.uif_pso_aut().unwrap().is_none());

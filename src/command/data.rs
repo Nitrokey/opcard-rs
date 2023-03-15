@@ -796,10 +796,10 @@ fn get_arbitrary_do<const R: usize, T: trussed::Client + AuthClient>(
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     match obj.read_permission() {
-        PermissionRequirement::User if !ctx.state.volatile.other_verified => {
+        PermissionRequirement::User if !ctx.state.volatile.other_verified() => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
-        PermissionRequirement::Admin if !ctx.state.volatile.admin_verified => {
+        PermissionRequirement::Admin if !ctx.state.volatile.admin_verified() => {
             return Err(Status::SecurityStatusNotSatisfied);
         }
         _ => {}
@@ -827,11 +827,11 @@ pub fn put_data<const R: usize, T: trussed::Client + AuthClient>(
     }
 
     match object.write_perm() {
-        PermissionRequirement::Admin if !context.state.volatile.admin_verified => {
+        PermissionRequirement::Admin if !context.state.volatile.admin_verified() => {
             warn!("Put data for admin authorized object: {object:?}");
             return Err(Status::SecurityStatusNotSatisfied);
         }
-        PermissionRequirement::User if !context.state.volatile.other_verified => {
+        PermissionRequirement::User if !context.state.volatile.other_verified() => {
             warn!("Put data for user authorized object: {object:?}");
             return Err(Status::SecurityStatusNotSatisfied);
         }

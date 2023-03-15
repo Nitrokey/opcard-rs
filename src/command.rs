@@ -359,9 +359,9 @@ fn verify<const R: usize, T: trussed::Client + AuthClient>(
         VerifyMode::SetOrCheck => {
             if ctx.data.is_empty() {
                 let already_validated = match password {
-                    PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified,
-                    PasswordMode::Pw1Other => ctx.state.volatile.other_verified,
-                    PasswordMode::Pw3 => ctx.state.volatile.admin_verified,
+                    PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified(),
+                    PasswordMode::Pw1Other => ctx.state.volatile.other_verified(),
+                    PasswordMode::Pw3 => ctx.state.volatile.admin_verified(),
                 };
                 if already_validated {
                     Ok(())
@@ -373,32 +373,27 @@ fn verify<const R: usize, T: trussed::Client + AuthClient>(
                     ))
                 }
             } else {
-                let pin = password.into();
-                if ctx
-                    .state
-                    .verify_pin(ctx.backend.client_mut(), ctx.options.storage, ctx.data, pin)
-                    .is_ok()
-                {
-                    match password {
-                        PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified = true,
-                        PasswordMode::Pw1Other => ctx.state.volatile.other_verified = true,
-                        PasswordMode::Pw3 => ctx.state.volatile.admin_verified = true,
-                    }
-                    Ok(())
-                } else {
-                    Err(Status::RemainingRetries(
-                        ctx.state
-                            .persistent
-                            .remaining_tries(ctx.backend.client_mut(), password.into()),
-                    ))
-                }
+                ctx.state
+                    .verify_pin(
+                        ctx.backend.client_mut(),
+                        ctx.options.storage,
+                        ctx.data,
+                        password,
+                    )
+                    .map_err(|_| {
+                        Status::RemainingRetries(
+                            ctx.state
+                                .persistent
+                                .remaining_tries(ctx.backend.client_mut(), password.into()),
+                        )
+                    })
             }
         }
         VerifyMode::Reset => {
             match password {
-                PasswordMode::Pw1Sign => ctx.state.volatile.sign_verified = false,
-                PasswordMode::Pw1Other => ctx.state.volatile.other_verified = false,
-                PasswordMode::Pw3 => ctx.state.volatile.admin_verified = false,
+                PasswordMode::Pw1Sign => ctx.state.volatile.clear_sign(ctx.backend.client_mut()),
+                PasswordMode::Pw1Other => ctx.state.volatile.clear_other(ctx.backend.client_mut()),
+                PasswordMode::Pw3 => ctx.state.volatile.clear_admin(ctx.backend.client_mut()),
             }
             Ok(())
         }
@@ -430,7 +425,7 @@ fn change_reference_data<const R: usize, T: trussed::Client + AuthClient>(
     // Verify the old pin before returning for wrong length to avoid leaking information about the
     // length of the PIN
     ctx.state
-        .verify_pin(client_mut, ctx.options.storage, old, password)
+        .check_pin(client_mut, old, password)
         .map_err(|_| Status::VerificationFailed)?;
 
     if current_len + min_len > ctx.data.len() {
@@ -457,7 +452,7 @@ fn gen_keypair<const R: usize, T: trussed::Client + AuthClient>(
         };
     }
 
-    if !context.state.volatile.admin_verified {
+    if !context.state.volatile.admin_verified() {
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
@@ -473,7 +468,7 @@ fn terminate_df<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
     if let Ok(ctx) = ctx.load_state() {
-        if ctx.state.volatile.admin_verified
+        if ctx.state.volatile.admin_verified()
             || ctx
                 .state
                 .persistent
@@ -498,6 +493,7 @@ fn unspecified_delete_error<E: core::fmt::Debug>(_err: E) -> Status {
 fn factory_reset<const R: usize, T: trussed::Client + AuthClient>(
     ctx: Context<'_, R, T>,
 ) -> Result<(), Status> {
+    ctx.state.volatile.clear(ctx.backend.client_mut());
     *ctx.state = Default::default();
     try_syscall!(ctx
         .backend
@@ -532,7 +528,6 @@ fn activate_file<const R: usize, T: trussed::Client + AuthClient>(
     }
 
     factory_reset(ctx.lend())?;
-    *ctx.state = Default::default();
     let ctx = ctx.load_state()?;
     ctx.state
         .persistent
@@ -567,7 +562,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client + AuthClient>(
         return Err(Status::IncorrectDataParameter);
     }
 
-    if !ctx.state.volatile.admin_verified {
+    if !ctx.state.volatile.admin_verified() {
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
@@ -602,12 +597,9 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
         ctx.data.split_at(code_len)
     };
 
-    let res = ctx.state.verify_pin(
-        ctx.backend.client_mut(),
-        ctx.options.storage,
-        old,
-        Password::ResetCode,
-    );
+    let res = ctx
+        .state
+        .check_pin(ctx.backend.client_mut(), old, Password::ResetCode);
     match res {
         Err(Error::InvalidPin) => {
             return Err(Status::RemainingRetries(
@@ -620,7 +612,7 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
             error!("Failed to check reset code: {_err:?}");
             return Err(Status::UnspecifiedNonpersistentExecutionError);
         }
-        Ok(()) => {}
+        Ok(_reset_kek) => {}
     }
 
     if new.len() > MAX_PIN_LENGTH || new.len() < MIN_LENGTH_USER_PIN {

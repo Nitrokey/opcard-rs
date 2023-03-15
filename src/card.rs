@@ -67,8 +67,15 @@ impl<T: trussed::Client + AuthClient> Card<T> {
 
     /// Resets the state of the card.
     pub fn reset(&mut self) {
+        self.state.volatile.clear(self.backend.client_mut());
         let state = State::default();
         self.state = state;
+    }
+}
+
+impl<T: trussed::Client + AuthClient> Drop for Card<T> {
+    fn drop(&mut self) {
+        self.reset()
     }
 }
 

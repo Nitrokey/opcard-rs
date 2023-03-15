@@ -47,14 +47,14 @@ pub fn sign<const R: usize, T: trussed::Client + AuthClient>(
         warn!("Attempt to sign without a key set");
         Status::KeyReferenceNotFound
     })?;
-    if !ctx.state.volatile.sign_verified {
+    if !ctx.state.volatile.sign_verified() {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
 
     check_uif(ctx.lend(), KeyType::Sign)?;
     if !ctx.state.persistent.pw1_valid_multiple() {
-        ctx.state.volatile.sign_verified = false;
+        ctx.state.volatile.clear_sign(ctx.backend.client_mut())
     }
     ctx.state
         .persistent
@@ -174,7 +174,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client + AuthClient>(
 pub fn internal_authenticate<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.volatile.other_verified {
+    if !ctx.state.volatile.other_verified() {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
@@ -235,7 +235,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client + AuthClient>(
 pub fn decipher<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.volatile.other_verified {
+    if !ctx.state.volatile.other_verified() {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
@@ -396,7 +396,7 @@ fn decipher_aes<const R: usize, T: trussed::Client + AuthClient>(
 pub fn encipher<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.volatile.other_verified {
+    if !ctx.state.volatile.other_verified() {
         warn!("Attempt to encipher without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
     }
