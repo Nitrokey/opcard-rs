@@ -10,8 +10,9 @@ use serde::Deserialize;
 use trussed_auth::AuthClient;
 
 // iso7816::Status doesn't support serde
-#[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Deserialize, Debug, PartialEq, Clone, Copy, Default)]
 enum Status {
+    #[default]
     Success,
     MoreAvailable(u8),
     VerificationFailed,
@@ -196,12 +197,6 @@ impl TryFrom<u16> for Status {
             sw @ 0x6100..=0x61FF => Self::MoreAvailable(sw as u8),
             other => return Err(other),
         })
-    }
-}
-
-impl Default for Status {
-    fn default() -> Status {
-        Status::Success
     }
 }
 

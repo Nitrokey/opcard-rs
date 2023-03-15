@@ -1263,6 +1263,7 @@ mod tests {
 
     use super::*;
     use hex_literal::hex;
+    use trussed::types::Location;
 
     #[test]
     fn tags() {
@@ -1357,17 +1358,15 @@ mod tests {
     #[test]
     fn constructed_dos_tlv() {
         crate::virt::with_ram_client("constructed_dos_tlv", |client| {
-            use crate::state::{self, State};
+            use crate::state::State;
             use crate::tlv::*;
             let mut backend = crate::backend::Backend::new(client);
             let mut reply: heapless::Vec<u8, 1024> = Default::default();
-            let volatile = Default::default();
-            let persistent = state::Persistent::test_default(backend.client_mut()).unwrap();
+            let mut state = State::default();
+            state
+                .load(backend.client_mut(), Location::External)
+                .unwrap();
             let options = Default::default();
-            let mut state = State {
-                persistent: Some(persistent),
-                volatile,
-            };
 
             let context = Context {
                 state: &mut state,

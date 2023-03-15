@@ -260,6 +260,8 @@ enum_u8! {
     }
 }
 
+// #[derive(Default)] Conflicts with `enum_u8!`
+#[allow(clippy::derivable_impls)]
 impl Default for Sex {
     fn default() -> Sex {
         Sex::NotKnown
@@ -329,12 +331,6 @@ impl Persistent {
             uif_dec: Uif::Disabled,
             uif_aut: Uif::Disabled,
         }
-    }
-
-    #[cfg(test)]
-    pub fn test_default<T: trussed::Client + AuthClient>(client: &mut T) -> Result<Self, Error> {
-        Self::init_pins(client)?;
-        Ok(Self::default())
     }
 
     fn path() -> PathBuf {
