@@ -895,8 +895,7 @@ impl UserVerifiedInner {
         }
     }
     fn clear(&mut self, client: &mut impl trussed::Client) {
-        let this = take(self);
-        if let Some(k) = this.user_kek() {
+        if let Some(k) = take(self).user_kek() {
             syscall!(client.delete(k));
         }
     }
