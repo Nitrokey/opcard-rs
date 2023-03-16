@@ -324,13 +324,12 @@ impl<'a> LoadedState<'a> {
     ) -> Result<KeyId, Error> {
         let admin_key = self.volatile.admin_kek().ok_or(Error::InvalidPin)?;
         let user_wrapped =
-            syscall!(client.read_file(storage, PathBuf::from(Persistent::ADMIN_USER_KEY_BACKUP)))
-                .data;
+            syscall!(client.read_file(storage, PathBuf::from(ADMIN_USER_KEY_BACKUP))).data;
         let user_key = syscall!(client.unwrap_key(
             Mechanism::Chacha8Poly1305,
             admin_key,
             user_wrapped,
-            Persistent::ADMIN_USER_KEY_BACKUP.as_bytes(),
+            ADMIN_USER_KEY_BACKUP.as_bytes(),
             StorageAttributes::new().set_persistence(Location::Volatile)
         ))
         .key
@@ -466,12 +465,12 @@ pub struct Persistent {
 
 /// User pin key wrapped by the resetting code key
 const RC_USER_KEY_BACKUP: &'static str = "rc-user-pin-key.bin";
+/// User pin key wrapped by the admin key
+const ADMIN_USER_KEY_BACKUP: &'static str = "admin-user-pin-key.bin";
 
 impl Persistent {
     const FILENAME: &'static str = "persistent-state.cbor";
 
-    /// User pin key wrapped by the admin key
-    const ADMIN_USER_KEY_BACKUP: &'static str = "admin-user-pin-key.bin";
     // § 4.3
     const MAX_RETRIES: u8 = 3;
 
@@ -537,15 +536,10 @@ impl Persistent {
             Mechanism::Chacha8Poly1305,
             admin_key,
             user_key,
-            Self::ADMIN_USER_KEY_BACKUP.as_bytes()
+            ADMIN_USER_KEY_BACKUP.as_bytes()
         ))
         .wrapped_key;
-        syscall!(client.write_file(
-            location,
-            PathBuf::from(Self::ADMIN_USER_KEY_BACKUP),
-            backup,
-            None
-        ));
+        syscall!(client.write_file(location, PathBuf::from(ADMIN_USER_KEY_BACKUP), backup, None));
 
         // Clean up memory
         syscall!(client.delete(user_key));
