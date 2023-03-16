@@ -11,7 +11,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
-use trussed::types::{KeyId, Location, PathBuf};
+use trussed::types::{KeyId, Location, Mechanism, PathBuf, StorageAttributes};
 use trussed::{syscall, try_syscall};
 use trussed_auth::AuthClient;
 
@@ -299,6 +299,7 @@ impl<'a> LoadedState<'a> {
             .set_pin_len(client, storage, pin.len(), pin_id)?;
         Ok(())
     }
+
     pub fn check_pin<T: trussed::Client + AuthClient>(
         &mut self,
         client: &mut T,
@@ -313,6 +314,110 @@ impl<'a> LoadedState<'a> {
             .map_err(|_err| Error::InvalidPin)?
             .result
             .ok_or(Error::InvalidPin)
+    }
+
+    fn get_user_key<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+    ) -> Result<KeyId, Error> {
+        let admin_key = self.volatile.admin_kek().ok_or(Error::InvalidPin)?;
+        let user_wrapped =
+            syscall!(client.read_file(storage, PathBuf::from(ADMIN_USER_KEY_BACKUP))).data;
+        #[allow(clippy::expect_used)]
+        let user_key = syscall!(client.unwrap_key(
+            Mechanism::Chacha8Poly1305,
+            admin_key,
+            user_wrapped,
+            ADMIN_USER_KEY_BACKUP.as_bytes(),
+            StorageAttributes::new().set_persistence(Location::Volatile)
+        ))
+        .key
+        .expect("Key backup should not fail to unwrap");
+        Ok(user_key)
+    }
+
+    fn get_user_key_from_rc<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        rc_key: KeyId,
+    ) -> Result<KeyId, Error> {
+        let user_wrapped =
+            syscall!(client.read_file(storage, PathBuf::from(RC_USER_KEY_BACKUP))).data;
+        #[allow(clippy::expect_used)]
+        let user_key = syscall!(client.unwrap_key(
+            Mechanism::Chacha8Poly1305,
+            rc_key,
+            user_wrapped,
+            RC_USER_KEY_BACKUP.as_bytes(),
+            StorageAttributes::new().set_persistence(Location::Volatile)
+        ))
+        .key
+        .expect("Key backup should not fail to unwrap");
+        Ok(user_key)
+    }
+
+    pub fn reset_user_code_with_pw3<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        new_value: &[u8],
+    ) -> Result<(), Error> {
+        let user_key = self.get_user_key(client, storage)?;
+        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        syscall!(client.set_pin_with_key(Password::Pw1, new_pin, Some(3), user_key));
+        syscall!(client.delete(user_key));
+        Ok(())
+    }
+
+    pub fn reset_user_code_with_rc<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        new_value: &[u8],
+        rc_key: KeyId,
+    ) -> Result<(), Error> {
+        let user_key = self.get_user_key_from_rc(client, storage, rc_key)?;
+        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        syscall!(client.set_pin_with_key(Password::Pw1, new_pin, Some(3), user_key));
+        syscall!(client.delete(user_key));
+        Ok(())
+    }
+
+    pub fn set_reset_code<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        new_value: &[u8],
+    ) -> Result<(), Error> {
+        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        syscall!(client.set_pin(Password::ResetCode, new_pin.clone(), Some(3), true));
+        self.persistent
+            .set_pin_len(client, storage, new_pin.len(), Password::ResetCode)?;
+        #[allow(clippy::expect_used)]
+        let rc_key = syscall!(client.get_pin_key(Password::ResetCode, new_pin))
+            .result
+            .expect("New pin should not fail");
+
+        let user_key = self.get_user_key(client, storage)?;
+        let wrapped_user_key = syscall!(client.wrap_key(
+            Mechanism::Chacha8Poly1305,
+            rc_key,
+            user_key,
+            RC_USER_KEY_BACKUP.as_bytes()
+        ))
+        .wrapped_key;
+        syscall!(client.write_file(
+            storage,
+            PathBuf::from(RC_USER_KEY_BACKUP),
+            wrapped_user_key,
+            None
+        ));
+        syscall!(client.delete(user_key));
+        syscall!(client.delete(rc_key));
+
+        Ok(())
     }
 }
 
@@ -360,8 +465,14 @@ pub struct Persistent {
     uif_aut: Uif,
 }
 
+/// User pin key wrapped by the resetting code key
+const RC_USER_KEY_BACKUP: &str = "rc-user-pin-key.bin";
+/// User pin key wrapped by the admin key
+const ADMIN_USER_KEY_BACKUP: &str = "admin-user-pin-key.bin";
+
 impl Persistent {
     const FILENAME: &'static str = "persistent-state.cbor";
+
     // § 4.3
     const MAX_RETRIES: u8 = 3;
 
@@ -396,23 +507,47 @@ impl Persistent {
         PathBuf::from(Self::FILENAME)
     }
 
-    fn init_pins<T: trussed::Client + AuthClient>(client: &mut T) -> Result<(), Error> {
+    fn init_pins<T: trussed::Client + AuthClient>(
+        client: &mut T,
+        location: Location,
+    ) -> Result<(), Error> {
         #[allow(clippy::unwrap_used)]
         let default_user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
         #[allow(clippy::unwrap_used)]
         let default_admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
         syscall!(client.set_pin(
             Password::Pw1,
-            default_user_pin,
+            default_user_pin.clone(),
             Some(Self::MAX_RETRIES),
             true,
         ));
         syscall!(client.set_pin(
             Password::Pw3,
-            default_admin_pin,
+            default_admin_pin.clone(),
             Some(Self::MAX_RETRIES),
             true,
         ));
+        #[allow(clippy::expect_used)]
+        let user_key = syscall!(client.get_pin_key(Password::Pw1, default_user_pin))
+            .result
+            .expect("Default pin should work after initialization");
+        #[allow(clippy::expect_used)]
+        let admin_key = syscall!(client.get_pin_key(Password::Pw3, default_admin_pin))
+            .result
+            .expect("Default pin should work after initialization");
+
+        let backup = syscall!(client.wrap_key(
+            Mechanism::Chacha8Poly1305,
+            admin_key,
+            user_key,
+            ADMIN_USER_KEY_BACKUP.as_bytes()
+        ))
+        .wrapped_key;
+        syscall!(client.write_file(location, PathBuf::from(ADMIN_USER_KEY_BACKUP), backup, None));
+
+        // Clean up memory
+        syscall!(client.delete(user_key));
+        syscall!(client.delete(admin_key));
         Ok(())
     }
     pub fn load<T: trussed::Client + AuthClient>(
@@ -425,7 +560,7 @@ impl Persistent {
                 Error::Loading
             })
         } else {
-            Self::init_pins(client)?;
+            Self::init_pins(client, storage)?;
             Ok(Self::default())
         }
     }
@@ -472,18 +607,6 @@ impl Persistent {
     /// Returns None if no code has been set
     pub fn reset_code_len(&self) -> Option<usize> {
         self.reset_code_pin_len.map(Into::into)
-    }
-
-    pub fn set_pin<T: trussed::Client + AuthClient>(
-        &mut self,
-        client: &mut T,
-        storage: Location,
-        new_value: &[u8],
-        password: Password,
-    ) -> Result<(), Error> {
-        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
-        syscall!(client.set_pin(password, new_pin.clone(), Some(Self::MAX_RETRIES), true));
-        self.set_pin_len(client, storage, new_pin.len(), password)
     }
 
     pub fn change_pin<T: trussed::Client + AuthClient>(
