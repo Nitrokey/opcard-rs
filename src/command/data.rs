@@ -6,9 +6,12 @@ use hex_literal::hex;
 use iso7816::Status;
 use trussed::{
     syscall, try_syscall,
-    types::{KeySerialization, Mechanism},
+    types::{KeyId, KeySerialization, Mechanism},
 };
 use trussed_auth::AuthClient;
+
+const CHACHA_NONCE_SIZE: usize = 12;
+const CHACHA_TAG_SIZE: usize = 16;
 
 use crate::{
     card::{Context, LoadedContext, Options},
@@ -375,8 +378,12 @@ impl GetDataObject {
             Self::KdfDo => get_arbitrary_do(context, ArbitraryDO::KdfDo)?,
             Self::PrivateUse1 => get_arbitrary_do(context, ArbitraryDO::PrivateUse1)?,
             Self::PrivateUse2 => get_arbitrary_do(context, ArbitraryDO::PrivateUse2)?,
-            Self::PrivateUse3 => get_arbitrary_do(context, ArbitraryDO::PrivateUse3)?,
-            Self::PrivateUse4 => get_arbitrary_do(context, ArbitraryDO::PrivateUse4)?,
+            Self::PrivateUse3 => {
+                get_arbitrary_user_enc_do(context.load_state()?, ArbitraryDO::PrivateUse3)?
+            }
+            Self::PrivateUse4 => {
+                get_arbitrary_admin_enc_do(context.load_state()?, ArbitraryDO::PrivateUse4)?
+            }
             Self::CardHolderCertificate => cardholder_cert(context)?,
             Self::SecureMessagingCertificate => return Err(Status::SecureMessagingNotSupported),
             Self::CardHolderRelatedData
@@ -811,6 +818,57 @@ fn get_arbitrary_do<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.expand(&data)
 }
 
+fn get_arbitrary_enc_do<const R: usize, T: trussed::Client + AuthClient>(
+    mut ctx: LoadedContext<'_, R, T>,
+    obj: ArbitraryDO,
+    key: KeyId,
+) -> Result<(), Status> {
+    let data = obj
+        .load(ctx.backend.client_mut(), ctx.options.storage)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    if data.is_empty() {
+        return Ok(());
+    }
+    let (data, tag) = data.split_at(data.len() - CHACHA_TAG_SIZE);
+    let (data, nonce) = data.split_at(data.len() - CHACHA_NONCE_SIZE);
+    let decrypted = syscall!(ctx.backend.client_mut().decrypt(
+        Mechanism::Chacha8Poly1305,
+        key,
+        data,
+        &[],
+        nonce,
+        tag
+    ))
+    .plaintext
+    .ok_or(Status::UnspecifiedNonpersistentExecutionError)?;
+    ctx.reply.expand(&decrypted)
+}
+
+/// Get an arbitrary DO encrypted with the user key
+fn get_arbitrary_user_enc_do<const R: usize, T: trussed::Client + AuthClient>(
+    ctx: LoadedContext<'_, R, T>,
+    obj: ArbitraryDO,
+) -> Result<(), Status> {
+    if !ctx.state.volatile.other_verified() {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+    // Unwrap cannnot fail becaus of above check
+    #[allow(clippy::unwrap_used)]
+    let k = ctx.state.volatile.user_kek().unwrap();
+    get_arbitrary_enc_do(ctx, obj, k)
+}
+
+/// Get an arbitrary DO encrypted with the admin key
+fn get_arbitrary_admin_enc_do<const R: usize, T: trussed::Client + AuthClient>(
+    ctx: LoadedContext<'_, R, T>,
+    obj: ArbitraryDO,
+) -> Result<(), Status> {
+    let Some(k) = ctx.state.volatile.admin_kek() else {
+        return Err(Status::SecurityStatusNotSatisfied);
+    };
+    get_arbitrary_enc_do(ctx, obj, k)
+}
+
 // § 7.2.8
 pub fn put_data<const R: usize, T: trussed::Client + AuthClient>(
     mut context: Context<'_, R, T>,
@@ -889,7 +947,7 @@ enum_subset! {
 impl PutDataObject {
     fn write_perm(&self) -> PermissionRequirement {
         match self {
-            Self::PrivateUse2 | Self::PrivateUse4 => PermissionRequirement::User,
+            Self::PrivateUse1 | Self::PrivateUse3 => PermissionRequirement::User,
             _ => PermissionRequirement::Admin,
         }
     }
@@ -901,8 +959,12 @@ impl PutDataObject {
         match self {
             Self::PrivateUse1 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse1)?,
             Self::PrivateUse2 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse2)?,
-            Self::PrivateUse3 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse3)?,
-            Self::PrivateUse4 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse4)?,
+            Self::PrivateUse3 => {
+                put_arbitrary_user_enc_do(ctx.load_state()?, ArbitraryDO::PrivateUse3)?
+            }
+            Self::PrivateUse4 => {
+                put_arbitrary_admin_enc_do(ctx.load_state()?, ArbitraryDO::PrivateUse4)?
+            }
             Self::LoginData => put_arbitrary_do(ctx, ArbitraryDO::LoginData)?,
             Self::ExtendedHeaderList => {
                 super::private_key_template::put_private_key_template(ctx.load_state()?)?
@@ -1192,6 +1254,59 @@ fn put_alg_attributes_aut<const R: usize, T: trussed::Client + AuthClient>(
         .persistent
         .set_aut_alg(ctx.backend.client_mut(), ctx.options.storage, alg)
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
+}
+
+fn put_arbitrary_admin_enc_do<const R: usize, T: trussed::Client + AuthClient>(
+    ctx: LoadedContext<'_, R, T>,
+    obj: ArbitraryDO,
+) -> Result<(), Status> {
+    let Some(k) = ctx.state.volatile.admin_kek() else {
+        return Err(Status::SecurityStatusNotSatisfied);
+    };
+    put_arbitrary_enc_do(ctx, obj, k)
+}
+fn put_arbitrary_user_enc_do<const R: usize, T: trussed::Client + AuthClient>(
+    ctx: LoadedContext<'_, R, T>,
+    obj: ArbitraryDO,
+) -> Result<(), Status> {
+    if !ctx.state.volatile.other_verified() {
+        return Err(Status::SecurityStatusNotSatisfied);
+    }
+    // Unwrap cannnot fail becaus of above check
+    #[allow(clippy::unwrap_used)]
+    let k = ctx.state.volatile.user_kek().unwrap();
+    put_arbitrary_enc_do(ctx, obj, k)
+}
+
+fn put_arbitrary_enc_do<const R: usize, T: trussed::Client + AuthClient>(
+    ctx: LoadedContext<'_, R, T>,
+    obj: ArbitraryDO,
+    key: KeyId,
+) -> Result<(), Status> {
+    if ctx.data.len() + CHACHA_NONCE_SIZE + CHACHA_TAG_SIZE > MAX_GENERIC_LENGTH {
+        return Err(Status::WrongLength);
+    }
+    let mut encrypted = syscall!(ctx.backend.client_mut().encrypt(
+        Mechanism::Chacha8Poly1305,
+        key,
+        ctx.data,
+        &[],
+        None
+    ));
+    encrypted
+        .ciphertext
+        .extend_from_slice(&encrypted.nonce)
+        .map_err(|_| Status::NotEnoughMemory)?;
+    encrypted
+        .ciphertext
+        .extend_from_slice(&encrypted.tag)
+        .map_err(|_| Status::NotEnoughMemory)?;
+    obj.save(
+        ctx.backend.client_mut(),
+        ctx.options.storage,
+        &encrypted.ciphertext,
+    )
+    .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
 fn put_arbitrary_do<const R: usize, T: trussed::Client + AuthClient>(

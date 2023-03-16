@@ -6,11 +6,14 @@ use hex_literal::hex;
 mod card;
 use test_log::test;
 
-use card::with_tx_options;
+use card::{with_many_tx, with_tx_options};
 
 use opcard::Options;
 
-use openpgp_card::card_do::{ApplicationIdentifier, HistoricalBytes, Lang, Sex, TouchPolicy};
+use openpgp_card::{
+    card_do::{ApplicationIdentifier, HistoricalBytes, Lang, Sex, TouchPolicy},
+    OpenPgpTransaction,
+};
 
 #[test]
 fn get_data() {
@@ -130,4 +133,88 @@ fn get_data() {
             );
         }
     });
+}
+
+#[test]
+fn arbitrary() {
+    with_many_tx([|mut tx: OpenPgpTransaction<'_>| {
+        assert_eq!(tx.private_use_do(1).unwrap(), b"");
+        assert_eq!(tx.private_use_do(2).unwrap(), b"");
+        assert!(tx.private_use_do(3).is_err());
+        assert!(tx.private_use_do(4).is_err());
+        tx.verify_pw3(b"12345678").unwrap();
+        assert!(tx.private_use_do(3).is_err());
+        assert_eq!(tx.private_use_do(4).unwrap(), b"");
+        tx.set_private_use_do(2, b"private use 2".to_vec()).unwrap();
+        assert_eq!(tx.private_use_do(2).unwrap(), b"private use 2");
+        tx.set_private_use_do(4, b"private use 4".to_vec()).unwrap();
+        assert_eq!(tx.private_use_do(4).unwrap(), b"private use 4");
+
+        // Check that password change doesn't prevent reading
+        tx.change_pw3(b"12345678", b"new admin pin").unwrap();
+        tx.verify_pw3(b"new admin pin").unwrap();
+        assert_eq!(tx.private_use_do(2).unwrap(), b"private use 2");
+        assert_eq!(tx.private_use_do(4).unwrap(), b"private use 4");
+    }]);
+    with_many_tx([
+        |mut tx: OpenPgpTransaction<'_>| {
+            assert_eq!(tx.private_use_do(1).unwrap(), b"");
+            assert_eq!(tx.private_use_do(2).unwrap(), b"");
+            assert!(tx.private_use_do(3).is_err());
+            assert!(tx.private_use_do(4).is_err());
+            tx.verify_pw1_user(b"123456").unwrap();
+            assert_eq!(tx.private_use_do(3).unwrap(), b"");
+            assert!(tx.private_use_do(4).is_err());
+            tx.set_private_use_do(1, b"private use 1".to_vec()).unwrap();
+            assert_eq!(tx.private_use_do(1).unwrap(), b"private use 1");
+            tx.set_private_use_do(3, b"private use 3".to_vec()).unwrap();
+            assert_eq!(tx.private_use_do(3).unwrap(), b"private use 3");
+
+            // Check that password change doesn't prevent reading
+            tx.change_pw1(b"123456", b"new user pin").unwrap();
+            tx.verify_pw1_user(b"new user pin").unwrap();
+            assert_eq!(tx.private_use_do(1).unwrap(), b"private use 1");
+            assert_eq!(tx.private_use_do(3).unwrap(), b"private use 3");
+
+            // Check that password reset code use doesn't prevent reading
+
+            tx.verify_pw3(b"12345678").unwrap();
+            tx.reset_retry_counter_pw1(b"pin from PW3", None).unwrap();
+            tx.set_resetting_code(b"reseting code").unwrap();
+        },
+        |mut tx: OpenPgpTransaction<'_>| {
+            tx.verify_pw1_user(b"pin from PW3").unwrap();
+            assert_eq!(tx.private_use_do(1).unwrap(), b"private use 1");
+            assert_eq!(tx.private_use_do(3).unwrap(), b"private use 3");
+        },
+        |mut tx: OpenPgpTransaction<'_>| {
+            tx.reset_retry_counter_pw1(b"pin from RC", Some(b"reseting code"))
+                .unwrap();
+            tx.verify_pw1_user(b"pin from RC").unwrap();
+            assert_eq!(tx.private_use_do(1).unwrap(), b"private use 1");
+            assert_eq!(tx.private_use_do(3).unwrap(), b"private use 3");
+
+            tx.change_pw3(b"12345678", b"changed admin pin").unwrap();
+            tx.verify_pw3(b"changed admin pin").unwrap();
+            tx.reset_retry_counter_pw1(b"pin from changed PW3", None)
+                .unwrap();
+            tx.set_resetting_code(b"reseting code with changed PW3")
+                .unwrap();
+        },
+        |mut tx: OpenPgpTransaction<'_>| {
+            tx.verify_pw1_user(b"pin from changed PW3").unwrap();
+            assert_eq!(tx.private_use_do(1).unwrap(), b"private use 1");
+            assert_eq!(tx.private_use_do(3).unwrap(), b"private use 3");
+        },
+        |mut tx: OpenPgpTransaction<'_>| {
+            tx.reset_retry_counter_pw1(
+                b"pin from RC with changed PW3",
+                Some(b"reseting code with changed PW3"),
+            )
+            .unwrap();
+            tx.verify_pw1_user(b"pin from RC with changed PW3").unwrap();
+            assert_eq!(tx.private_use_do(1).unwrap(), b"private use 1");
+            assert_eq!(tx.private_use_do(3).unwrap(), b"private use 3");
+        },
+    ]);
 }
