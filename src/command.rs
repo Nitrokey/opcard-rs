@@ -553,7 +553,7 @@ fn reset_retry_conter<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() < MIN_LENGTH_USER_PIN || ctx.data.len() > MAX_PIN_LENGTH {
         warn!(
@@ -568,13 +568,7 @@ fn reset_retry_conter_with_p3<const R: usize, T: trussed::Client + AuthClient>(
     }
 
     ctx.state
-        .persistent
-        .set_pin(
-            ctx.backend.client_mut(),
-            ctx.options.storage,
-            ctx.data,
-            Password::Pw1,
-        )
+        .reset_user_code_with_pw3(ctx.backend.client_mut(), ctx.options.storage, ctx.data)
         .map_err(|_err| {
             error!("Failed to change PIN: {_err}");
             Status::UnspecifiedNonpersistentExecutionError
@@ -601,7 +595,7 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
     let res = ctx
         .state
         .check_pin(ctx.backend.client_mut(), old, Password::ResetCode);
-    match res {
+    let rc_key = match res {
         Err(Error::InvalidPin) => {
             return Err(Status::RemainingRetries(
                 ctx.state
@@ -613,8 +607,8 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
             error!("Failed to check reset code: {_err:?}");
             return Err(Status::UnspecifiedNonpersistentExecutionError);
         }
-        Ok(_reset_kek) => {}
-    }
+        Ok(rc_key) => rc_key,
+    };
 
     if new.len() > MAX_PIN_LENGTH || new.len() < MIN_LENGTH_USER_PIN {
         warn!("Attempt to set resetting code with invalid length");
@@ -622,17 +616,13 @@ fn reset_retry_conter_with_code<const R: usize, T: trussed::Client + AuthClient>
     }
 
     ctx.state
-        .persistent
-        .set_pin(
-            ctx.backend.client_mut(),
-            ctx.options.storage,
-            new,
-            Password::Pw1,
-        )
+        .reset_user_code_with_rc(ctx.backend.client_mut(), ctx.options.storage, new, rc_key)
         .map_err(|_err| {
             error!("Failed to change PIN: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
-        })
+        })?;
+    syscall!(ctx.backend.client_mut().delete(rc_key));
+    Ok(())
 }
 
 // § 7.2.5

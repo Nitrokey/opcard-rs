@@ -992,7 +992,7 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 fn put_resetting_code<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.is_empty() {
         info!("Removing resetting code");
@@ -1014,13 +1014,7 @@ fn put_resetting_code<const R: usize, T: trussed::Client + AuthClient>(
     }
 
     ctx.state
-        .persistent
-        .set_pin(
-            ctx.backend.client_mut(),
-            ctx.options.storage,
-            ctx.data,
-            Password::ResetCode,
-        )
+        .set_reset_code(ctx.backend.client_mut(), ctx.options.storage, ctx.data)
         .map_err(|_err| {
             error!("Failed to change resetting code: {_err}");
             Status::UnspecifiedNonpersistentExecutionError
