@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::Status;
-use trussed::types::{KeyId, KeySerialization, Mechanism};
-use trussed::{syscall, try_syscall};
+use trussed::try_syscall;
+use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
 use trussed_auth::AuthClient;
 
 use crate::card::LoadedContext;
@@ -48,11 +48,9 @@ pub fn put_sign<const R: usize, T: trussed::Client + AuthClient>(
         SignatureAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
         SignatureAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
-    .map(|key_id| (key_id, KeyOrigin::Imported));
-    let old_key_id = ctx
-        .state
-        .persistent
-        .set_key_id(
+    .map(|(private_key, pubkey)| (private_key, (pubkey, KeyOrigin::Imported)));
+    ctx.state
+        .set_key(
             KeyType::Sign,
             key_id,
             ctx.backend.client_mut(),
@@ -62,9 +60,6 @@ pub fn put_sign<const R: usize, T: trussed::Client + AuthClient>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some((k, _)) = old_key_id {
-        syscall!(ctx.backend.client_mut().delete(k));
-    }
     Ok(())
 }
 
@@ -79,11 +74,9 @@ pub fn put_dec<const R: usize, T: trussed::Client + AuthClient>(
         DecryptionAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
         DecryptionAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
-    .map(|key_id| (key_id, KeyOrigin::Imported));
-    let old_key_id = ctx
-        .state
-        .persistent
-        .set_key_id(
+    .map(|(private_key, pubkey)| (private_key, (pubkey, KeyOrigin::Imported)));
+    ctx.state
+        .set_key(
             KeyType::Dec,
             key_id,
             ctx.backend.client_mut(),
@@ -93,9 +86,6 @@ pub fn put_dec<const R: usize, T: trussed::Client + AuthClient>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some((k, _)) = old_key_id {
-        syscall!(ctx.backend.client_mut().delete(k));
-    }
     Ok(())
 }
 
@@ -110,11 +100,9 @@ pub fn put_aut<const R: usize, T: trussed::Client + AuthClient>(
         AuthenticationAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
         AuthenticationAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
-    .map(|key_id| (key_id, KeyOrigin::Imported));
-    let old_key_id = ctx
-        .state
-        .persistent
-        .set_key_id(
+    .map(|(private_key, public_key)| (private_key, (public_key, KeyOrigin::Imported)));
+    ctx.state
+        .set_key(
             KeyType::Aut,
             key_id,
             ctx.backend.client_mut(),
@@ -124,16 +112,13 @@ pub fn put_aut<const R: usize, T: trussed::Client + AuthClient>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some((k, _)) = old_key_id {
-        syscall!(ctx.backend.client_mut().delete(k));
-    }
     Ok(())
 }
 
 fn put_ec<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     curve: CurveAlgo,
-) -> Result<Option<KeyId>, Status> {
+) -> Result<Option<(KeyId, KeyId)>, Status> {
     debug!("Importing key for algo {curve:?}");
     let private_key_data = get_do(
         &[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO],
@@ -165,7 +150,7 @@ fn put_ec<const R: usize, T: trussed::Client + AuthClient>(
     let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         curve.mechanism(),
         message,
-        ctx.options.storage,
+        Location::Volatile,
         KeySerialization::Raw
     ))
     .map_err(|_err| {
@@ -173,7 +158,19 @@ fn put_ec<const R: usize, T: trussed::Client + AuthClient>(
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
-    Ok(Some(key))
+
+    let pubkey = try_syscall!(ctx.backend.client_mut().derive_key(
+        curve.mechanism(),
+        key,
+        None,
+        StorageAttributes::default().set_persistence(ctx.options.storage)
+    ))
+    .map_err(|_err| {
+        warn!("Failed to derive_ke: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+    Ok(Some((key, pubkey)))
 }
 
 #[cfg(feature = "rsa")]
@@ -210,7 +207,7 @@ fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat> {
 fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     mechanism: Mechanism,
-) -> Result<Option<KeyId>, Status> {
+) -> Result<Option<(KeyId, KeyId)>, Status> {
     use trussed::{postcard_serialize_bytes, types::SerializedKey};
 
     let key_data = parse_rsa_template(ctx.data).ok_or_else(|| {
@@ -225,7 +222,7 @@ fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
     let key = try_syscall!(ctx.backend.client_mut().unsafe_inject_key(
         mechanism,
         &key_message,
-        ctx.options.storage,
+        Location::Volatile,
         KeySerialization::RsaParts
     ))
     .map_err(|_err| {
@@ -233,13 +230,25 @@ fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
-    Ok(Some(key))
+
+    let pubkey = try_syscall!(ctx.backend.client_mut().derive_key(
+        mechanism,
+        key,
+        None,
+        StorageAttributes::default().set_persistence(ctx.options.storage)
+    ))
+    .map_err(|_err| {
+        warn!("Failed to derive_ke: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+    Ok(Some((key, pubkey)))
 }
 
 #[cfg(not(feature = "rsa"))]
 fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
     _ctx: LoadedContext<'_, R, T>,
     _mechanism: Mechanism,
-) -> Result<Option<KeyId>, Status> {
+) -> Result<Option<(KeyId, KeyId)>, Status> {
     Err(Status::FunctionNotSupported)
 }

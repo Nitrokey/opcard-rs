@@ -8,6 +8,7 @@ pub enum Error {
     InvalidPin,
     BadRequest,
     UserInteraction,
+    Internal,
 }
 
 impl core::fmt::Display for Error {
@@ -18,6 +19,7 @@ impl core::fmt::Display for Error {
             Error::InvalidPin => "Failed PIN authentication",
             Error::BadRequest => "Request data invalid",
             Error::UserInteraction => "Failed to get user presence",
+            Error::Internal => "Internal error",
         };
         f.write_str(to_write)
     }
