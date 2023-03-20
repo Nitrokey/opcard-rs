@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::Status;
+use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Mechanism};
-use trussed::{syscall, try_syscall};
 use trussed_auth::AuthClient;
 
 use crate::card::LoadedContext;
@@ -49,10 +49,8 @@ pub fn put_sign<const R: usize, T: trussed::Client + AuthClient>(
         SignatureAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
-    let old_key_id = ctx
-        .state
-        .persistent
-        .set_key_id(
+    ctx.state
+        .set_key(
             KeyType::Sign,
             key_id,
             ctx.backend.client_mut(),
@@ -62,9 +60,6 @@ pub fn put_sign<const R: usize, T: trussed::Client + AuthClient>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some((k, _)) = old_key_id {
-        syscall!(ctx.backend.client_mut().delete(k));
-    }
     Ok(())
 }
 
@@ -80,10 +75,8 @@ pub fn put_dec<const R: usize, T: trussed::Client + AuthClient>(
         DecryptionAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
-    let old_key_id = ctx
-        .state
-        .persistent
-        .set_key_id(
+    ctx.state
+        .set_key(
             KeyType::Dec,
             key_id,
             ctx.backend.client_mut(),
@@ -93,9 +86,6 @@ pub fn put_dec<const R: usize, T: trussed::Client + AuthClient>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some((k, _)) = old_key_id {
-        syscall!(ctx.backend.client_mut().delete(k));
-    }
     Ok(())
 }
 
@@ -111,10 +101,8 @@ pub fn put_aut<const R: usize, T: trussed::Client + AuthClient>(
         AuthenticationAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
-    let old_key_id = ctx
-        .state
-        .persistent
-        .set_key_id(
+    ctx.state
+        .set_key(
             KeyType::Aut,
             key_id,
             ctx.backend.client_mut(),
@@ -124,9 +112,6 @@ pub fn put_aut<const R: usize, T: trussed::Client + AuthClient>(
             error!("Failed to store new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some((k, _)) = old_key_id {
-        syscall!(ctx.backend.client_mut().delete(k));
-    }
     Ok(())
 }
 

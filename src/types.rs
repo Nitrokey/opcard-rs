@@ -287,6 +287,14 @@ impl KeyType {
             Err(Status::IncorrectDataParameter)
         }
     }
+
+    pub fn path(&self) -> &'static str {
+        match self {
+            KeyType::Sign => crate::state::SIGNING_KEY_PATH,
+            KeyType::Aut => crate::state::AUTH_KEY_PATH,
+            KeyType::Dec => crate::state::DEC_KEY_PATH,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr, Default)]

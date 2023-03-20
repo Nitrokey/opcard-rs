@@ -36,6 +36,10 @@ pub const MAX_GENERIC_LENGTH: usize = MAX_MESSAGE_LENGTH;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
 pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_bytes();
 
+pub const SIGNING_KEY_PATH: &str = "signing_key.bin";
+pub const DEC_KEY_PATH: &str = "conf_key.bin";
+pub const AUTH_KEY_PATH: &str = "auth_key.bin";
+
 macro_rules! enum_u8 {
     (
         $(#[$outer:meta])*
@@ -417,6 +421,55 @@ impl<'a> LoadedState<'a> {
 
         Ok(())
     }
+
+    pub fn set_key(
+        &mut self,
+        ty: KeyType,
+        new: Option<(KeyId, KeyOrigin)>,
+        client: &mut impl trussed::Client,
+        storage: Location,
+    ) -> Result<(), Error> {
+        let path_str = ty.path();
+        let origin = self.persistent.key_data_mut(ty);
+        let path = PathBuf::from(path_str);
+
+        let (new_id, new_origin) = match (new, origin.is_some()) {
+            (None, true) => {
+                *origin = None;
+                self.persistent.save(client, storage)?;
+                try_syscall!(client.remove_file(storage, path.clone())).ok();
+                return Ok(());
+            }
+            (None, false) => return Ok(()),
+
+            // In this case we want to avoid storing old information with a new key, or vice-versa
+            (Some((new_id, new_origin)), true) => {
+                *origin = None;
+                self.persistent.save(client, storage)?;
+                (new_id, new_origin)
+            }
+            (Some((new_id, new_origin)), false) => (new_id, new_origin),
+        };
+
+        self.volatile.user.0.clear_cached(client, ty);
+
+        let Some(user_kek) = self.volatile.user_kek() else {
+            return Err(Error::InvalidPin);
+        };
+
+        syscall!(client.wrap_to_file(
+            Mechanism::Chacha8Poly1305,
+            user_kek,
+            new_id,
+            path,
+            storage,
+            path_str.as_bytes()
+        ));
+        syscall!(client.delete(new_id));
+        *self.persistent.key_data_mut(ty) = Some(new_origin);
+        self.persistent.save(client, storage)?;
+        Ok(())
+    }
 }
 
 enum_u8! {
@@ -443,9 +496,9 @@ pub struct Persistent {
     user_pin_len: u8,
     admin_pin_len: u8,
     reset_code_pin_len: Option<u8>,
-    signing_key: Option<(KeyId, KeyOrigin)>,
-    confidentiality_key: Option<(KeyId, KeyOrigin)>,
-    aut_key: Option<(KeyId, KeyOrigin)>,
+    signing_key: Option<KeyOrigin>,
+    confidentiality_key: Option<KeyOrigin>,
+    aut_key: Option<KeyOrigin>,
     aes_key: Option<KeyId>,
     sign_alg: SignatureAlgorithm,
     dec_alg: DecryptionAlgorithm,
@@ -503,6 +556,14 @@ impl Persistent {
 
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
+    }
+
+    fn key_data_mut(&mut self, ty: KeyType) -> &mut Option<KeyOrigin> {
+        match ty {
+            KeyType::Sign => &mut self.signing_key,
+            KeyType::Aut => &mut self.aut_key,
+            KeyType::Dec => &mut self.confidentiality_key,
+        }
     }
 
     fn init_pins<T: trussed::Client + AuthClient>(
@@ -840,42 +901,12 @@ impl Persistent {
         self.save(client, storage)
     }
 
-    pub fn key_id(&self, ty: KeyType) -> Option<KeyId> {
-        match ty {
-            KeyType::Sign => self.signing_key,
-            KeyType::Dec => self.confidentiality_key,
-            KeyType::Aut => self.aut_key,
-        }
-        .map(|(key_id, _)| key_id)
-    }
-
     pub fn key_origin(&self, ty: KeyType) -> Option<KeyOrigin> {
         match ty {
             KeyType::Sign => self.signing_key,
             KeyType::Dec => self.confidentiality_key,
             KeyType::Aut => self.aut_key,
         }
-        .map(|(_, origin)| origin)
-    }
-
-    /// If the key id was already set, return the old key_id
-    pub fn set_key_id(
-        &mut self,
-        ty: KeyType,
-        mut new: Option<(KeyId, KeyOrigin)>,
-        client: &mut impl trussed::Client,
-        storage: Location,
-    ) -> Result<Option<(KeyId, KeyOrigin)>, Error> {
-        match ty {
-            KeyType::Sign => {
-                self.sign_count = 0;
-                swap(&mut self.signing_key, &mut new)
-            }
-            KeyType::Dec => swap(&mut self.confidentiality_key, &mut new),
-            KeyType::Aut => swap(&mut self.aut_key, &mut new),
-        }
-        self.save(client, storage)?;
-        Ok(new)
     }
 
     pub fn aes_key(&self) -> &Option<KeyId> {
@@ -899,20 +930,20 @@ impl Persistent {
         client: &mut impl trussed::Client,
         storage: Location,
     ) -> Result<(), Error> {
-        let key = match ty {
-            KeyType::Sign => self.signing_key.take(),
-            KeyType::Dec => self.confidentiality_key.take(),
-            KeyType::Aut => self.aut_key.take(),
+        let (key, path) = match ty {
+            KeyType::Sign => (self.signing_key.take(), SIGNING_KEY_PATH),
+            KeyType::Dec => (self.confidentiality_key.take(), DEC_KEY_PATH),
+            KeyType::Aut => (self.aut_key.take(), AUTH_KEY_PATH),
         };
 
-        if let Some((key_id, _)) = key {
+        if let Some(_) = key {
+            self.fingerprints.key_part_mut(ty).copy_from_slice(&[0; 20]);
+            self.keygen_dates.key_part_mut(ty).copy_from_slice(&[0; 4]);
             self.save(client, storage)?;
-            try_syscall!(client.delete(key_id)).map_err(|_err| {
+            try_syscall!(client.remove_file(storage, PathBuf::from(path))).map_err(|_err| {
                 error!("Failed to delete key {_err:?}");
                 Error::Saving
             })?;
-            self.fingerprints.key_part_mut(ty).copy_from_slice(&[0; 20]);
-            self.keygen_dates.key_part_mut(ty).copy_from_slice(&[0; 4]);
         }
         Ok(())
     }
@@ -940,19 +971,63 @@ impl Default for KeyRefs {
     }
 }
 
+/// Since keys are stored encrypted, cache them to not have to decrypt them again
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct UserKeys {
+    sign: Option<KeyId>,
+    dec: Option<KeyId>,
+    aut: Option<KeyId>,
+}
+
+impl UserKeys {
+    // Replace self with an empty cache to avoid the drop check
+    fn take(&mut self) -> Self {
+        take(self)
+    }
+
+    fn clear(&mut self, client: &mut impl trussed::Client) {
+        for k in [&mut self.sign, &mut self.dec, &mut self.aut]
+            .into_iter()
+            .flat_map(Option::take)
+        {
+            syscall!(client.delete(k));
+        }
+    }
+}
+
+/// Check for memory leaks
+impl Drop for UserKeys {
+    fn drop(&mut self) {
+        if matches!((self.sign, self.dec, self.aut), (None, None, None)) {
+            return;
+        }
+
+        #[cfg(all(debug_assertions, feature = "std"))]
+        if !std::thread::panicking() {
+            panic!("User dropped with keys still in volatile storage {self:?}");
+        }
+
+        error!(
+            "Error: User dropped with keys still in volatile storage: {:?}",
+            self
+        );
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 enum UserVerifiedInner {
     #[default]
     None,
-    Other(KeyId),
-    Sign(KeyId),
+    Other(KeyId, UserKeys),
+    Sign(KeyId, UserKeys),
     #[allow(unused)]
-    OtherAndSign(KeyId),
+    OtherAndSign(KeyId, UserKeys),
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct UserVerified(UserVerifiedInner);
 
+/// Check for memory leaks
 impl Drop for UserVerified {
     fn drop(&mut self) {
         if self.0.user_kek().is_none() {
@@ -981,10 +1056,10 @@ impl UserVerified {
 impl UserVerifiedInner {
     fn verify_sign(&mut self, k: KeyId) {
         match self {
-            Self::None => *self = Self::Sign(k),
-            Self::Other(old_k) => {
+            Self::None => *self = Self::Sign(k, UserKeys::default()),
+            Self::Other(old_k, cache) => {
                 debug_assert_eq!(*old_k, k);
-                *self = Self::OtherAndSign(k)
+                *self = Self::OtherAndSign(k, cache.take())
             }
             _ => {}
         }
@@ -992,44 +1067,80 @@ impl UserVerifiedInner {
 
     fn verify_other(&mut self, k: KeyId) {
         match self {
-            Self::None => *self = Self::Other(k),
-            Self::Sign(old_k) => {
+            Self::None => *self = Self::Other(k, UserKeys::default()),
+            Self::Sign(old_k, cache) => {
                 debug_assert_eq!(*old_k, k);
-                *self = Self::OtherAndSign(k)
+                *self = Self::OtherAndSign(k, cache.take())
             }
             _ => {}
         }
     }
 
     fn sign_verified(&self) -> bool {
-        matches!(self, Self::Sign(_) | Self::OtherAndSign(_))
+        matches!(self, Self::Sign(_, _) | Self::OtherAndSign(_, _))
     }
     fn other_verified(&self) -> bool {
-        matches!(self, Self::Other(_) | Self::OtherAndSign(_))
+        matches!(self, Self::Other(_, _) | Self::OtherAndSign(_, _))
     }
     fn user_kek(&self) -> Option<KeyId> {
         match self {
-            Self::Other(k) | Self::Sign(k) | Self::OtherAndSign(k) => Some(*k),
+            Self::Other(k, _) | Self::Sign(k, _) | Self::OtherAndSign(k, _) => Some(*k),
             _ => None,
         }
     }
     fn clear(&mut self, client: &mut impl trussed::Client) {
-        if let Some(k) = take(self).user_kek() {
+        match self.take() {
+            Self::Other(k, mut cache)
+            | Self::Sign(k, mut cache)
+            | Self::OtherAndSign(k, mut cache) => {
+                syscall!(client.delete(k));
+                cache.clear(client);
+            }
+            _ => (),
+        }
+    }
+
+    // Replace self with an empty cache to avoid the drop check
+    fn take(&mut self) -> Self {
+        take(self)
+    }
+
+    fn cache_mut(&mut self) -> Option<&mut UserKeys> {
+        match self {
+            Self::None => None,
+            Self::Other(_, cache) => Some(cache),
+            Self::Sign(_, cache) => Some(cache),
+            Self::OtherAndSign(_, cache) => Some(cache),
+        }
+    }
+
+    fn clear_cached(&mut self, client: &mut impl trussed::Client, ty: KeyType) {
+        let Some(cache) = self.cache_mut() else {
+            return;
+        };
+
+        let key = match ty {
+            KeyType::Sign => cache.sign.take(),
+            KeyType::Dec => cache.dec.take(),
+            KeyType::Aut => cache.aut.take(),
+        };
+
+        if let Some(k) = key {
             syscall!(client.delete(k));
         }
     }
 
     fn clear_sign(&mut self, client: &mut impl trussed::Client) {
         match self {
-            Self::Sign(_k) => self.clear(client),
-            Self::OtherAndSign(k) => *self = Self::Other(*k),
+            Self::Sign(_k, _cache) => self.clear(client),
+            Self::OtherAndSign(k, cache) => *self = Self::Other(*k, cache.take()),
             _ => {}
         };
     }
     fn clear_other(&mut self, client: &mut impl trussed::Client) {
         match self {
-            Self::Other(_k) => self.clear(client),
-            Self::OtherAndSign(k) => *self = Self::Sign(*k),
+            Self::Other(_k, cache) => self.clear(client),
+            Self::OtherAndSign(k, cache) => *self = Self::Sign(*k, cache.take()),
             _ => {}
         };
     }
@@ -1083,6 +1194,74 @@ impl Volatile {
             syscall!(client.delete(k));
         }
     }
+
+    fn load_or_get_key(
+        client: &mut impl trussed::Client,
+        user_kek: KeyId,
+        opt_key: &mut Option<KeyId>,
+        path: &'static str,
+        storage: Location,
+    ) -> Result<KeyId, Status> {
+        if let Some(k) = opt_key {
+            return Ok(*k);
+        }
+
+        let unwrapped_key = try_syscall!(client.unwrap_from_file(
+            Mechanism::Chacha8Poly1305,
+            user_kek,
+            PathBuf::from(path),
+            storage,
+            Location::Volatile,
+            path.as_bytes()
+        ))
+        .map_err(|_err| {
+            error!("Failed to load key: {:?}", _err);
+            Status::UnspecifiedPersistentExecutionError
+        })?
+        .key
+        .ok_or_else(|| {
+            error!("Failed to decrypt key");
+            Status::UnspecifiedPersistentExecutionError
+        })?;
+        *opt_key = Some(unwrapped_key);
+
+        Ok(unwrapped_key)
+    }
+
+    /// Returns the requested key
+    pub fn key_id(
+        &mut self,
+        client: &mut impl trussed::Client,
+        key: KeyType,
+        storage: Location,
+    ) -> Result<KeyId, Status> {
+        match (&mut self.user.0, key) {
+            (UserVerifiedInner::None, _) => Err(Status::SecurityStatusNotSatisfied),
+            (
+                UserVerifiedInner::Sign(user_kek, cache)
+                | UserVerifiedInner::OtherAndSign(user_kek, cache),
+                KeyType::Sign,
+            ) => Self::load_or_get_key(
+                client,
+                *user_kek,
+                &mut cache.sign,
+                SIGNING_KEY_PATH,
+                storage,
+            ),
+            (
+                UserVerifiedInner::Other(user_kek, cache)
+                | UserVerifiedInner::OtherAndSign(user_kek, cache),
+                KeyType::Aut,
+            ) => Self::load_or_get_key(client, *user_kek, &mut cache.aut, AUTH_KEY_PATH, storage),
+            (
+                UserVerifiedInner::Other(user_kek, cache)
+                | UserVerifiedInner::OtherAndSign(user_kek, cache),
+                KeyType::Dec,
+            ) => Self::load_or_get_key(client, *user_kek, &mut cache.dec, DEC_KEY_PATH, storage),
+            _ => Err(Status::SecurityStatusNotSatisfied),
+        }
+    }
+
     pub fn sign_verified(&self) -> bool {
         self.user.0.sign_verified()
     }
