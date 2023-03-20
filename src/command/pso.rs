@@ -49,29 +49,31 @@ pub fn sign<const R: usize, T: trussed::Client + AuthClient>(
             .key_id(ctx.backend.client_mut(), KeyType::Sign, ctx.options.storage)?;
 
     check_uif(ctx.lend(), KeyType::Sign)?;
-    if !ctx.state.persistent.pw1_valid_multiple() {
-        ctx.state.volatile.clear_sign(ctx.backend.client_mut())
-    }
-    ctx.state
+    let sign_result = ctx
+        .state
         .persistent
         .increment_sign_count(ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_err| {
             error!("Failed to increment sign count");
             Status::UnspecifiedPersistentExecutionError
-        })?;
-
-    match ctx.state.persistent.sign_alg() {
-        SignatureAlgorithm::Ed255 => sign_ec(ctx, key_id, Mechanism::Ed255),
-        SignatureAlgorithm::EcDsaP256 => {
-            if ctx.data.len() != 32 {
-                return Err(Status::ConditionsOfUseNotSatisfied);
+        })
+        .and_then(|_| match ctx.state.persistent.sign_alg() {
+            SignatureAlgorithm::Ed255 => sign_ec(ctx.lend(), key_id, Mechanism::Ed255),
+            SignatureAlgorithm::EcDsaP256 => {
+                if ctx.data.len() != 32 {
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+                sign_ec(ctx.lend(), key_id, Mechanism::P256Prehashed)
             }
-            sign_ec(ctx, key_id, Mechanism::P256Prehashed)
-        }
-        SignatureAlgorithm::Rsa2048 => sign_rsa(ctx, key_id, Mechanism::Rsa2048Pkcs1v15),
-        SignatureAlgorithm::Rsa3072 => sign_rsa(ctx, key_id, Mechanism::Rsa3072Pkcs1v15),
-        SignatureAlgorithm::Rsa4096 => sign_rsa(ctx, key_id, Mechanism::Rsa4096Pkcs1v15),
+            SignatureAlgorithm::Rsa2048 => sign_rsa(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
+            SignatureAlgorithm::Rsa3072 => sign_rsa(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15),
+            SignatureAlgorithm::Rsa4096 => sign_rsa(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
+        });
+
+    if !ctx.state.persistent.pw1_valid_multiple() {
+        ctx.state.volatile.clear_sign(ctx.backend.client_mut())
     }
+    sign_result
 }
 
 fn sign_ec<const R: usize, T: trussed::Client + AuthClient>(
