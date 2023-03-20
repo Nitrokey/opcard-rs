@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use core::mem::{swap, take};
+use core::mem::take;
 
 use heapless_bytes::Bytes;
 use hex_literal::hex;
@@ -39,6 +39,7 @@ pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_byt
 pub const SIGNING_KEY_PATH: &str = "signing_key.bin";
 pub const DEC_KEY_PATH: &str = "conf_key.bin";
 pub const AUTH_KEY_PATH: &str = "auth_key.bin";
+pub const AES_KEY_PATH: &str = "aes_key.bin";
 
 macro_rules! enum_u8 {
     (
@@ -436,6 +437,26 @@ impl<'a> LoadedState<'a> {
         Ok(())
     }
 
+    pub fn set_aes_key<T: trussed::Client + AuthClient>(
+        &mut self,
+        new: KeyId,
+        client: &mut T,
+        storage: Location,
+    ) -> Result<(), Error> {
+        self.volatile.user.0.clear_aes_cached(client);
+        let user_kek = self.get_user_key(client, storage)?;
+        syscall!(client.wrap_to_file(
+            Mechanism::Chacha8Poly1305,
+            user_kek,
+            new,
+            PathBuf::from(AES_KEY_PATH),
+            storage,
+            AES_KEY_PATH.as_bytes()
+        ));
+        syscall!(client.delete(new));
+        Ok(())
+    }
+
     /// New contains (private key, (public key, KeyOrigin))
     pub fn set_key<T: trussed::Client + AuthClient>(
         &mut self,
@@ -516,7 +537,6 @@ pub struct Persistent {
     confidentiality_key: Option<(KeyId, KeyOrigin)>,
     /// (public_key, origin)
     aut_key: Option<(KeyId, KeyOrigin)>,
-    aes_key: Option<KeyId>,
     sign_alg: SignatureAlgorithm,
     dec_alg: DecryptionAlgorithm,
     aut_alg: AuthenticationAlgorithm,
@@ -558,7 +578,6 @@ impl Persistent {
             signing_key: None,
             confidentiality_key: None,
             aut_key: None,
-            aes_key: None,
             sign_alg: SignatureAlgorithm::default(),
             dec_alg: DecryptionAlgorithm::default(),
             aut_alg: AuthenticationAlgorithm::default(),
@@ -936,21 +955,6 @@ impl Persistent {
         }
     }
 
-    pub fn aes_key(&self) -> &Option<KeyId> {
-        &self.aes_key
-    }
-
-    pub fn set_aes_key_id(
-        &mut self,
-        mut new: Option<KeyId>,
-        client: &mut impl trussed::Client,
-        storage: Location,
-    ) -> Result<Option<KeyId>, Error> {
-        swap(&mut self.aes_key, &mut new);
-        self.save(client, storage)?;
-        Ok(new)
-    }
-
     pub fn delete_key(
         &mut self,
         ty: KeyType,
@@ -1009,6 +1013,7 @@ struct UserKeys {
     sign: Option<KeyId>,
     dec: Option<KeyId>,
     aut: Option<KeyId>,
+    aes: Option<KeyId>,
 }
 
 impl UserKeys {
@@ -1018,7 +1023,7 @@ impl UserKeys {
     }
 
     fn clear(&mut self, client: &mut impl trussed::Client) {
-        for k in [&mut self.sign, &mut self.dec, &mut self.aut]
+        for k in [&mut self.sign, &mut self.dec, &mut self.aut, &mut self.aes]
             .into_iter()
             .flat_map(Option::take)
         {
@@ -1168,6 +1173,16 @@ impl UserVerifiedInner {
         }
     }
 
+    fn clear_aes_cached(&mut self, client: &mut impl trussed::Client) {
+        let Some(cache) = self.cache_mut() else {
+            return;
+        };
+
+        if let Some(k) = cache.aes {
+            syscall!(client.delete(k));
+        }
+    }
+
     fn clear_sign(&mut self, client: &mut impl trussed::Client) {
         match self {
             Self::Sign(_k, _cache) => self.clear(client),
@@ -1266,6 +1281,21 @@ impl Volatile {
         Ok(unwrapped_key)
     }
 
+    pub fn aes_key_id(
+        &mut self,
+        client: &mut impl trussed::Client,
+        storage: Location,
+    ) -> Result<KeyId, Status> {
+        match &mut self.user.0 {
+            UserVerifiedInner::None | UserVerifiedInner::Sign(_, _) => {
+                Err(Status::ConditionsOfUseNotSatisfied)
+            }
+            UserVerifiedInner::Other(user_kek, cache)
+            | UserVerifiedInner::OtherAndSign(user_kek, cache) => {
+                Self::load_or_get_key(client, *user_kek, &mut cache.aes, AES_KEY_PATH, storage)
+            }
+        }
+    }
     /// Returns the requested key
     pub fn key_id(
         &mut self,

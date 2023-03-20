@@ -1013,7 +1013,7 @@ fn put_cardholder_cert<const R: usize, T: trussed::Client + AuthClient>(
 const AES256_KEY_LEN: usize = 32;
 
 fn put_enc_dec_key<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() != AES256_KEY_LEN {
         warn!(
@@ -1035,17 +1035,12 @@ fn put_enc_dec_key<const R: usize, T: trussed::Client + AuthClient>(
     })?
     .key;
 
-    let old_key = ctx
-        .state
-        .persistent
-        .set_aes_key_id(Some(new_key), ctx.backend.client_mut(), ctx.options.storage)
+    ctx.state
+        .set_aes_key(new_key, ctx.backend.client_mut(), ctx.options.storage)
         .map_err(|_err| {
             error!("Failed to set new key: {_err:?}");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-    if let Some(old_key) = old_key {
-        syscall!(ctx.backend.client_mut().delete(old_key));
-    }
 
     Ok(())
 }
