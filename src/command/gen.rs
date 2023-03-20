@@ -174,6 +174,7 @@ fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
             ctx.options.storage,
         )
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    dbg!(key_id, key, pubkey);
     read_ec_key(ctx, pubkey, curve)
 }
 
@@ -185,6 +186,7 @@ pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
         .persistent
         .public_key_id(KeyType::Sign)
         .ok_or(Status::KeyReferenceNotFound)?;
+    dbg!(key_id);
 
     let algo = ctx.state.persistent.sign_alg();
     match algo {
@@ -275,11 +277,9 @@ fn read_ec_key<const R: usize, T: trussed::Client + AuthClient>(
         try_syscall!(client.serialize_key(curve.mechanism(), public_key, KeySerialization::Raw))
             .map_err(|_err| {
                 error!("Failed to serialize public key: {_err:?}");
-                syscall!(client.delete(public_key));
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
-    syscall!(client.delete(public_key));
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
     serialize_pub(curve, ctx.lend(), &serialized)?;
@@ -300,7 +300,6 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
         try_syscall!(client.serialize_key(mechanism, public_key, KeySerialization::RsaParts))
             .map_err(|_err| {
                 error!("Failed to serialize public key N: {_err:?}");
-                syscall!(client.delete(public_key));
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
@@ -320,7 +319,6 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
 
     ctx.reply.prepend_len(offset)?;
 
-    syscall!(client.delete(public_key));
     Ok(())
 }
 
