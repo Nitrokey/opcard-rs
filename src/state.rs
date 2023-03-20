@@ -423,11 +423,11 @@ impl<'a> LoadedState<'a> {
     }
 
     /// New contains (private key, (public key, KeyOrigin))
-    pub fn set_key(
+    pub fn set_key<T: trussed::Client + AuthClient>(
         &mut self,
         ty: KeyType,
         new: Option<(KeyId, (KeyId, KeyOrigin))>,
-        client: &mut impl trussed::Client,
+        client: &mut T,
         storage: Location,
     ) -> Result<(), Error> {
         let path_str = ty.path();
@@ -454,9 +454,7 @@ impl<'a> LoadedState<'a> {
 
         self.volatile.user.0.clear_cached(client, ty);
 
-        let Some(user_kek) = self.volatile.user_kek() else {
-            return Err(Error::InvalidPin);
-        };
+        let user_kek = self.get_user_key(client, storage)?;
 
         syscall!(client.wrap_to_file(
             Mechanism::Chacha8Poly1305,
@@ -467,6 +465,7 @@ impl<'a> LoadedState<'a> {
             path_str.as_bytes()
         ));
         syscall!(client.delete(new_id));
+        syscall!(client.delete(user_kek));
         *self.persistent.key_data_mut(ty) = Some(new_origin);
         self.persistent.save(client, storage)?;
         Ok(())
