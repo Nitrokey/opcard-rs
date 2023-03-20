@@ -363,10 +363,14 @@ fn decrypt_ec<const R: usize, T: trussed::Client + AuthClient>(
 fn decipher_aes<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    let key_id = ctx.state.persistent.aes_key().ok_or_else(|| {
-        warn!("Attempt to decipher with AES and no key set");
-        Status::ConditionsOfUseNotSatisfied
-    })?;
+    let key_id = ctx
+        .state
+        .volatile
+        .aes_key_id(ctx.backend.client_mut(), ctx.options.storage)
+        .map_err(|_err| {
+            warn!("Failed to load aes key: {:?}", _err);
+            Status::ConditionsOfUseNotSatisfied
+        })?;
 
     if (ctx.data.len() - 1) % 16 != 0 {
         warn!("Attempt to decipher with AES with length not a multiple of block size");
@@ -392,15 +396,14 @@ fn decipher_aes<const R: usize, T: trussed::Client + AuthClient>(
 pub fn encipher<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    if !ctx.state.volatile.other_verified() {
-        warn!("Attempt to encipher without PW1 verified");
-        return Err(Status::SecurityStatusNotSatisfied);
-    }
-
-    let key_id = ctx.state.persistent.aes_key().ok_or_else(|| {
-        warn!("Attempt to decipher with AES and no key set");
-        Status::ConditionsOfUseNotSatisfied
-    })?;
+    let key_id = ctx
+        .state
+        .volatile
+        .aes_key_id(ctx.backend.client_mut(), ctx.options.storage)
+        .map_err(|_err| {
+            warn!("Failed to load aes key: {:?}", _err);
+            Status::ConditionsOfUseNotSatisfied
+        })?;
 
     if ctx.data.len() % 16 != 0 {
         warn!("Attempt to encipher with AES with length not a multiple of block size");
