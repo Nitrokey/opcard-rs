@@ -304,7 +304,6 @@ impl<'a> LoadedState<'a> {
         Ok(())
     }
 
-    #[must_use]
     pub fn check_pin<T: trussed::Client + AuthClient>(
         &mut self,
         client: &mut T,
@@ -329,15 +328,22 @@ impl<'a> LoadedState<'a> {
         let admin_key = self.volatile.admin_kek().ok_or(Error::InvalidPin)?;
         let user_wrapped =
             syscall!(client.read_file(storage, PathBuf::from(ADMIN_USER_KEY_BACKUP))).data;
-        let user_key = syscall!(client.unwrap_key(
+        let user_key = try_syscall!(client.unwrap_key(
             Mechanism::Chacha8Poly1305,
             admin_key,
             user_wrapped,
             ADMIN_USER_KEY_BACKUP.as_bytes(),
             StorageAttributes::new().set_persistence(Location::Volatile)
         ))
+        .map_err(|_err| {
+            error!("Failed to unwrap backup user key: {:?}", _err);
+            Error::Internal
+        })?
         .key
-        .expect("Key backup should not fail to unwrap");
+        .ok_or_else(|| {
+            error!("Failed to unwrap backup user key");
+            Error::Internal
+        })?;
         Ok(user_key)
     }
 
@@ -349,15 +355,22 @@ impl<'a> LoadedState<'a> {
     ) -> Result<KeyId, Error> {
         let user_wrapped =
             syscall!(client.read_file(storage, PathBuf::from(RC_USER_KEY_BACKUP))).data;
-        let user_key = syscall!(client.unwrap_key(
+        let user_key = try_syscall!(client.unwrap_key(
             Mechanism::Chacha8Poly1305,
             rc_key,
             user_wrapped,
             RC_USER_KEY_BACKUP.as_bytes(),
             StorageAttributes::new().set_persistence(Location::Volatile)
         ))
+        .map_err(|_err| {
+            error!("Failed to unwrap backup key from rc: {:?}", _err);
+            Error::Internal
+        })?
         .key
-        .expect("Key backup should not fail to unwrap");
+        .ok_or_else(|| {
+            error!("Failed to unwrap backup key from rc");
+            Error::Internal
+        })?;
         Ok(user_key)
     }
 
@@ -398,6 +411,7 @@ impl<'a> LoadedState<'a> {
         syscall!(client.set_pin(Password::ResetCode, new_pin.clone(), Some(3), true));
         self.persistent
             .set_pin_len(client, storage, new_pin.len(), Password::ResetCode)?;
+        #[allow(clippy::expect_used)]
         let rc_key = syscall!(client.get_pin_key(Password::ResetCode, new_pin))
             .result
             .expect("New pin should not fail");
@@ -438,7 +452,7 @@ impl<'a> LoadedState<'a> {
             (None, true) => {
                 *origin = None;
                 self.persistent.save(client, storage)?;
-                try_syscall!(client.remove_file(storage, path.clone())).ok();
+                try_syscall!(client.remove_file(storage, path)).ok();
                 return Ok(());
             }
             (None, false) => return Ok(()),
@@ -597,9 +611,11 @@ impl Persistent {
             Some(Self::MAX_RETRIES),
             true,
         ));
+        #[allow(clippy::expect_used)]
         let user_key = syscall!(client.get_pin_key(Password::Pw1, default_user_pin))
             .result
             .expect("Default pin should work after initialization");
+        #[allow(clippy::expect_used)]
         let admin_key = syscall!(client.get_pin_key(Password::Pw3, default_admin_pin))
             .result
             .expect("Default pin should work after initialization");
@@ -1098,6 +1114,12 @@ impl UserVerifiedInner {
     fn other_verified(&self) -> bool {
         matches!(self, Self::Other(_, _) | Self::OtherAndSign(_, _))
     }
+    fn other_verified_kek(&self) -> Option<KeyId> {
+        match self {
+            Self::Other(k, _) | Self::OtherAndSign(k, _) => Some(*k),
+            _ => None,
+        }
+    }
     fn user_kek(&self) -> Option<KeyId> {
         match self {
             Self::Other(k, _) | Self::Sign(k, _) | Self::OtherAndSign(k, _) => Some(*k),
@@ -1283,6 +1305,9 @@ impl Volatile {
     }
     pub fn other_verified(&self) -> bool {
         self.user.0.other_verified()
+    }
+    pub fn other_verified_kek(&self) -> Option<KeyId> {
+        self.user.0.other_verified_kek()
     }
     pub fn user_kek(&self) -> Option<KeyId> {
         self.user.0.user_kek()

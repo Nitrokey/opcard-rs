@@ -3,8 +3,8 @@
 
 use hex_literal::hex;
 use iso7816::Status;
+use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
-use trussed::{syscall, try_syscall};
 use trussed_auth::AuthClient;
 
 use crate::card::LoadedContext;
@@ -174,7 +174,6 @@ fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
             ctx.options.storage,
         )
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
-    dbg!(key_id, key, pubkey);
     read_ec_key(ctx, pubkey, curve)
 }
 
@@ -186,7 +185,6 @@ pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
         .persistent
         .public_key_id(KeyType::Sign)
         .ok_or(Status::KeyReferenceNotFound)?;
-    dbg!(key_id);
 
     let algo = ctx.state.persistent.sign_alg();
     match algo {

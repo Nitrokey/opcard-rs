@@ -849,11 +849,9 @@ fn get_arbitrary_user_enc_do<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
-    if !ctx.state.volatile.other_verified() {
+    let Some(k) = ctx.state.volatile.other_verified_kek() else {
         return Err(Status::SecurityStatusNotSatisfied);
-    }
-    // Unwrap cannnot fail becaus of abov check
-    let k = ctx.state.volatile.user_kek().unwrap();
+    };
     get_arbitrary_enc_do(ctx, obj, k)
 }
 
@@ -1268,11 +1266,9 @@ fn put_arbitrary_user_enc_do<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
-    if !ctx.state.volatile.other_verified() {
+    let Some(k) =ctx.state.volatile.other_verified_kek() else {
         return Err(Status::SecurityStatusNotSatisfied);
-    }
-    // Unwrap cannnot fail becaus of abov check
-    let k = ctx.state.volatile.user_kek().unwrap();
+    };
     put_arbitrary_enc_do(ctx, obj, k)
 }
 
