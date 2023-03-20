@@ -174,7 +174,7 @@ fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
             ctx.options.storage,
         )
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
-    read_ec_key(ctx, key_id, curve)
+    read_ec_key(ctx, pubkey, curve)
 }
 
 pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
