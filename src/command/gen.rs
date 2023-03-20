@@ -102,14 +102,14 @@ pub fn aut<const R: usize, T: trussed::Client + AuthClient>(
 
 #[cfg(feature = "rsa")]
 fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
         mechanism,
-        StorageAttributes::new().set_persistence(ctx.options.storage)
+        StorageAttributes::default().set_persistence(Location::Volatile)
     ))
     .map_err(|_err| {
         error!("Failed to generate key: {_err:?}");
@@ -117,24 +117,26 @@ fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     })?
     .key;
 
-    if let Some((old_key, _)) = ctx
-        .state
+    let pubkey = try_syscall!(client.derive_key(
+        mechanism,
+        key_id,
+        None,
+        StorageAttributes::default().set_persistence(ctx.options.storage)
+    ))
+    .map_err(|_err| {
+        warn!("Failed to derive_ke: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+    ctx.state
         .set_key(
             key,
-            Some((key_id, KeyOrigin::Generated)),
+            Some((key_id, (pubkey, KeyOrigin::Generated))),
             client,
             ctx.options.storage,
         )
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
-    {
-        // Deletion is not a fatal error
-        try_syscall!(client.delete(old_key))
-            .inspect_err_stable(|_err| {
-                error!("Failed to delete old key: {_err:?}");
-            })
-            .ok();
-    }
-    read_rsa_key(ctx, key_id, mechanism)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    read_rsa_key(ctx, pubkey, mechanism)
 }
 
 fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
@@ -145,17 +147,29 @@ fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
         curve.mechanism(),
-        StorageAttributes::new().set_persistence(ctx.options.storage)
+        StorageAttributes::default().set_persistence(Location::Volatile)
     ))
     .map_err(|_err| {
         error!("Failed to generate key: {_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
+
+    let pubkey = try_syscall!(client.derive_key(
+        curve.mechanism(),
+        key_id,
+        None,
+        StorageAttributes::default().set_persistence(ctx.options.storage)
+    ))
+    .map_err(|_err| {
+        warn!("Failed to derive_ke: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
     ctx.state
         .set_key(
             key,
-            Some((key_id, KeyOrigin::Generated)),
+            Some((key_id, (pubkey, KeyOrigin::Generated))),
             client,
             ctx.options.storage,
         )
@@ -166,73 +180,70 @@ fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
 pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
-    // let key_id = ctx
-    //     .state
-    //     .persistent
-    //     .key_id(KeyType::Sign)
-    //     .ok_or(Status::KeyReferenceNotFound)?;
+    let key_id = ctx
+        .state
+        .persistent
+        .public_key_id(KeyType::Sign)
+        .ok_or(Status::KeyReferenceNotFound)?;
 
-    // let algo = ctx.state.persistent.sign_alg();
-    // match algo {
-    //     SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
-    //     SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
-    //     SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
-    //     SignatureAlgorithm::Rsa3072 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15),
-    //     SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
-    // }
+    let algo = ctx.state.persistent.sign_alg();
+    match algo {
+        SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
+        SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
+        SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
+        SignatureAlgorithm::Rsa3072 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15),
+        SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
+    }
 }
 
 pub fn read_dec<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
-    // let key_id = ctx
-    //     .state
-    //     .persistent
-    //     .key_id(KeyType::Dec)
-    //     .ok_or(Status::KeyReferenceNotFound)?;
+    let key_id = ctx
+        .state
+        .persistent
+        .public_key_id(KeyType::Dec)
+        .ok_or(Status::KeyReferenceNotFound)?;
 
-    // let algo = ctx.state.persistent.dec_alg();
-    // match algo {
-    //     DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
-    //     DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
-    //     DecryptionAlgorithm::Rsa2048 => {
-    //         read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
-    //     }
-    //     DecryptionAlgorithm::Rsa3072 => {
-    //         read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15)
-    //     }
-    //     DecryptionAlgorithm::Rsa4096 => {
-    //         read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
-    //     }
-    // }
+    let algo = ctx.state.persistent.dec_alg();
+    match algo {
+        DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
+        DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
+        DecryptionAlgorithm::Rsa2048 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
+        }
+        DecryptionAlgorithm::Rsa3072 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15)
+        }
+        DecryptionAlgorithm::Rsa4096 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
+        }
+    }
 }
 
 pub fn read_aut<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
-    todo!()
-    // let key_id = ctx
-    //     .state
-    //     .persistent
-    //     .key_id(KeyType::Aut)
-    //     .ok_or(Status::KeyReferenceNotFound)?;
+    let key_id = ctx
+        .state
+        .persistent
+        .public_key_id(KeyType::Aut)
+        .ok_or(Status::KeyReferenceNotFound)?;
 
-    // let algo = ctx.state.persistent.aut_alg();
-    // match algo {
-    //     AuthenticationAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
-    //     AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
-    //     AuthenticationAlgorithm::Rsa2048 => {
-    //         read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
-    //     }
-    //     AuthenticationAlgorithm::Rsa3072 => {
-    //         read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15)
-    //     }
-    //     AuthenticationAlgorithm::Rsa4096 => {
-    //         read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
-    //     }
-    // }
+    let algo = ctx.state.persistent.aut_alg();
+    match algo {
+        AuthenticationAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
+        AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
+        AuthenticationAlgorithm::Rsa2048 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
+        }
+        AuthenticationAlgorithm::Rsa3072 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15)
+        }
+        AuthenticationAlgorithm::Rsa4096 => {
+            read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15)
+        }
+    }
 }
 
 fn serialize_p256<const R: usize, T: trussed::Client + AuthClient>(
@@ -256,17 +267,10 @@ fn serialize_25519<const R: usize, T: trussed::Client + AuthClient>(
 
 fn read_ec_key<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
-    key_id: KeyId,
+    public_key: KeyId,
     curve: CurveAlgo,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
-    let public_key = syscall!(client.derive_key(
-        curve.mechanism(),
-        key_id,
-        None,
-        StorageAttributes::new().set_persistence(Location::Volatile)
-    ))
-    .key;
     let serialized =
         try_syscall!(client.serialize_key(curve.mechanism(), public_key, KeySerialization::Raw))
             .map_err(|_err| {
@@ -285,17 +289,10 @@ fn read_ec_key<const R: usize, T: trussed::Client + AuthClient>(
 #[cfg(feature = "rsa")]
 fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
-    key_id: KeyId,
+    public_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
-    let public_key = syscall!(client.derive_key(
-        mechanism,
-        key_id,
-        None,
-        StorageAttributes::new().set_persistence(Location::Volatile)
-    ))
-    .key;
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
 

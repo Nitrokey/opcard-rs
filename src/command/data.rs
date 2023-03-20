@@ -834,7 +834,7 @@ fn get_arbitrary_enc_do<const R: usize, T: trussed::Client + AuthClient>(
     let decrypted = syscall!(ctx.backend.client_mut().decrypt(
         Mechanism::Chacha8Poly1305,
         key,
-        &data,
+        data,
         &[],
         nonce,
         tag

@@ -422,10 +422,11 @@ impl<'a> LoadedState<'a> {
         Ok(())
     }
 
+    /// New contains (private key, (public key, KeyOrigin))
     pub fn set_key(
         &mut self,
         ty: KeyType,
-        new: Option<(KeyId, KeyOrigin)>,
+        new: Option<(KeyId, (KeyId, KeyOrigin))>,
         client: &mut impl trussed::Client,
         storage: Location,
     ) -> Result<(), Error> {
@@ -496,9 +497,12 @@ pub struct Persistent {
     user_pin_len: u8,
     admin_pin_len: u8,
     reset_code_pin_len: Option<u8>,
-    signing_key: Option<KeyOrigin>,
-    confidentiality_key: Option<KeyOrigin>,
-    aut_key: Option<KeyOrigin>,
+    /// (public_key, origin)
+    signing_key: Option<(KeyId, KeyOrigin)>,
+    /// (public_key, origin)
+    confidentiality_key: Option<(KeyId, KeyOrigin)>,
+    /// (public_key, origin)
+    aut_key: Option<(KeyId, KeyOrigin)>,
     aes_key: Option<KeyId>,
     sign_alg: SignatureAlgorithm,
     dec_alg: DecryptionAlgorithm,
@@ -517,9 +521,9 @@ pub struct Persistent {
 }
 
 /// User pin key wrapped by the resetting code key
-const RC_USER_KEY_BACKUP: &'static str = "rc-user-pin-key.bin";
+const RC_USER_KEY_BACKUP: &str = "rc-user-pin-key.bin";
 /// User pin key wrapped by the admin key
-const ADMIN_USER_KEY_BACKUP: &'static str = "admin-user-pin-key.bin";
+const ADMIN_USER_KEY_BACKUP: &str = "admin-user-pin-key.bin";
 
 impl Persistent {
     const FILENAME: &'static str = "persistent-state.cbor";
@@ -554,11 +558,19 @@ impl Persistent {
         }
     }
 
+    pub fn public_key_id(&self, ty: KeyType) -> Option<KeyId> {
+        match ty {
+            KeyType::Sign => self.signing_key.map(|(pubkey, _)| pubkey),
+            KeyType::Aut => self.aut_key.map(|(pubkey, _)| pubkey),
+            KeyType::Dec => self.confidentiality_key.map(|(pubkey, _)| pubkey),
+        }
+    }
+
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
     }
 
-    fn key_data_mut(&mut self, ty: KeyType) -> &mut Option<KeyOrigin> {
+    fn key_data_mut(&mut self, ty: KeyType) -> &mut Option<(KeyId, KeyOrigin)> {
         match ty {
             KeyType::Sign => &mut self.signing_key,
             KeyType::Aut => &mut self.aut_key,
@@ -903,9 +915,9 @@ impl Persistent {
 
     pub fn key_origin(&self, ty: KeyType) -> Option<KeyOrigin> {
         match ty {
-            KeyType::Sign => self.signing_key,
-            KeyType::Dec => self.confidentiality_key,
-            KeyType::Aut => self.aut_key,
+            KeyType::Sign => self.signing_key.map(|(_pubkey, origin)| origin),
+            KeyType::Dec => self.confidentiality_key.map(|(_pubkey, origin)| origin),
+            KeyType::Aut => self.aut_key.map(|(_pubkey, origin)| origin),
         }
     }
 
@@ -936,7 +948,7 @@ impl Persistent {
             KeyType::Aut => (self.aut_key.take(), AUTH_KEY_PATH),
         };
 
-        if let Some(_) = key {
+        if let Some((pubkey, _)) = key {
             self.fingerprints.key_part_mut(ty).copy_from_slice(&[0; 20]);
             self.keygen_dates.key_part_mut(ty).copy_from_slice(&[0; 4]);
             self.save(client, storage)?;
@@ -944,6 +956,11 @@ impl Persistent {
                 error!("Failed to delete key {_err:?}");
                 Error::Saving
             })?;
+            try_syscall!(client.delete(pubkey))
+                .map_err(|_err| {
+                    error!("Failed to delete public key: {:?} (ignored)", _err);
+                })
+                .ok();
         }
         Ok(())
     }
@@ -1139,7 +1156,7 @@ impl UserVerifiedInner {
     }
     fn clear_other(&mut self, client: &mut impl trussed::Client) {
         match self {
-            Self::Other(_k, cache) => self.clear(client),
+            Self::Other(_k, _cache) => self.clear(client),
             Self::OtherAndSign(k, cache) => *self = Self::Sign(*k, cache.take()),
             _ => {}
         };
