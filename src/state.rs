@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use core::mem::{forget, swap, take};
+use core::mem::{swap, take};
 
 use heapless_bytes::Bytes;
 use hex_literal::hex;
@@ -308,7 +308,7 @@ impl<'a> LoadedState<'a> {
             warn!("Attempt to verify pin that is too long");
             Error::InvalidPin
         })?;
-        try_syscall!(client.get_pin_key(password, pin.clone()))
+        try_syscall!(client.get_pin_key(password, pin))
             .map_err(|_err| Error::InvalidPin)?
             .result
             .ok_or(Error::InvalidPin)
@@ -902,10 +902,9 @@ impl UserVerifiedInner {
     }
     fn clear(&mut self, client: &mut impl trussed::Client) {
         let this = take(self);
-        if let Some(k) = take(self).user_kek() {
+        if let Some(k) = this.user_kek() {
             syscall!(client.delete(k));
         }
-        forget(this);
     }
 
     fn clear_sign(&mut self, client: &mut impl trussed::Client) {
