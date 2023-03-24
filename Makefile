@@ -19,7 +19,7 @@ check:
 
 .PHONY: lint
 lint:
-	RUSTFLAGS='-Dwarnings' cargo check --all-features --all-targets --workspace
+	cargo check --all-features --all-targets --workspace
 	cargo check --no-default-features --all-targets
 	cargo clippy --all-features --all-targets -- --deny warnings
 	cargo fmt -- --check
