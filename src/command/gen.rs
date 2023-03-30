@@ -304,7 +304,6 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     let parsed_pubkey_data: RsaPublicParts =
         trussed::postcard_deserialize(&pubkey_data).map_err(|_err| {
             error!("Failed to deserialize public key");
-            syscall!(client.delete(public_key));
             Status::UnspecifiedNonpersistentExecutionError
         })?;
     ctx.reply.expand(&[0x81])?;
