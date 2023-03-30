@@ -516,6 +516,7 @@ fn factory_reset<const R: usize, T: trussed::Client + AuthClient>(
     .map_err(unspecified_delete_error)?;
     try_syscall!(ctx.backend.client_mut().delete_all(Location::Volatile))
         .map_err(unspecified_delete_error)?;
+    try_syscall!(ctx.backend.client_mut().delete_all_pins()).map_err(unspecified_delete_error)?;
     Ok(())
 }
 
