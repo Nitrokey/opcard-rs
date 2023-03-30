@@ -42,26 +42,15 @@ const ED255_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice()
 const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
 const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
-const RSA_2K_ATTRIBUTES_CRT: &[u8] = hex!("
-    01
-    0800 // Length modulus (in bit): 2048                                                                                                                                        
-    0020 // Length exponent (in bit): 32
-    02   // import in CRT Format
-").as_slice();
-const RSA_4K_ATTRIBUTES_CRT: &[u8] = hex!(
-    "
-    01
-    1000 // Length modulus (in bit): 4096
-    0020 // Length exponent (in bit): 32
-    02   // import in CRT Format
-"
-)
-.as_slice();
-
-// Accepted for key generation, but overridden to always set the import format to CRT
 const RSA_2K_ATTRIBUTES: &[u8] = hex!("
     01
     0800 // Length modulus (in bit): 2048                                                                                                                                        
+    0020 // Length exponent (in bit): 32
+    00   // import in standard format
+").as_slice();
+const RSA_3K_ATTRIBUTES: &[u8] = hex!("
+    01
+    0C00 // Length modulus (in bit): 2048                                                                                                                                        
     0020 // Length exponent (in bit): 32
     00   // import in standard format
 ").as_slice();
@@ -71,6 +60,27 @@ const RSA_4K_ATTRIBUTES: &[u8] = hex!(
     1000 // Length modulus (in bit): 4096
     0020 // Length exponent (in bit): 32
     00   // import in standard format
+"
+)
+.as_slice();
+const RSA_2K_ATTRIBUTES_CRT: &[u8] = hex!("
+    01
+    0800 // Length modulus (in bit): 2048                                                                                                                                        
+    0020 // Length exponent (in bit): 32
+    02   // import in CRT Format
+").as_slice();
+const RSA_3K_ATTRIBUTES_CRT: &[u8] = hex!("
+    01
+    0C00 // Length modulus (in bit): 2048                                                                                                                                        
+    0020 // Length exponent (in bit): 32
+    02   // import in CRT Format
+").as_slice();
+const RSA_4K_ATTRIBUTES_CRT: &[u8] = hex!(
+    "
+    01
+    1000 // Length modulus (in bit): 4096
+    0020 // Length exponent (in bit): 32
+    02   // import in CRT Format
 "
 )
 .as_slice();
@@ -86,6 +96,7 @@ iterable_enum! {
         Ed255,
         EcDsaP256,
         Rsa2048,
+        Rsa3072,
         Rsa4096,
     }
 }
@@ -107,6 +118,7 @@ impl SignatureAlgorithm {
             Self::Ed255 => ED255_ATTRIBUTES,
             Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
             Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
             Self::Rsa4096 => RSA_4K_ATTRIBUTES,
         }
     }
@@ -125,6 +137,7 @@ impl TryFrom<&[u8]> for SignatureAlgorithm {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
             RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
             RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
@@ -139,6 +152,7 @@ iterable_enum! {
         X255,
         EcDhP256,
         Rsa2048,
+        Rsa3072,
         Rsa4096,
     }
 }
@@ -160,6 +174,7 @@ impl DecryptionAlgorithm {
             Self::X255 => X255_ATTRIBUTES,
             Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
             Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
             Self::Rsa4096 => RSA_4K_ATTRIBUTES,
         }
     }
@@ -178,6 +193,7 @@ impl TryFrom<&[u8]> for DecryptionAlgorithm {
             X255_ATTRIBUTES => Ok(Self::X255),
             ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
             RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
             RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }
@@ -192,6 +208,7 @@ iterable_enum! {
         Ed255,
         EcDsaP256,
         Rsa2048,
+        Rsa3072,
         Rsa4096,
     }
 }
@@ -213,6 +230,7 @@ impl AuthenticationAlgorithm {
             Self::Ed255 => ED255_ATTRIBUTES,
             Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
             Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
             Self::Rsa4096 => RSA_4K_ATTRIBUTES,
         }
     }
@@ -231,6 +249,7 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
             ED255_ATTRIBUTES => Ok(Self::Ed255),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
             RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
             RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
             _ => Err(AlgorithmFromAttributesError),
         }

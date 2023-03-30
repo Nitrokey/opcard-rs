@@ -13,6 +13,9 @@ use crate::types::*;
 const PRIVATE_KEY_TEMPLATE_DO: u16 = 0x4D;
 const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
 
+#[cfg(feature = "rsa")]
+use trussed_rsa_alloc::RsaImportFormat;
+
 // § 4.4.3.12
 pub fn put_private_key_template<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
@@ -40,8 +43,9 @@ pub fn put_sign<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
-        SignatureAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
+        SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
+        SignatureAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
+        SignatureAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -70,8 +74,9 @@ pub fn put_dec<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
-        DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
-        DecryptionAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
+        DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
+        DecryptionAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
+        DecryptionAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -100,8 +105,9 @@ pub fn put_aut<const R: usize, T: trussed::Client>(
     let key_id = match attr {
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs)?,
-        AuthenticationAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs)?,
+        AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
+        AuthenticationAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
+        AuthenticationAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|key_id| (key_id, KeyOrigin::Imported));
     let old_key_id = ctx
@@ -169,8 +175,8 @@ fn put_ec<const R: usize, T: trussed::Client>(
     Ok(Some(key))
 }
 
-#[cfg(feature = "rsa2048")]
-fn parse_rsa_template(data: &[u8]) -> Option<trussed::types::RsaCrtImportFormat<'_>> {
+#[cfg(feature = "rsa")]
+fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat> {
     use crate::tlv::take_len;
     const TEMPLATE_DO: u16 = 0x7F48;
 
@@ -192,17 +198,14 @@ fn parse_rsa_template(data: &[u8]) -> Option<trussed::types::RsaCrtImportFormat<
         template = d;
     }
     let key_data = get_do(&[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO], data)?;
-    Some(trussed::types::RsaCrtImportFormat {
+    Some(RsaImportFormat {
         e: key_data.get(res[0].0..res[0].1)?,
         p: key_data.get(res[1].0..res[1].1)?,
         q: key_data.get(res[2].0..res[2].1)?,
-        qinv: &[],
-        dp: &[],
-        dq: &[],
     })
 }
 
-#[cfg(feature = "rsa2048")]
+#[cfg(feature = "rsa")]
 fn put_rsa<const R: usize, T: trussed::Client>(
     ctx: LoadedContext<'_, R, T>,
     mechanism: Mechanism,
@@ -222,7 +225,7 @@ fn put_rsa<const R: usize, T: trussed::Client>(
         mechanism,
         &key_message,
         ctx.options.storage,
-        KeySerialization::RsaCrt
+        KeySerialization::RsaParts
     ))
     .map_err(|_err| {
         warn!("Failed to store key: {_err:?}");
@@ -232,7 +235,7 @@ fn put_rsa<const R: usize, T: trussed::Client>(
     Ok(Some(key))
 }
 
-#[cfg(not(feature = "rsa2048"))]
+#[cfg(not(feature = "rsa"))]
 fn put_rsa<const R: usize, T: trussed::Client>(
     _ctx: LoadedContext<'_, R, T>,
     _mechanism: Mechanism,
