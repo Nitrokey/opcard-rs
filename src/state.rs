@@ -455,7 +455,7 @@ impl Persistent {
     ) -> u8 {
         try_syscall!(client.pin_retries(password))
             .map(|r| r.retries.unwrap_or_default())
-            .unwrap_or(Self::MAX_RETRIES)
+            .unwrap_or(0)
     }
 
     pub fn is_locked<T: trussed::Client + AuthClient>(

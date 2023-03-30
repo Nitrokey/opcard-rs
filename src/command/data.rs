@@ -1420,7 +1420,7 @@ mod tests {
                         max_length_rc: 127,
                         max_length_pw3: 127,
                         error_counter_pw1: 3,
-                        error_counter_rc: 3,
+                        error_counter_rc: 0,
                         error_counter_pw3: 3,
                     }),
                 ),

@@ -211,7 +211,7 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
         sec,
         third,
         r"maxpinlen:127:127:127:",
-        r"pinretry:3:3:3:",
+        r"pinretry:3:0:3:",
         signcount,
         r"kdf:off:",
         r"cafpr::::",
