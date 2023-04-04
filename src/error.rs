@@ -6,8 +6,6 @@ pub enum Error {
     Loading,
     Saving,
     InvalidPin,
-    TooManyTries,
-    RequestTooLarge,
     BadRequest,
     UserInteraction,
 }
@@ -18,8 +16,6 @@ impl core::fmt::Display for Error {
             Error::Loading => "Failed to load or deserialize from filesystem",
             Error::Saving => "Failed to save to filesystem",
             Error::InvalidPin => "Failed PIN authentication",
-            Error::TooManyTries => "PIN is locked",
-            Error::RequestTooLarge => "Request data is larger than supported",
             Error::BadRequest => "Request data invalid",
             Error::UserInteraction => "Failed to get user presence",
         };

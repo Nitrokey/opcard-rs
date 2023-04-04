@@ -10,27 +10,25 @@
 use core::fmt::Debug;
 
 use trussed::try_syscall;
-use trussed::types::Location;
+use trussed_auth::AuthClient;
 
-use crate::command::Password;
 use crate::error::Error;
-use crate::state;
 
 /// Backend that provides data storage and cryptography operations.
 /// Mostly a wrapper around a trussed client
 #[derive(Clone)]
-pub struct Backend<T: trussed::Client> {
+pub struct Backend<T: trussed::Client + AuthClient> {
     client: T,
 }
 
-impl<T: trussed::Client> Debug for Backend<T> {
+impl<T: trussed::Client + AuthClient> Debug for Backend<T> {
     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let Self { client: _client } = self;
         fmt.debug_struct("Backend").finish()
     }
 }
 
-impl<T: trussed::Client> Backend<T> {
+impl<T: trussed::Client + AuthClient> Backend<T> {
     /// Create new backend from a trussed client
     pub fn new(client: T) -> Self {
         Self { client }
@@ -39,19 +37,6 @@ impl<T: trussed::Client> Backend<T> {
     /// Return a mutable reference to the trussed client
     pub fn client_mut(&mut self) -> &mut T {
         &mut self.client
-    }
-
-    /// Checks whether the given value matches the pin of the given type.
-    pub fn verify_pin(
-        &mut self,
-        storage: Location,
-        pin: Password,
-        value: &[u8],
-        state: &mut state::Persistent,
-    ) -> bool {
-        state
-            .verify_pin(&mut self.client, storage, value, pin)
-            .is_ok()
     }
 
     /// Ask for confirmation of presence from the user with a default timeout of 15 seconds

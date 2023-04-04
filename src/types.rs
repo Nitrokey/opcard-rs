@@ -289,18 +289,13 @@ impl KeyType {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
+#[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr, Default)]
 #[repr(u8)]
 pub enum Uif {
+    #[default]
     Disabled = 0,
     Enabled = 1,
     PermanentlyEnabled = 2,
-}
-
-impl Default for Uif {
-    fn default() -> Self {
-        Uif::Disabled
-    }
 }
 
 impl TryFrom<u8> for Uif {

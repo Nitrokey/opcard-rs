@@ -1,5 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
+#![cfg(all(feature = "virt", not(feature = "dangerous-test-real-card")))]
+
 use hex_literal::hex;
 mod card;
 use test_log::test;
@@ -16,7 +18,6 @@ fn get_data() {
     options.button_available = false;
     with_tx_options(options.clone(), |mut tx| {
         let appdata = tx.application_related_data().unwrap();
-        dbg!(&appdata.uif_pso_cds());
         assert!(appdata.uif_pso_cds().unwrap().is_none());
         assert!(appdata.uif_pso_dec().unwrap().is_none());
         assert!(appdata.uif_pso_aut().unwrap().is_none());

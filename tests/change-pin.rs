@@ -1,5 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
+#![cfg(all(feature = "virt", not(feature = "dangerous-test-real-card")))]
 
 use openpgp_card::StatusBytes;
 use test_log::test;
@@ -51,7 +52,7 @@ fn change() {
             // Pin validation routine didn't run
             assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
             // New pin too long
-            assert!(tx.change_pw1(DEFAULT_USER_PIN, &[55; 128]).is_err());
+            assert!(tx.change_pw1(DEFAULT_USER_PIN, &[55; 129]).is_err());
             // The pin validation part still ran
             assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(3));
 
@@ -63,7 +64,7 @@ fn change() {
 
             let unicode = "ハローワールド".as_bytes();
             // More than 127 bytes (max supported length)
-            assert!(tx.change_pw1(&[255; 8], &[0xcc; 128]).is_err());
+            assert!(tx.change_pw1(&[255; 8], &[0xcc; 129]).is_err());
             assert!(tx.change_pw1(&[255; 8], &unicode[0..10]).is_ok());
             assert!(tx.verify_pw1_user(&unicode[0..10]).is_ok());
             assert!(tx.change_pw1(&unicode[0..10], b"new pin").is_ok());
@@ -92,7 +93,7 @@ fn change() {
 
             let unicode = "😀😃😄😁😆".as_bytes();
             // More than 127 bytes (max supported length)
-            assert!(tx.change_pw3(&[255; 8], &[0xde; 128]).is_err());
+            assert!(tx.change_pw3(&[255; 8], &[0xde; 129]).is_err());
             assert!(tx.change_pw3(&[255; 8], &unicode[0..13]).is_ok());
             assert!(tx.verify_pw3(&unicode[0..13]).is_ok());
             assert!(tx.change_pw3(&unicode[0..13], b"new pin2").is_ok());

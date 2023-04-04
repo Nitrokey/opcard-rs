@@ -28,7 +28,7 @@ fn gpg_card_status() {
             Signature PIN ....: forced\n\
             Key attributes ...: rsa2048 rsa2048 rsa2048\n\
             Max. PIN lengths .: 127 127 127\n\
-            PIN retry counter : 3 3 3\n\
+            PIN retry counter : 3 0 3\n\
             Signature counter : 0\n\
             KDF setting ......: off\n\
             Signature key ....: \\[none\\]\n\

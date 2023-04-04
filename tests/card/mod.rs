@@ -5,6 +5,8 @@
 use std::sync::{Arc, Mutex};
 
 use iso7816::{command::FromSliceError, Command, Status};
+#[cfg(not(feature = "dangerous-test-real-card"))]
+use opcard::virt::VirtClient;
 use opcard::Options;
 use openpgp_card::{
     CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
@@ -13,19 +15,17 @@ use trussed::{
     virt::{Platform, Ram},
     Service,
 };
-
-#[cfg(not(feature = "rsa"))]
-use trussed::virt::{with_ram_client, Client};
-#[cfg(feature = "rsa")]
-use trussed_rsa_alloc::virt::{with_ram_client, Client};
+use trussed_auth::AuthClient;
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
 
 #[derive(Debug)]
-pub struct Card<T: trussed::Client + Send + Sync + 'static>(Arc<Mutex<opcard::Card<T>>>);
+pub struct Card<T: trussed::Client + AuthClient + Send + Sync + 'static>(
+    Arc<Mutex<opcard::Card<T>>>,
+);
 
-impl<T: trussed::Client + Send + Sync + 'static> Card<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> Card<T> {
     pub fn new(client: T) -> Self {
         Self::with_options(client, Options::default())
     }
@@ -51,7 +51,7 @@ impl<T: trussed::Client + Send + Sync + 'static> Card<T> {
     }
 }
 
-impl<T: trussed::Client + Send + Sync + 'static> CardBackend for Card<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> CardBackend for Card<T> {
     fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync + Sync>, Error> {
         // TODO: use reference instead of cloning
         Ok(Box::new(Transaction {
@@ -62,12 +62,12 @@ impl<T: trussed::Client + Send + Sync + 'static> CardBackend for Card<T> {
 }
 
 #[derive(Debug)]
-pub struct Transaction<T: trussed::Client + Send + Sync + 'static> {
+pub struct Transaction<T: trussed::Client + AuthClient + Send + Sync + 'static> {
     card: Arc<Mutex<opcard::Card<T>>>,
     buffer: heapless::Vec<u8, RESPONSE_LEN>,
 }
 
-impl<T: trussed::Client + Send + Sync + 'static> Transaction<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> Transaction<T> {
     fn handle(&mut self, command: &[u8]) -> Result<(), Status> {
         self.buffer.clear();
         let command = Command::<REQUEST_LEN>::try_from(command).map_err(|err| match err {
@@ -82,7 +82,7 @@ impl<T: trussed::Client + Send + Sync + 'static> Transaction<T> {
     }
 }
 
-impl<T: trussed::Client + Send + Sync + 'static> CardTransaction for Transaction<T> {
+impl<T: trussed::Client + AuthClient + Send + Sync + 'static> CardTransaction for Transaction<T> {
     fn transmit(&mut self, command: &[u8], _buf_size: usize) -> Result<Vec<u8>, Error> {
         let status = self.handle(command).err().unwrap_or_default();
         let status: [u8; 2] = status.into();
@@ -117,24 +117,29 @@ impl<T: trussed::Client + Send + Sync + 'static> CardTransaction for Transaction
     }
 }
 
-pub fn with_card_options<F: FnOnce(Card<Client<Ram>>) -> R, R>(options: Options, f: F) -> R {
-    with_ram_client("opcard", |client| {
+#[cfg(not(feature = "dangerous-test-real-card"))]
+pub fn with_card_options<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(options: Options, f: F) -> R {
+    opcard::virt::with_ram_client("opcard", |client| {
         f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }
 
-pub fn with_card<F: FnOnce(Card<Client<Ram>>) -> R, R>(f: F) -> R {
+#[cfg(not(feature = "dangerous-test-real-card"))]
+pub fn with_card<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(f: F) -> R {
     with_card_options(Options::default(), f)
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_tx_options<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(options: Options, f: F) -> R {
     with_card_options(options, move |mut card| card.with_tx(f))
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
     with_card(move |mut card| card.with_tx(f))
 }
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
     match err {
         Ok(()) => None,

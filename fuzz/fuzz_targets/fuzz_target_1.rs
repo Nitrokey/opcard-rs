@@ -13,7 +13,7 @@ fuzz_target!(|input: Input| {
     #[cfg(feature = "log")]
     env_logger::builder().is_test(true).try_init().ok();
 
-    trussed::virt::with_ram_client("opcard", move |client| {
+    opcard::virt::with_ram_client("opcard", move |client| {
         let Input {
             commands,
             manufacturer,

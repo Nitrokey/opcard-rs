@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::{command::FromSliceError, Command, Status};
+use trussed_auth::AuthClient;
 
 use crate::card::Card;
 
@@ -13,13 +14,13 @@ const RESPONSE_LEN: usize = 7609;
 /// This struct provides a virtual OpenPGP smart card implementation that can be used with
 /// `vpicc-rs` and [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) to emulate the card.
 #[derive(Clone, Debug)]
-pub struct VirtualCard<T: trussed::Client> {
+pub struct VirtualCard<T: trussed::Client + AuthClient> {
     request_buffer: RequestBuffer<REQUEST_LEN>,
     response_buffer: ResponseBuffer<RESPONSE_LEN>,
     card: Card<T>,
 }
 
-impl<T: trussed::Client> VirtualCard<T> {
+impl<T: trussed::Client + AuthClient> VirtualCard<T> {
     /// Creates a new virtual smart card from the given card.
     pub fn new(card: Card<T>) -> Self {
         Self {
@@ -44,7 +45,7 @@ impl<T: trussed::Client> VirtualCard<T> {
     }
 }
 
-impl<T: trussed::Client> vpicc::VSmartCard for VirtualCard<T> {
+impl<T: trussed::Client + AuthClient> vpicc::VSmartCard for VirtualCard<T> {
     fn power_on(&mut self) {}
 
     fn power_off(&mut self) {

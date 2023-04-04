@@ -1,21 +1,21 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use core::mem::swap;
+use core::mem::{swap, take};
 
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use subtle::ConstantTimeEq;
 
 use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
-use trussed::try_syscall;
 use trussed::types::{KeyId, Location, PathBuf};
+use trussed::{syscall, try_syscall};
+use trussed_auth::AuthClient;
 
-use crate::command::Password;
+use crate::command::{Password, PasswordMode};
 use crate::error::Error;
 use crate::types::*;
 use crate::utils::serde_bytes;
@@ -164,7 +164,7 @@ pub struct State {
 
 impl State {
     /// Loads the persistent state from flash
-    pub fn load<'s, T: trussed::Client>(
+    pub fn load<'s, T: trussed::Client + AuthClient>(
         &'s mut self,
         client: &mut T,
         storage: Location,
@@ -198,15 +198,18 @@ impl State {
     fn lifecycle_path() -> PathBuf {
         PathBuf::from(Self::LIFECYCLE_PATH)
     }
-    pub fn lifecycle(client: &mut impl trussed::Client, storage: Location) -> LifeCycle {
+    pub fn lifecycle<T: trussed::Client + AuthClient>(
+        client: &mut T,
+        storage: Location,
+    ) -> LifeCycle {
         match try_syscall!(client.entry_metadata(storage, Self::lifecycle_path())) {
             Ok(Metadata { metadata: Some(_) }) => LifeCycle::Initialization,
             _ => LifeCycle::Operational,
         }
     }
 
-    pub fn terminate_df(
-        client: &mut impl trussed::Client,
+    pub fn terminate_df<T: trussed::Client + AuthClient>(
+        client: &mut T,
         storage: Location,
     ) -> Result<(), Status> {
         try_syscall!(client.write_file(storage, Self::lifecycle_path(), Bytes::new(), None,))
@@ -217,8 +220,8 @@ impl State {
             })
     }
 
-    pub fn activate_file(
-        client: &mut impl trussed::Client,
+    pub fn activate_file<T: trussed::Client + AuthClient>(
+        client: &mut T,
         storage: Location,
     ) -> Result<(), Status> {
         try_syscall!(client.remove_file(storage, Self::lifecycle_path(),)).ok();
@@ -245,6 +248,71 @@ impl<'a> LoadedState<'a> {
             volatile: self.volatile,
         }
     }
+
+    pub fn verify_pin<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        value: &[u8],
+        password: PasswordMode,
+    ) -> Result<(), Error> {
+        let pin = Bytes::from_slice(value).map_err(|_| {
+            warn!("Attempt to verify pin that is too long");
+            Error::InvalidPin
+        })?;
+        let key_exists = match password {
+            PasswordMode::Pw1Sign | PasswordMode::Pw1Other => self.volatile.user_kek(),
+            PasswordMode::Pw3 => self.volatile.admin_kek(),
+        };
+        let pin_id: Password = password.into();
+
+        let checked_key = if let Some(k) = key_exists {
+            // If the pin key is alraedy available, don't derive it again to save memory
+            let res = try_syscall!(client.check_pin(pin_id, pin.clone())).map_err(|_err| {
+                error!("Failed to verify pin: {:?}", _err);
+                Error::InvalidPin
+            })?;
+
+            if !res.success {
+                return Err(Error::InvalidPin);
+            }
+            k
+        } else {
+            try_syscall!(client.get_pin_key(pin_id, pin.clone()))
+                .map_err(|_err| {
+                    error!("Failed to verify pin: {:?}", _err);
+                    Error::InvalidPin
+                })?
+                .result
+                .ok_or(Error::InvalidPin)?
+        };
+
+        match password {
+            PasswordMode::Pw1Sign => self.volatile.user.verify_sign(checked_key),
+            PasswordMode::Pw1Other => self.volatile.user.verify_other(checked_key),
+            PasswordMode::Pw3 => self.volatile.admin.verify(checked_key),
+        };
+
+        // Reset the pin length in case it was incorrect due to the lack of atomicity of operations.
+        self.persistent
+            .set_pin_len(client, storage, pin.len(), pin_id)?;
+        Ok(())
+    }
+    pub fn check_pin<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        value: &[u8],
+        password: Password,
+    ) -> Result<KeyId, Error> {
+        let pin = Bytes::from_slice(value).map_err(|_| {
+            warn!("Attempt to verify pin that is too long");
+            Error::InvalidPin
+        })?;
+        try_syscall!(client.get_pin_key(password, pin))
+            .map_err(|_err| Error::InvalidPin)?
+            .result
+            .ok_or(Error::InvalidPin)
+    }
 }
 
 enum_u8! {
@@ -257,6 +325,8 @@ enum_u8! {
     }
 }
 
+// #[derive(Default)] Conflicts with `enum_u8!`
+#[allow(clippy::derivable_impls)]
 impl Default for Sex {
     fn default() -> Sex {
         Sex::NotKnown
@@ -272,13 +342,10 @@ pub enum KeyOrigin {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Persistent {
-    user_pin_tries: u8,
-    admin_pin_tries: u8,
-    reset_code_tries: u8,
     pw1_valid_multiple: bool,
-    user_pin: Bytes<MAX_PIN_LENGTH>,
-    admin_pin: Bytes<MAX_PIN_LENGTH>,
-    reset_code_pin: Option<Bytes<MAX_PIN_LENGTH>>,
+    user_pin_len: u8,
+    admin_pin_len: u8,
+    reset_code_pin_len: Option<u8>,
     signing_key: Option<(KeyId, KeyOrigin)>,
     confidentiality_key: Option<(KeyId, KeyOrigin)>,
     aut_key: Option<(KeyId, KeyOrigin)>,
@@ -306,17 +373,11 @@ impl Persistent {
 
     #[allow(clippy::unwrap_used)]
     fn default() -> Self {
-        // § 4.3.1
-        let admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
-        let user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
         Self {
-            user_pin_tries: 0,
-            admin_pin_tries: 0,
-            reset_code_tries: 0,
-            reset_code_pin: None,
+            reset_code_pin_len: None,
             pw1_valid_multiple: false,
-            admin_pin,
-            user_pin,
+            admin_pin_len: DEFAULT_ADMIN_PIN.len() as u8,
+            user_pin_len: DEFAULT_USER_PIN.len() as u8,
             cardholder_name: Bytes::new(),
             cardholder_sex: Sex::default(),
             language_preferences: Bytes::new(),
@@ -337,22 +398,40 @@ impl Persistent {
         }
     }
 
-    #[cfg(test)]
-    pub fn test_default() -> Self {
-        Self::default()
-    }
-
     fn path() -> PathBuf {
         PathBuf::from(Self::FILENAME)
     }
 
-    pub fn load<T: trussed::Client>(client: &mut T, storage: Location) -> Result<Self, Error> {
+    fn init_pins<T: trussed::Client + AuthClient>(client: &mut T) -> Result<(), Error> {
+        #[allow(clippy::unwrap_used)]
+        let default_user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
+        #[allow(clippy::unwrap_used)]
+        let default_admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
+        syscall!(client.set_pin(
+            Password::Pw1,
+            default_user_pin,
+            Some(Self::MAX_RETRIES),
+            true,
+        ));
+        syscall!(client.set_pin(
+            Password::Pw3,
+            default_admin_pin,
+            Some(Self::MAX_RETRIES),
+            true,
+        ));
+        Ok(())
+    }
+    pub fn load<T: trussed::Client + AuthClient>(
+        client: &mut T,
+        storage: Location,
+    ) -> Result<Self, Error> {
         if let Some(data) = load_if_exists(client, storage, &Self::path())? {
             trussed::cbor_deserialize(&data).map_err(|_err| {
                 error!("failed to deserialize persistent state: {_err}");
                 Error::Loading
             })
         } else {
+            Self::init_pins(client)?;
             Ok(Self::default())
         }
     }
@@ -369,129 +448,90 @@ impl Persistent {
         Ok(())
     }
 
-    pub fn remaining_tries(&self, password: Password) -> u8 {
-        match password {
-            Password::Pw1 => Self::MAX_RETRIES.saturating_sub(self.user_pin_tries),
-            Password::Pw3 => Self::MAX_RETRIES.saturating_sub(self.admin_pin_tries),
-            Password::ResetCode => Self::MAX_RETRIES.saturating_sub(self.reset_code_tries),
-        }
-    }
-
-    pub fn is_locked(&self, password: Password) -> bool {
-        match password {
-            Password::Pw1 => self.user_pin_tries >= Self::MAX_RETRIES,
-            Password::Pw3 => self.admin_pin_tries >= Self::MAX_RETRIES,
-            Password::ResetCode => self.reset_code_tries >= Self::MAX_RETRIES,
-        }
-    }
-
-    pub fn decrement_counter<T: trussed::Client>(
-        &mut self,
+    pub fn remaining_tries<T: trussed::Client + AuthClient>(
+        &self,
         client: &mut T,
-        storage: Location,
         password: Password,
-    ) -> Result<(), Error> {
-        if !self.is_locked(password) {
-            match password {
-                Password::Pw1 => self.user_pin_tries += 1,
-                Password::Pw3 => self.admin_pin_tries += 1,
-                Password::ResetCode => self.reset_code_tries += 1,
-            }
-            self.save(client, storage)
-        } else {
-            Ok(())
-        }
+    ) -> u8 {
+        try_syscall!(client.pin_retries(password))
+            .map(|r| r.retries.unwrap_or_default())
+            .unwrap_or(0)
     }
 
-    pub fn reset_counter<T: trussed::Client>(
-        &mut self,
+    pub fn is_locked<T: trussed::Client + AuthClient>(
+        &self,
         client: &mut T,
-        storage: Location,
         password: Password,
-    ) -> Result<(), Error> {
-        match password {
-            Password::Pw1 => self.user_pin_tries = 0,
-            Password::Pw3 => self.admin_pin_tries = 0,
-            Password::ResetCode => self.reset_code_tries = 0,
-        }
-        self.save(client, storage)
-    }
-
-    fn pin(&self, password: Password) -> Option<&[u8]> {
-        match password {
-            Password::Pw1 => Some(&self.user_pin),
-            Password::Pw3 => Some(&self.admin_pin),
-            Password::ResetCode => self.reset_code_pin.as_ref().map(|d| &d[..]),
-        }
-    }
-
-    pub fn verify_pin<T: trussed::Client>(
-        &mut self,
-        client: &mut T,
-        storage: Location,
-        value: &[u8],
-        password: Password,
-    ) -> Result<(), Error> {
-        if self.is_locked(password) {
-            return Err(Error::TooManyTries);
-        }
-
-        self.decrement_counter(client, storage, password)?;
-        let pin = self.pin(password).ok_or(Error::BadRequest)?;
-        if (!value.ct_eq(pin)).into() {
-            return Err(Error::InvalidPin);
-        }
-
-        self.reset_counter(client, storage, password)?;
-        Ok(())
+    ) -> bool {
+        self.remaining_tries(client, password) == 0
     }
 
     /// Panics if password is ResetCode, use [reset_code_len](Self::reset_code_len) instead
     pub fn pin_len(&self, password: Password) -> usize {
         match password {
-            Password::Pw1 => self.user_pin.len(),
-            Password::Pw3 => self.admin_pin.len(),
+            Password::Pw1 => self.user_pin_len as usize,
+            Password::Pw3 => self.admin_pin_len as usize,
             Password::ResetCode => unreachable!(),
         }
     }
 
     /// Returns None if no code has been set
     pub fn reset_code_len(&self) -> Option<usize> {
-        self.reset_code_pin.as_ref().map(|d| d.len())
+        self.reset_code_pin_len.map(Into::into)
     }
 
-    pub fn change_pin<T: trussed::Client>(
+    pub fn set_pin<T: trussed::Client + AuthClient>(
         &mut self,
         client: &mut T,
         storage: Location,
-        value: &[u8],
+        new_value: &[u8],
         password: Password,
     ) -> Result<(), Error> {
-        let new_pin = Bytes::from_slice(value).map_err(|_| Error::RequestTooLarge)?;
-        let (pin, tries) = match password {
-            Password::Pw1 => (&mut self.user_pin, &mut self.user_pin_tries),
-            Password::Pw3 => (&mut self.admin_pin, &mut self.admin_pin_tries),
-            Password::ResetCode => {
-                self.reset_code_pin = Some(Default::default());
-                (
-                    #[allow(clippy::unwrap_used)]
-                    self.reset_code_pin.as_mut().unwrap(),
-                    &mut self.reset_code_tries,
-                )
-            }
-        };
-        *pin = new_pin;
-        *tries = 0;
+        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        syscall!(client.set_pin(password, new_pin.clone(), Some(Self::MAX_RETRIES), true));
+        self.set_pin_len(client, storage, new_pin.len(), password)
+    }
+
+    pub fn change_pin<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        old_value: &[u8],
+        new_value: &[u8],
+        password: Password,
+    ) -> Result<(), Error> {
+        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        let old_pin = Bytes::from_slice(old_value).map_err(|_| Error::InvalidPin)?;
+        try_syscall!(client.change_pin(password, old_pin, new_pin.clone()))
+            .map_err(|_| Error::InvalidPin)?;
+        self.set_pin_len(client, storage, new_pin.len(), password)
+    }
+
+    fn set_pin_len<T: trussed::Client + AuthClient>(
+        &mut self,
+        client: &mut T,
+        storage: Location,
+        new_len: usize,
+        password: Password,
+    ) -> Result<(), Error> {
+        match password {
+            Password::Pw1 => self.user_pin_len = new_len as u8,
+            Password::Pw3 => self.admin_pin_len = new_len as u8,
+            Password::ResetCode => self.reset_code_pin_len = Some(new_len as u8),
+        }
         self.save(client, storage)
     }
 
-    pub fn remove_reset_code<T: trussed::Client>(
+    pub fn remove_reset_code<T: trussed::Client + AuthClient>(
         &mut self,
         client: &mut T,
         storage: Location,
     ) -> Result<(), Error> {
-        self.reset_code_tries = 0;
-        self.reset_code_pin = None;
+        if self.reset_code_pin_len.is_some() {
+            // Possible race condition so we ignore the error
+            try_syscall!(client.delete_pin(Password::ResetCode)).ok();
+        }
+        self.reset_code_pin_len = None;
         self.save(client, storage)
     }
 
@@ -788,12 +828,170 @@ impl Default for KeyRefs {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
+enum UserVerifiedInner {
+    #[default]
+    None,
+    Other(KeyId),
+    Sign(KeyId),
+    #[allow(unused)]
+    OtherAndSign(KeyId),
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct UserVerified(UserVerifiedInner);
+
+impl Drop for UserVerified {
+    fn drop(&mut self) {
+        if self.0.user_kek().is_none() {
+            return;
+        }
+
+        #[cfg(all(debug_assertions, feature = "std"))]
+        if !std::thread::panicking() {
+            panic!("User dropped with kek still available");
+        }
+
+        error!("Error: User dropped with kek still available");
+    }
+}
+
+impl UserVerified {
+    fn verify_sign(&mut self, k: KeyId) {
+        self.0.verify_sign(k)
+    }
+
+    fn verify_other(&mut self, k: KeyId) {
+        self.0.verify_other(k)
+    }
+}
+
+impl UserVerifiedInner {
+    fn verify_sign(&mut self, k: KeyId) {
+        match self {
+            Self::None => *self = Self::Sign(k),
+            Self::Other(old_k) => {
+                debug_assert_eq!(*old_k, k);
+                *self = Self::OtherAndSign(k)
+            }
+            _ => {}
+        }
+    }
+
+    fn verify_other(&mut self, k: KeyId) {
+        match self {
+            Self::None => *self = Self::Other(k),
+            Self::Sign(old_k) => {
+                debug_assert_eq!(*old_k, k);
+                *self = Self::OtherAndSign(k)
+            }
+            _ => {}
+        }
+    }
+
+    fn sign_verified(&self) -> bool {
+        matches!(self, Self::Sign(_) | Self::OtherAndSign(_))
+    }
+    fn other_verified(&self) -> bool {
+        matches!(self, Self::Other(_) | Self::OtherAndSign(_))
+    }
+    fn user_kek(&self) -> Option<KeyId> {
+        match self {
+            Self::Other(k) | Self::Sign(k) | Self::OtherAndSign(k) => Some(*k),
+            _ => None,
+        }
+    }
+    fn clear(&mut self, client: &mut impl trussed::Client) {
+        let this = take(self);
+        if let Some(k) = this.user_kek() {
+            syscall!(client.delete(k));
+        }
+    }
+
+    fn clear_sign(&mut self, client: &mut impl trussed::Client) {
+        match self {
+            Self::Sign(_k) => self.clear(client),
+            Self::OtherAndSign(k) => *self = Self::Other(*k),
+            _ => {}
+        };
+    }
+    fn clear_other(&mut self, client: &mut impl trussed::Client) {
+        match self {
+            Self::Other(_k) => self.clear(client),
+            Self::OtherAndSign(k) => *self = Self::Sign(*k),
+            _ => {}
+        };
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct AdminVerified(Option<KeyId>);
+
+impl AdminVerified {
+    fn verify(&mut self, k: KeyId) {
+        if let Some(old_k) = self.0 {
+            debug_assert_eq!(old_k, k);
+        }
+        self.0 = Some(k);
+    }
+}
+
+impl Drop for AdminVerified {
+    fn drop(&mut self) {
+        if self.0.is_none() {
+            return;
+        }
+
+        #[cfg(all(debug_assertions, feature = "std"))]
+        if !std::thread::panicking() {
+            panic!("Admin dropped with kek still available");
+        }
+
+        error!("Error: Admin dropped with kek still available");
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Volatile {
-    pub sign_verified: bool,
-    pub other_verified: bool,
-    pub admin_verified: bool,
+    user: UserVerified,
+    admin: AdminVerified,
     pub cur_do: Option<(Tag, Occurrence)>,
     pub keyrefs: KeyRefs,
+}
+
+impl Volatile {
+    pub fn admin_verified(&self) -> bool {
+        self.admin.0.is_some()
+    }
+    pub fn admin_kek(&self) -> Option<KeyId> {
+        self.admin.0
+    }
+
+    pub fn clear_admin(&mut self, client: &mut impl trussed::Client) {
+        if let Some(k) = self.admin.0.take() {
+            syscall!(client.delete(k));
+        }
+    }
+    pub fn sign_verified(&self) -> bool {
+        self.user.0.sign_verified()
+    }
+    pub fn other_verified(&self) -> bool {
+        self.user.0.other_verified()
+    }
+    pub fn user_kek(&self) -> Option<KeyId> {
+        self.user.0.user_kek()
+    }
+
+    pub fn clear(&mut self, client: &mut impl trussed::Client) {
+        self.user.0.clear(client);
+        self.clear_admin(client)
+    }
+
+    pub fn clear_sign(&mut self, client: &mut impl trussed::Client) {
+        self.user.0.clear_sign(client)
+    }
+    pub fn clear_other(&mut self, client: &mut impl trussed::Client) {
+        self.user.0.clear_other(client)
+    }
 }
 
 /// DOs that can store arbitrary data from the user
