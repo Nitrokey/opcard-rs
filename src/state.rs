@@ -40,7 +40,7 @@ macro_rules! enum_u8 {
     (
         $(#[$outer:meta])*
         $vis:vis enum $name:ident {
-            $($var:ident = $num:expr),+
+            $($(#[$attr:meta])? $var:ident = $num:expr),+
             $(,)*
         }
     ) => {
@@ -48,6 +48,7 @@ macro_rules! enum_u8 {
         #[repr(u8)]
         $vis enum $name {
             $(
+                $(#[$attr])?
                 $var = $num,
             )*
         }
@@ -316,20 +317,13 @@ impl<'a> LoadedState<'a> {
 }
 
 enum_u8! {
-    #[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr)]
+    #[derive(Clone, Debug, Eq, PartialEq, Copy, Deserialize_repr, Serialize_repr, Default)]
     pub enum Sex {
+        #[default]
         NotKnown = 0x30,
         Male = 0x31,
         Female = 0x32,
         NotApplicable = 0x39,
-    }
-}
-
-// #[derive(Default)] Conflicts with `enum_u8!`
-#[allow(clippy::derivable_impls)]
-impl Default for Sex {
-    fn default() -> Sex {
-        Sex::NotKnown
     }
 }
 
