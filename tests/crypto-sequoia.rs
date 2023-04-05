@@ -1,6 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(any(feature = "virtual", feature = "dangerous-test-real-card"))]
+#![cfg(any(feature = "vpicc", feature = "dangerous-test-real-card"))]
 
 mod card;
 mod virt;
@@ -16,7 +16,7 @@ use sequoia_openpgp::types::HashAlgorithm;
 
 use test_log::test;
 
-#[cfg(all(feature = "virtual", not(feature = "dangerous-test-real-card")))]
+#[cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
 const IDENT: &str = "0000:00000000";
 #[cfg(feature = "dangerous-test-real-card")]
 const IDENT: &str = concat!(
@@ -284,7 +284,7 @@ fn curve25519() {
     open.factory_reset().unwrap();
 }
 
-#[cfg(all(feature = "virtual", not(feature = "dangerous-test-real-card")))]
+#[cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
 #[test]
 fn sequoia_gen_key() {
     #[cfg(feature = "rsa2048")]

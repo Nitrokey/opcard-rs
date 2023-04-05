@@ -1,6 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(any(feature = "virtual", feature = "dangerous-test-real-card"))]
+#![cfg(any(feature = "vpicc", feature = "dangerous-test-real-card"))]
 
 use std::{
     io::{BufRead, BufReader, Write},
@@ -9,12 +9,12 @@ use std::{
     thread,
 };
 
-#[cfg(feature = "virtual")]
+#[cfg(feature = "vpicc")]
 use std::{sync::mpsc, thread::sleep, time::Duration};
 
 use regex::{Regex, RegexSet};
 
-#[cfg(feature = "virtual")]
+#[cfg(feature = "vpicc")]
 use stoppable_thread::spawn;
 
 const STDOUT_FILTER: &[&str] = &[
@@ -36,7 +36,7 @@ const STDERR_FILTER: &[&str] = &[
     r"There is NO WARRANTY, to the extent permitted by law.",
 ];
 
-#[cfg(feature = "virtual")]
+#[cfg(feature = "vpicc")]
 #[allow(unused)]
 pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
@@ -45,10 +45,10 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let handle = spawn(move |stopped| {
         opcard::virt::with_ram_client("opcard", |client| {
             let card = opcard::Card::new(client, opcard::Options::default());
-            let mut virtual_card = opcard::VirtualCard::new(card);
+            let mut vpicc_card = opcard::VpiccCard::new(card);
             let mut result = Ok(());
             while !stopped.get() && result.is_ok() {
-                result = vpicc.poll(&mut virtual_card);
+                result = vpicc.poll(&mut vpicc_card);
                 if result.is_ok() {
                     tx.send(()).expect("failed to send message");
                 }
@@ -167,7 +167,7 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
     };
 
     let fprtimes = r"fprtime:\d*:\d*:\d*:";
-    #[cfg(feature = "virtual")]
+    #[cfg(feature = "vpicc")]
     let (reader, serial, vendor) = (
         r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card",
         r"vendor:0000:test card:",
