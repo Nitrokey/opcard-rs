@@ -1,6 +1,6 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(any(feature = "virtual", feature = "dangerous-test-real-card"))]
+#![cfg(any(feature = "vpicc", feature = "dangerous-test-real-card"))]
 
 mod virt;
 
@@ -10,7 +10,7 @@ use test_log::test;
 use virt::gnupg_test;
 use virt::GpgCommand::*;
 
-#[cfg(feature = "virtual")]
+#[cfg(feature = "vpicc")]
 #[allow(unused)]
 use virt::with_vsc;
 
@@ -1205,7 +1205,7 @@ fn gpg_rsa_4096() {
     );
 }
 
-#[cfg(all(feature = "virtual", not(feature = "dangerous-test-real-card")))]
+#[cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
 #[test]
 fn gpg_crypto() {
     #[cfg(feature = "rsa2048")]

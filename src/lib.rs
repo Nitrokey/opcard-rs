@@ -24,7 +24,7 @@
 //!
 //! - If the `apdu-dispatch` feature is enabled, [`Card`] implements the `apdu_dispatch::App`
 //!   trait and can be used with `apdu_dispatch`.
-//! - If the `virtual` feature is enabled, [`VirtualCard`] can be used to emulate a smart card
+//! - If the `vpicc` feature is enabled, [`VpiccCard`] can be used to emulate a smart card
 //!   using [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) and `vpicc-rs`.
 
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
@@ -56,13 +56,13 @@ mod state;
 mod tlv;
 mod types;
 mod utils;
-#[cfg(feature = "virtual")]
+#[cfg(feature = "vpicc")]
 mod vpicc;
 
 #[cfg(feature = "virt")]
 pub mod virt;
 
-#[cfg(feature = "virtual")]
-pub use self::vpicc::VirtualCard;
+#[cfg(feature = "vpicc")]
+pub use self::vpicc::VpiccCard;
 pub use card::{Card, Options};
 pub use state::{DEFAULT_ADMIN_PIN, DEFAULT_USER_PIN};
