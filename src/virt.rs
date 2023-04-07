@@ -3,7 +3,8 @@
 
 //! Virtual trussed client (mostly for testing)
 
-mod dispatch {
+/// Implementation of ExtensionDispatch for a virtual implementation of opcard
+pub mod dispatch {
 
     use trussed::{
         api::{reply, request, Reply, Request},
@@ -27,15 +28,21 @@ mod dispatch {
         BackendId::Core,
     ];
 
+    /// Id for the ExtensionDispatch implementation
     #[derive(Debug, Clone, Copy)]
     pub enum Backend {
+        /// trussed-auth
         Auth,
+        /// trussed-rsa-alloc
         #[cfg(feature = "rsa")]
         Rsa,
     }
 
+    /// Extensions used by opcard
+    /// Used for the ExtensionDispatch implementation
     #[derive(Debug, Clone, Copy)]
     pub enum Extension {
+        /// trussed-auth
         Auth,
     }
 
@@ -71,12 +78,14 @@ mod dispatch {
     }
 
     impl Dispatch {
+        /// Create a new dispatch using the internal filesystem
         pub fn new() -> Self {
             Self {
                 auth: AuthBackend::new(Location::Internal),
             }
         }
 
+        /// Create a new dispatch using the internal filesystem and a key derived from hardware parameters
         pub fn with_hw_key(hw_key: Bytes<MAX_HW_KEY_LEN>) -> Self {
             Self {
                 auth: AuthBackend::with_hw_key(Location::Internal, hw_key),
