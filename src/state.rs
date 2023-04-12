@@ -11,10 +11,12 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
-use trussed::types::{KeyId, Location, PathBuf};
+use trussed::types::{KeyId, Location, OpenSeekFrom, PathBuf};
+use trussed::utils::write_all;
 use trussed::{syscall, try_syscall};
 use trussed_auth::AuthClient;
 
+use crate::card::reply::Reply;
 use crate::command::{Password, PasswordMode};
 use crate::error::Error;
 use crate::types::*;
@@ -1046,13 +1048,41 @@ impl ArbitraryDO {
         }
     }
 
-    pub fn load(
+    pub fn load<const R: usize>(
         self,
         client: &mut impl trussed::Client,
         storage: Location,
-    ) -> Result<Bytes<MAX_GENERIC_LENGTH>, Error> {
-        load_if_exists(client, storage, &self.path())
-            .map(|data| data.unwrap_or_else(|| self.default()))
+        mut reply: Reply<'_, R>,
+    ) -> Result<(), Status> {
+        match try_syscall!(client.entry_metadata(storage, self.path())) {
+            Ok(Metadata { metadata: None }) => {
+                reply.expand(&self.default())?;
+                return Ok(());
+            }
+            Err(_err) => {
+                error!("File {:?} couldn't be read: {:?}", self, _err);
+                return Err(Status::UnspecifiedNonpersistentExecutionError);
+            }
+            Ok(Metadata { metadata: Some(_) }) => {}
+        }
+
+        let mut read = 0;
+        loop {
+            let res = try_syscall!(client.read_file_chunk(
+                storage,
+                self.path(),
+                OpenSeekFrom::Start(read)
+            ))
+            .map_err(|_err| {
+                error!("Failed to read data {:?}, err: {:?}", self, _err);
+                Status::UnspecifiedNonpersistentExecutionError
+            })?;
+            reply.expand(&res.data)?;
+            read += res.data.len() as u32;
+            if read == res.len as u32 {
+                return Ok(());
+            }
+        }
     }
 
     pub fn save(
@@ -1061,12 +1091,8 @@ impl ArbitraryDO {
         storage: Location,
         bytes: &[u8],
     ) -> Result<(), Error> {
-        let msg = Bytes::from(heapless::Vec::try_from(bytes).map_err(|_| {
-            error!("Buffer full");
-            Error::Saving
-        })?);
-        try_syscall!(client.write_file(storage, self.path(), msg, None)).map_err(|_err| {
-            error!("Failed to store data: {_err:?}");
+        write_all(client, storage, self.path(), bytes, None).map_err(|_err| {
+            error!("Failed to store {:?}, error: {:?}", self, _err);
             Error::Saving
         })?;
         Ok(())

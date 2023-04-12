@@ -792,7 +792,7 @@ fn signature_counter<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 fn get_arbitrary_do<const R: usize, T: trussed::Client + AuthClient>(
-    mut ctx: Context<'_, R, T>,
+    ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     match obj.read_permission() {
@@ -805,10 +805,7 @@ fn get_arbitrary_do<const R: usize, T: trussed::Client + AuthClient>(
         _ => {}
     }
 
-    let data = obj
-        .load(ctx.backend.client_mut(), ctx.options.storage)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    ctx.reply.expand(&data)
+    obj.load(ctx.backend.client_mut(), ctx.options.storage, ctx.reply)
 }
 
 // § 7.2.8
