@@ -34,7 +34,7 @@ pub const DEFAULT_USER_PIN: &[u8] = b"123456";
 pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
 
 /// Maximum length for generic DOs, limited by the length in trussed `read_file` command.
-pub const MAX_GENERIC_LENGTH: usize = MAX_MESSAGE_LENGTH;
+pub const MAX_GENERIC_LENGTH: usize = 4096;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
 pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_bytes();
 
