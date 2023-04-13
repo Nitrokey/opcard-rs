@@ -5,6 +5,40 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
+## [v0.4.0][] (2023-02-24)
+
+### Features
+
+- Add support for RSA 3072 bits ([#116][])
+- Support use of external storage (#[117][])
+- Encrypt data on the external storage ([#134][], [#135][], [#136][], [#137][], [#138][], [#139][], [#127][])
+
+### Changes
+
+- Use `trussed-rsa-backend` ([#116][])
+- Use `trussed-auth` for pin authentication ([#125][])
+
+### Developement
+
+- Rename "virtual" to "vpicc" ([#132][])
+- Rename `make check` to `make lint` ([#120][])
+- Add usbip runner and test against the gnuk test suite ([#105][])
+
+[#132]: https://github.com/Nitrokey/opcard-rs/pull/132
+[#125]: https://github.com/Nitrokey/opcard-rs/pull/125
+[#120]: https://github.com/Nitrokey/opcard-rs/pull/120
+[#117]: https://github.com/Nitrokey/opcard-rs/pull/117
+[#116]: https://github.com/Nitrokey/opcard-rs/pull/116
+[#105]: https://github.com/Nitrokey/opcard-rs/pull/105
+[#134]: https://github.com/Nitrokey/opcard-rs/pull/134
+[#135]: https://github.com/Nitrokey/opcard-rs/pull/135
+[#136]: https://github.com/Nitrokey/opcard-rs/pull/136
+[#137]: https://github.com/Nitrokey/opcard-rs/pull/137
+[#138]: https://github.com/Nitrokey/opcard-rs/pull/138
+[#139]: https://github.com/Nitrokey/opcard-rs/pull/139
+[#127]: https://github.com/Nitrokey/opcard-rs/pull/127
+
+
 ## [v0.3.0][] (2023-02-24)
 
 ### Features
