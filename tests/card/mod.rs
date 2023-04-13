@@ -45,6 +45,15 @@ impl<T: trussed::Client + AuthClient + Send + Sync + 'static> Card<T> {
         let tx = openpgp.transaction().expect("failed to create transaction");
         f(tx)
     }
+    pub fn with_many_tx(
+        &mut self,
+        fs: impl IntoIterator<Item = impl FnOnce(OpenPgpTransaction<'_>)>,
+    ) {
+        for f in fs {
+            self.with_tx(f);
+            self.0.lock().unwrap().reset();
+        }
+    }
 
     pub fn reset(&self) {
         self.0.lock().unwrap().reset();
@@ -137,6 +146,11 @@ pub fn with_tx_options<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(options: Optio
 #[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
     with_card(move |mut card| card.with_tx(f))
+}
+
+#[cfg(not(feature = "dangerous-test-real-card"))]
+pub fn with_many_tx(fs: impl IntoIterator<Item = impl FnOnce(OpenPgpTransaction<'_>)>) {
+    with_card(move |mut card| card.with_many_tx(fs))
 }
 
 #[cfg(not(feature = "dangerous-test-real-card"))]

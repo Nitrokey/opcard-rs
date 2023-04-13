@@ -3,14 +3,13 @@
 
 use hex_literal::hex;
 use iso7816::Status;
+use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
-use trussed::{syscall, try_syscall};
 use trussed_auth::AuthClient;
 
 use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
 use crate::types::*;
-use crate::utils::InspectErr;
 
 const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
 
@@ -103,14 +102,14 @@ pub fn aut<const R: usize, T: trussed::Client + AuthClient>(
 
 #[cfg(feature = "rsa")]
 fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
         mechanism,
-        StorageAttributes::new().set_persistence(ctx.options.storage)
+        StorageAttributes::default().set_persistence(Location::Volatile)
     ))
     .map_err(|_err| {
         error!("Failed to generate key: {_err:?}");
@@ -118,61 +117,64 @@ fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     })?
     .key;
 
-    if let Some((old_key, _)) = ctx
-        .state
-        .persistent
-        .set_key_id(
+    let pubkey = try_syscall!(client.derive_key(
+        mechanism,
+        key_id,
+        None,
+        StorageAttributes::default().set_persistence(ctx.options.storage)
+    ))
+    .map_err(|_err| {
+        warn!("Failed to derive_ke: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+    ctx.state
+        .set_key(
             key,
-            Some((key_id, KeyOrigin::Generated)),
+            Some((key_id, (pubkey, KeyOrigin::Generated))),
             client,
             ctx.options.storage,
         )
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
-    {
-        // Deletion is not a fatal error
-        try_syscall!(client.delete(old_key))
-            .inspect_err_stable(|_err| {
-                error!("Failed to delete old key: {_err:?}");
-            })
-            .ok();
-    }
-    read_rsa_key(ctx, key_id, mechanism)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    read_rsa_key(ctx, pubkey, mechanism)
 }
 
 fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
-    ctx: LoadedContext<'_, R, T>,
+    mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
     curve: CurveAlgo,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
     let key_id = try_syscall!(client.generate_key(
         curve.mechanism(),
-        StorageAttributes::new().set_persistence(ctx.options.storage)
+        StorageAttributes::default().set_persistence(Location::Volatile)
     ))
     .map_err(|_err| {
         error!("Failed to generate key: {_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
-    if let Some((old_key, _)) = ctx
-        .state
-        .persistent
-        .set_key_id(
+
+    let pubkey = try_syscall!(client.derive_key(
+        curve.mechanism(),
+        key_id,
+        None,
+        StorageAttributes::default().set_persistence(ctx.options.storage)
+    ))
+    .map_err(|_err| {
+        warn!("Failed to derive_ke: {_err:?}");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?
+    .key;
+    ctx.state
+        .set_key(
             key,
-            Some((key_id, KeyOrigin::Generated)),
+            Some((key_id, (pubkey, KeyOrigin::Generated))),
             client,
             ctx.options.storage,
         )
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?
-    {
-        // Deletion is not a fatal error
-        try_syscall!(client.delete(old_key))
-            .inspect_err_stable(|_err| {
-                error!("Failed to delete old key: {_err:?}");
-            })
-            .ok();
-    }
-    read_ec_key(ctx, key_id, curve)
+        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
+    read_ec_key(ctx, pubkey, curve)
 }
 
 pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
@@ -181,7 +183,7 @@ pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
     let key_id = ctx
         .state
         .persistent
-        .key_id(KeyType::Sign)
+        .public_key_id(KeyType::Sign)
         .ok_or(Status::KeyReferenceNotFound)?;
 
     let algo = ctx.state.persistent.sign_alg();
@@ -200,7 +202,7 @@ pub fn read_dec<const R: usize, T: trussed::Client + AuthClient>(
     let key_id = ctx
         .state
         .persistent
-        .key_id(KeyType::Dec)
+        .public_key_id(KeyType::Dec)
         .ok_or(Status::KeyReferenceNotFound)?;
 
     let algo = ctx.state.persistent.dec_alg();
@@ -225,7 +227,7 @@ pub fn read_aut<const R: usize, T: trussed::Client + AuthClient>(
     let key_id = ctx
         .state
         .persistent
-        .key_id(KeyType::Aut)
+        .public_key_id(KeyType::Aut)
         .ok_or(Status::KeyReferenceNotFound)?;
 
     let algo = ctx.state.persistent.aut_alg();
@@ -265,26 +267,17 @@ fn serialize_25519<const R: usize, T: trussed::Client + AuthClient>(
 
 fn read_ec_key<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
-    key_id: KeyId,
+    public_key: KeyId,
     curve: CurveAlgo,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
-    let public_key = syscall!(client.derive_key(
-        curve.mechanism(),
-        key_id,
-        None,
-        StorageAttributes::new().set_persistence(Location::Volatile)
-    ))
-    .key;
     let serialized =
         try_syscall!(client.serialize_key(curve.mechanism(), public_key, KeySerialization::Raw))
             .map_err(|_err| {
                 error!("Failed to serialize public key: {_err:?}");
-                syscall!(client.delete(public_key));
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
-    syscall!(client.delete(public_key));
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
     serialize_pub(curve, ctx.lend(), &serialized)?;
@@ -294,17 +287,10 @@ fn read_ec_key<const R: usize, T: trussed::Client + AuthClient>(
 #[cfg(feature = "rsa")]
 fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
-    key_id: KeyId,
+    public_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
     let client = ctx.backend.client_mut();
-    let public_key = syscall!(client.derive_key(
-        mechanism,
-        key_id,
-        None,
-        StorageAttributes::new().set_persistence(Location::Volatile)
-    ))
-    .key;
     ctx.reply.expand(KEYGEN_DO_TAG)?;
     let offset = ctx.reply.len();
 
@@ -312,14 +298,12 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
         try_syscall!(client.serialize_key(mechanism, public_key, KeySerialization::RsaParts))
             .map_err(|_err| {
                 error!("Failed to serialize public key N: {_err:?}");
-                syscall!(client.delete(public_key));
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
     let parsed_pubkey_data: RsaPublicParts =
         trussed::postcard_deserialize(&pubkey_data).map_err(|_err| {
             error!("Failed to deserialize public key");
-            syscall!(client.delete(public_key));
             Status::UnspecifiedNonpersistentExecutionError
         })?;
     ctx.reply.expand(&[0x81])?;
@@ -332,7 +316,6 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
 
     ctx.reply.prepend_len(offset)?;
 
-    syscall!(client.delete(public_key));
     Ok(())
 }
 
