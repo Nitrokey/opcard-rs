@@ -445,7 +445,7 @@ impl<'a> LoadedState<'a> {
     ) -> Result<(), Error> {
         self.volatile.user.0.clear_aes_cached(client);
         let user_kek = self.get_user_key(client, storage)?;
-        syscall!(client.wrap_to_file(
+        syscall!(client.wrap_key_to_file(
             Mechanism::Chacha8Poly1305,
             user_kek,
             new,
@@ -491,7 +491,7 @@ impl<'a> LoadedState<'a> {
 
         let user_kek = self.get_user_key(client, storage)?;
 
-        syscall!(client.wrap_to_file(
+        syscall!(client.wrap_key_to_file(
             Mechanism::Chacha8Poly1305,
             user_kek,
             new_id,
@@ -1259,7 +1259,7 @@ impl Volatile {
             return Ok(*k);
         }
 
-        let unwrapped_key = try_syscall!(client.unwrap_from_file(
+        let unwrapped_key = try_syscall!(client.unwrap_key_from_file(
             Mechanism::Chacha8Poly1305,
             user_kek,
             PathBuf::from(path),
