@@ -671,9 +671,11 @@ fn manage_security_environment<const R: usize, T: crate::card::Client>(
     ctx: Context<'_, R, T>,
     mode: ManageSecurityEnvironmentMode,
 ) -> Result<(), Status> {
+    const DEC_DATA: &[u8] = &hex!("83 01 02");
+    const AUT_DATA: &[u8] = &hex!("83 01 03");
     let key_ref = match ctx.data {
-        hex!("83 01 02") => KeyRef::Dec,
-        hex!("83 01 03") => KeyRef::Aut,
+        DEC_DATA => KeyRef::Dec,
+        AUT_DATA => KeyRef::Aut,
         _ => {
             warn!(
                 "Manage Security Environment called with invalid reference: {:x?}",
