@@ -78,6 +78,59 @@ fn rsa2048() {
     open.factory_reset().unwrap();
 }
 
+#[cfg(feature = "rsa3072")]
+fn rsa3072() {
+    let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
+    let mut pgp = OpenPgp::new(card);
+    let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
+    open.verify_admin(b"12345678").unwrap();
+    let mut admin = open.admin_card().unwrap();
+
+    let (material, gendate) = admin
+        .generate_key_simple(KeyType::Decryption, Some(AlgoSimple::RSA2k))
+        .unwrap();
+    let dec_pubk =
+        public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None).unwrap();
+
+    let (material, gendate) = admin
+        .generate_key_simple(KeyType::Authentication, Some(AlgoSimple::RSA2k))
+        .unwrap();
+    let aut_pubk =
+        public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+            .unwrap();
+
+    let (material, gendate) = admin
+        .generate_key_simple(KeyType::Signing, Some(AlgoSimple::RSA2k))
+        .unwrap();
+    let pubk =
+        public_key_material_to_key(&material, KeyType::Signing, &gendate, None, None).unwrap();
+
+    open.verify_user_for_signing(b"123456").unwrap();
+    let mut sign_card = open.signing_card().unwrap();
+    let mut signer = sign_card.signer_from_public(pubk.clone(), &|| {});
+    let data = [1; 48];
+    let signature = signer.sign(HashAlgorithm::SHA384, &data).unwrap();
+    assert!(pubk
+        .verify(&signature, HashAlgorithm::SHA384, &data)
+        .is_ok());
+
+    open.verify_user(b"123456").unwrap();
+    let mut user_card = open.user_card().unwrap();
+    let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+    let data = [2; 48];
+    let signature = authenticator.sign(HashAlgorithm::SHA384, &data).unwrap();
+    assert!(aut_pubk
+        .verify(&signature, HashAlgorithm::SHA384, &data)
+        .is_ok());
+
+    let mut session = SessionKey::new(19);
+    session[0] = 7;
+    let ciphertext = dec_pubk.encrypt(&session).unwrap();
+    let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+    assert_eq!(session, decryptor.decrypt(&ciphertext, None).unwrap());
+    open.factory_reset().unwrap();
+}
+
 #[cfg(feature = "rsa4096-gen")]
 fn rsa4096() {
     let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
@@ -290,6 +343,9 @@ fn sequoia_gen_key() {
     #[cfg(feature = "rsa2048")]
     virt::with_vsc(rsa2048);
 
+    #[cfg(feature = "rsa3072")]
+    virt::with_vsc(rsa3072);
+
     #[cfg(feature = "rsa4096-gen")]
     virt::with_vsc(rsa4096);
 
@@ -303,6 +359,9 @@ fn sequoia_gen_key() {
 fn sequoia_gen_key() {
     #[cfg(feature = "rsa2048")]
     rsa2048();
+
+    #[cfg(feature = "rsa3072")]
+    rsa3072();
 
     #[cfg(feature = "rsa4096-gen")]
     rsa4096();

@@ -68,7 +68,8 @@ virt = ["std", "trussed/virt"]
 
 rsa = ["trussed-rsa-alloc"]
 rsa2048 = ["rsa"]
-rsa4096 = ["rsa2048"]
+rsa3072 = ["rsa2048"]
+rsa4096 = ["rsa3072"]
 rsa4096-gen = ["rsa4096"]
 
 dangerous-test-real-card = []

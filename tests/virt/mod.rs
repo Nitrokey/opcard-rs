@@ -74,9 +74,11 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 #[allow(unused)]
 pub enum KeyType {
     RsaNone,
-    Rsa,
+    Rsa2048,
+    Rsa3072,
     Rsa4096,
-    RsaNoAut,
+    Rsa2048NoAut,
+    Rsa3072NoAut,
     Rsa4096NoAut,
     Cv25519,
     Cv25519NoAut,
@@ -115,10 +117,17 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
             "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
             "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
         ),
-        KeyType::Rsa => (
+        KeyType::Rsa2048 => (
             r"keyattr:1:1:2048:",
             r"keyattr:2:1:2048:",
             r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+        ),
+        KeyType::Rsa3072 => (
+            r"keyattr:1:1:3072:",
+            r"keyattr:2:1:3072:",
+            r"keyattr:3:1:3072:",
             "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
             "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
         ),
@@ -129,9 +138,16 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
             "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
             "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
         ),
-        KeyType::RsaNoAut => (
+        KeyType::Rsa2048NoAut => (
             r"keyattr:1:1:2048:",
             r"keyattr:2:1:2048:",
+            r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
+        ),
+        KeyType::Rsa3072NoAut => (
+            r"keyattr:1:1:3072:",
+            r"keyattr:2:1:3072:",
             r"keyattr:3:1:2048:",
             "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
             "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
