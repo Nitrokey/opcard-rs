@@ -25,7 +25,7 @@ const IDENT: &str = concat!(
     env!("OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL")
 );
 
-#[cfg(feature = "rsa2048")]
+#[cfg(feature = "rsa2048-gen")]
 fn rsa2048() {
     let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
     let mut pgp = OpenPgp::new(card);
@@ -78,7 +78,7 @@ fn rsa2048() {
     open.factory_reset().unwrap();
 }
 
-#[cfg(feature = "rsa3072")]
+#[cfg(feature = "rsa3072-gen")]
 fn rsa3072() {
     let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
     let mut pgp = OpenPgp::new(card);
@@ -340,10 +340,10 @@ fn curve25519() {
 #[cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
 #[test]
 fn sequoia_gen_key() {
-    #[cfg(feature = "rsa2048")]
+    #[cfg(feature = "rsa2048-gen")]
     virt::with_vsc(rsa2048);
 
-    #[cfg(feature = "rsa3072")]
+    #[cfg(feature = "rsa3072-gen")]
     virt::with_vsc(rsa3072);
 
     #[cfg(feature = "rsa4096-gen")]
@@ -357,10 +357,10 @@ fn sequoia_gen_key() {
 #[cfg(feature = "dangerous-test-real-card")]
 #[test]
 fn sequoia_gen_key() {
-    #[cfg(feature = "rsa2048")]
+    #[cfg(feature = "rsa2048-gen")]
     rsa2048();
 
-    #[cfg(feature = "rsa3072")]
+    #[cfg(feature = "rsa3072-gen")]
     rsa3072();
 
     #[cfg(feature = "rsa4096-gen")]

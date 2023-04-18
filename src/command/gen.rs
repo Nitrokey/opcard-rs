@@ -38,16 +38,31 @@ pub fn sign<const R: usize, T: trussed::Client + AuthClient>(
             gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP256)
         }
         SignatureAlgorithm::Rsa2048 => {
-            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
+            #[cfg(feature = "rsa2048-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15);
+            #[cfg(not(feature = "rsa2048-gen"))]
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
         SignatureAlgorithm::Rsa3072 => {
-            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15)
+            #[cfg(feature = "rsa3072-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15);
+            #[cfg(not(feature = "rsa3072-gen"))]
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
         SignatureAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
             return gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15);
             #[cfg(not(feature = "rsa4096-gen"))]
-            return Err(Status::FunctionNotSupported);
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
     }
 }
@@ -61,16 +76,31 @@ pub fn dec<const R: usize, T: trussed::Client + AuthClient>(
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => {
-            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
+            #[cfg(feature = "rsa2048-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15);
+            #[cfg(not(feature = "rsa2048-gen"))]
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
         DecryptionAlgorithm::Rsa3072 => {
-            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15)
+            #[cfg(feature = "rsa3072-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15);
+            #[cfg(not(feature = "rsa3072-gen"))]
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
         DecryptionAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
             return gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs1v15);
             #[cfg(not(feature = "rsa4096-gen"))]
-            return Err(Status::FunctionNotSupported);
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
     }
 }
@@ -86,21 +116,36 @@ pub fn aut<const R: usize, T: trussed::Client + AuthClient>(
             gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP256)
         }
         AuthenticationAlgorithm::Rsa2048 => {
-            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
+            #[cfg(feature = "rsa2048-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15);
+            #[cfg(not(feature = "rsa2048-gen"))]
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
         AuthenticationAlgorithm::Rsa3072 => {
-            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15)
+            #[cfg(feature = "rsa3072-gen")]
+            return gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15);
+            #[cfg(not(feature = "rsa3072-gen"))]
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
         AuthenticationAlgorithm::Rsa4096 => {
             #[cfg(feature = "rsa4096-gen")]
             return gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs1v15);
             #[cfg(not(feature = "rsa4096-gen"))]
-            return Err(Status::FunctionNotSupported);
+            {
+                warn!("Attempt to generate key disabled {:?}", algo);
+                return Err(Status::FunctionNotSupported);
+            }
         }
     }
 }
 
-#[cfg(feature = "rsa")]
+#[cfg(feature = "rsa2048-gen")]
 fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
@@ -316,15 +361,6 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.prepend_len(offset)?;
 
     Ok(())
-}
-
-#[cfg(not(feature = "rsa"))]
-fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
-    _ctx: LoadedContext<'_, R, T>,
-    _key: KeyType,
-    _mechanism: Mechanism,
-) -> Result<(), Status> {
-    Err(Status::FunctionNotSupported)
 }
 
 #[cfg(not(feature = "rsa"))]

@@ -30,7 +30,7 @@ fn attr_ec_ask() -> Vec<&'static str> {
     .collect()
 }
 
-#[cfg(any(feature = "rsa4096-gen", feature = "rsa3072"))]
+#[cfg(any(feature = "rsa2048-gen"))]
 fn attr_rsa_ask() -> Vec<&'static str> {
     iter::repeat(
         [
@@ -551,7 +551,7 @@ fn gpg_p256() {
     );
 }
 
-#[cfg(feature = "rsa2048")]
+#[cfg(feature = "rsa2048-gen")]
 fn gpg_rsa_2048() {
     let file_number: u32 = rand::rngs::OsRng.gen();
     let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
@@ -784,7 +784,7 @@ fn gpg_rsa_2048() {
     );
 }
 
-#[cfg(feature = "rsa3072")]
+#[cfg(feature = "rsa3072-gen")]
 fn gpg_rsa_3072() {
     let file_number: u32 = rand::rngs::OsRng.gen();
     let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
@@ -1283,9 +1283,9 @@ fn gpg_rsa_4096() {
 fn gpg_crypto() {
     with_vsc(gpg_255);
     with_vsc(gpg_p256);
-    #[cfg(feature = "rsa2048")]
+    #[cfg(feature = "rsa2048-gen")]
     with_vsc(gpg_rsa_2048);
-    #[cfg(feature = "rsa3072")]
+    #[cfg(feature = "rsa3072-gen")]
     with_vsc(gpg_rsa_3072);
     #[cfg(feature = "rsa4096-gen")]
     with_vsc(gpg_rsa_4096);
@@ -1296,9 +1296,9 @@ fn gpg_crypto() {
 fn gpg_crypto() {
     gpg_255();
     gpg_p256();
-    #[cfg(feature = "rsa2048")]
+    #[cfg(feature = "rsa2048-gen")]
     gpg_rsa_2048();
-    #[cfg(feature = "rsa3072")]
+    #[cfg(feature = "rsa3072-gen")]
     gpg_rsa_3072();
     #[cfg(feature = "rsa4096-gen")]
     gpg_rsa_4096();
