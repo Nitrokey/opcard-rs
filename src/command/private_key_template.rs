@@ -208,6 +208,16 @@ fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     mechanism: Mechanism,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
+    match mechanism {
+        #[cfg(feature = "rsa2048")]
+        Mechanism::Rsa2048Pkcs1v15 => {}
+        #[cfg(feature = "rsa3072")]
+        Mechanism::Rsa3072Pkcs1v15 => {}
+        #[cfg(feature = "rsa4096")]
+        Mechanism::Rsa4096Pkcs1v15 => {}
+        _ => return Err(Status::FunctionNotSupported),
+    };
+
     let key_data = parse_rsa_template(ctx.data).ok_or_else(|| {
         warn!("Unable to parse RSA key");
         Status::IncorrectDataParameter
