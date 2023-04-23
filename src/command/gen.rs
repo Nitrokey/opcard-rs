@@ -301,11 +301,10 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
                 Status::UnspecifiedNonpersistentExecutionError
             })?
             .serialized_key;
-    let parsed_pubkey_data: RsaPublicParts =
-        trussed::postcard_deserialize(&pubkey_data).map_err(|_err| {
-            error!("Failed to deserialize public key");
-            Status::UnspecifiedNonpersistentExecutionError
-        })?;
+    let parsed_pubkey_data = RsaPublicParts::deserialize(&pubkey_data).map_err(|_err| {
+        error!("Failed to deserialize public key");
+        Status::UnspecifiedNonpersistentExecutionError
+    })?;
     ctx.reply.expand(&[0x81])?;
     ctx.reply.append_len(parsed_pubkey_data.n.len())?;
     ctx.reply.expand(parsed_pubkey_data.n)?;
