@@ -8,12 +8,12 @@
 //! # Backends
 //!
 //! This crate is designed to work on any platform supported by [trussed](https://trussed.dev).
-//! Trussed requires a [Client][trussed::Client] implementation for each platform.
+//! Trussed requires a [Client][crate::card::Client] implementation for each platform.
 //!
 //! # Command handling
 //!
 //! The [`Card`] struct is the main entry point for this crate.  It depends on a Trussed
-//! [`Client`][`trussed::Client`] implementation that provides low-level functionality.  The card
+//! [`Client`][`crate::card::Client`] implementation that provides low-level functionality.  The card
 //! can be configured using [`Options`].  Its [`Card::handle`] method expects a full APDU command
 //! and constructs a reply for it.
 //!
@@ -64,5 +64,5 @@ pub mod virt;
 
 #[cfg(feature = "vpicc")]
 pub use self::vpicc::VpiccCard;
-pub use card::{Card, Options};
+pub use card::{Card, Client, Options};
 pub use state::{DEFAULT_ADMIN_PIN, DEFAULT_USER_PIN};

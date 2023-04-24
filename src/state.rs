@@ -13,7 +13,6 @@ use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::types::{KeyId, Location, Mechanism, PathBuf, StorageAttributes};
 use trussed::{syscall, try_syscall};
-use trussed_auth::AuthClient;
 
 use crate::command::{Password, PasswordMode};
 use crate::error::Error;
@@ -170,7 +169,7 @@ pub struct State {
 
 impl State {
     /// Loads the persistent state from flash
-    pub fn load<'s, T: trussed::Client + AuthClient>(
+    pub fn load<'s, T: crate::card::Client>(
         &'s mut self,
         client: &mut T,
         storage: Location,
@@ -204,17 +203,14 @@ impl State {
     fn lifecycle_path() -> PathBuf {
         PathBuf::from(Self::LIFECYCLE_PATH)
     }
-    pub fn lifecycle<T: trussed::Client + AuthClient>(
-        client: &mut T,
-        storage: Location,
-    ) -> LifeCycle {
+    pub fn lifecycle<T: crate::card::Client>(client: &mut T, storage: Location) -> LifeCycle {
         match try_syscall!(client.entry_metadata(storage, Self::lifecycle_path())) {
             Ok(Metadata { metadata: Some(_) }) => LifeCycle::Initialization,
             _ => LifeCycle::Operational,
         }
     }
 
-    pub fn terminate_df<T: trussed::Client + AuthClient>(
+    pub fn terminate_df<T: crate::card::Client>(
         client: &mut T,
         storage: Location,
     ) -> Result<(), Status> {
@@ -226,7 +222,7 @@ impl State {
             })
     }
 
-    pub fn activate_file<T: trussed::Client + AuthClient>(
+    pub fn activate_file<T: crate::card::Client>(
         client: &mut T,
         storage: Location,
     ) -> Result<(), Status> {
@@ -255,7 +251,7 @@ impl<'a> LoadedState<'a> {
         }
     }
 
-    pub fn verify_pin<T: trussed::Client + AuthClient>(
+    pub fn verify_pin<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -305,7 +301,7 @@ impl<'a> LoadedState<'a> {
         Ok(())
     }
 
-    pub fn check_pin<T: trussed::Client + AuthClient>(
+    pub fn check_pin<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         value: &[u8],
@@ -321,7 +317,7 @@ impl<'a> LoadedState<'a> {
             .ok_or(Error::InvalidPin)
     }
 
-    fn get_user_key<T: trussed::Client + AuthClient>(
+    fn get_user_key<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -348,7 +344,7 @@ impl<'a> LoadedState<'a> {
         Ok(user_key)
     }
 
-    fn get_user_key_from_rc<T: trussed::Client + AuthClient>(
+    fn get_user_key_from_rc<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -375,7 +371,7 @@ impl<'a> LoadedState<'a> {
         Ok(user_key)
     }
 
-    pub fn reset_user_code_with_pw3<T: trussed::Client + AuthClient>(
+    pub fn reset_user_code_with_pw3<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -388,7 +384,7 @@ impl<'a> LoadedState<'a> {
         Ok(())
     }
 
-    pub fn reset_user_code_with_rc<T: trussed::Client + AuthClient>(
+    pub fn reset_user_code_with_rc<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -402,7 +398,7 @@ impl<'a> LoadedState<'a> {
         Ok(())
     }
 
-    pub fn set_reset_code<T: trussed::Client + AuthClient>(
+    pub fn set_reset_code<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -437,7 +433,7 @@ impl<'a> LoadedState<'a> {
         Ok(())
     }
 
-    pub fn set_aes_key<T: trussed::Client + AuthClient>(
+    pub fn set_aes_key<T: crate::card::Client>(
         &mut self,
         new: KeyId,
         client: &mut T,
@@ -458,7 +454,7 @@ impl<'a> LoadedState<'a> {
     }
 
     /// New contains (private key, (public key, KeyOrigin))
-    pub fn set_key<T: trussed::Client + AuthClient>(
+    pub fn set_key<T: crate::card::Client>(
         &mut self,
         ty: KeyType,
         new: Option<(KeyId, (KeyId, KeyOrigin))>,
@@ -610,10 +606,7 @@ impl Persistent {
         }
     }
 
-    fn init_pins<T: trussed::Client + AuthClient>(
-        client: &mut T,
-        location: Location,
-    ) -> Result<(), Error> {
+    fn init_pins<T: crate::card::Client>(client: &mut T, location: Location) -> Result<(), Error> {
         #[allow(clippy::unwrap_used)]
         let default_user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
         #[allow(clippy::unwrap_used)]
@@ -653,10 +646,7 @@ impl Persistent {
         syscall!(client.delete(admin_key));
         Ok(())
     }
-    pub fn load<T: trussed::Client + AuthClient>(
-        client: &mut T,
-        storage: Location,
-    ) -> Result<Self, Error> {
+    pub fn load<T: crate::card::Client>(client: &mut T, storage: Location) -> Result<Self, Error> {
         if let Some(data) = load_if_exists(client, storage, &Self::path())? {
             trussed::cbor_deserialize(&data).map_err(|_err| {
                 error!("failed to deserialize persistent state: {_err}");
@@ -668,7 +658,11 @@ impl Persistent {
         }
     }
 
-    pub fn save<T: trussed::Client>(&self, client: &mut T, storage: Location) -> Result<(), Error> {
+    pub fn save<T: crate::card::Client>(
+        &self,
+        client: &mut T,
+        storage: Location,
+    ) -> Result<(), Error> {
         let msg = trussed::cbor_serialize_bytes(&self).map_err(|_err| {
             error!("Failed to serialize: {_err}");
             Error::Saving
@@ -680,7 +674,7 @@ impl Persistent {
         Ok(())
     }
 
-    pub fn remaining_tries<T: trussed::Client + AuthClient>(
+    pub fn remaining_tries<T: crate::card::Client>(
         &self,
         client: &mut T,
         password: Password,
@@ -690,11 +684,7 @@ impl Persistent {
             .unwrap_or(0)
     }
 
-    pub fn is_locked<T: trussed::Client + AuthClient>(
-        &self,
-        client: &mut T,
-        password: Password,
-    ) -> bool {
+    pub fn is_locked<T: crate::card::Client>(&self, client: &mut T, password: Password) -> bool {
         self.remaining_tries(client, password) == 0
     }
 
@@ -712,7 +702,7 @@ impl Persistent {
         self.reset_code_pin_len.map(Into::into)
     }
 
-    pub fn change_pin<T: trussed::Client + AuthClient>(
+    pub fn change_pin<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -727,7 +717,7 @@ impl Persistent {
         self.set_pin_len(client, storage, new_pin.len(), password)
     }
 
-    fn set_pin_len<T: trussed::Client + AuthClient>(
+    fn set_pin_len<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -742,7 +732,7 @@ impl Persistent {
         self.save(client, storage)
     }
 
-    pub fn remove_reset_code<T: trussed::Client + AuthClient>(
+    pub fn remove_reset_code<T: crate::card::Client>(
         &mut self,
         client: &mut T,
         storage: Location,
@@ -761,7 +751,7 @@ impl Persistent {
 
     pub fn set_sign_alg(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         alg: SignatureAlgorithm,
     ) -> Result<(), Error> {
@@ -779,7 +769,7 @@ impl Persistent {
 
     pub fn set_dec_alg(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         alg: DecryptionAlgorithm,
     ) -> Result<(), Error> {
@@ -797,7 +787,7 @@ impl Persistent {
 
     pub fn set_aut_alg(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         alg: AuthenticationAlgorithm,
     ) -> Result<(), Error> {
@@ -815,7 +805,7 @@ impl Persistent {
 
     pub fn set_fingerprints(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         data: Fingerprints,
     ) -> Result<(), Error> {
@@ -829,7 +819,7 @@ impl Persistent {
 
     pub fn set_ca_fingerprints(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         data: CaFingerprints,
     ) -> Result<(), Error> {
@@ -843,7 +833,7 @@ impl Persistent {
 
     pub fn set_keygen_dates(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         data: KeyGenDates,
     ) -> Result<(), Error> {
@@ -861,7 +851,7 @@ impl Persistent {
 
     pub fn set_uif(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         uif: Uif,
         key: KeyType,
@@ -881,7 +871,7 @@ impl Persistent {
     pub fn set_pw1_valid_multiple(
         &mut self,
         value: bool,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<(), Error> {
         self.pw1_valid_multiple = value;
@@ -895,7 +885,7 @@ impl Persistent {
     pub fn set_cardholder_name(
         &mut self,
         value: Bytes<39>,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<(), Error> {
         self.cardholder_name = value;
@@ -909,7 +899,7 @@ impl Persistent {
     pub fn set_cardholder_sex(
         &mut self,
         value: Sex,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<(), Error> {
         self.cardholder_sex = value;
@@ -923,7 +913,7 @@ impl Persistent {
     pub fn set_language_preferences(
         &mut self,
         value: Bytes<8>,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<(), Error> {
         self.language_preferences = value;
@@ -936,7 +926,7 @@ impl Persistent {
 
     pub fn increment_sign_count(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<(), Error> {
         self.sign_count += 1;
@@ -958,7 +948,7 @@ impl Persistent {
     pub fn delete_key(
         &mut self,
         ty: KeyType,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<(), Error> {
         let (key, path) = match ty {
@@ -1022,7 +1012,7 @@ impl UserKeys {
         take(self)
     }
 
-    fn clear(&mut self, client: &mut impl trussed::Client) {
+    fn clear(&mut self, client: &mut impl crate::card::Client) {
         for k in [&mut self.sign, &mut self.dec, &mut self.aut, &mut self.aes]
             .into_iter()
             .flat_map(Option::take)
@@ -1131,7 +1121,7 @@ impl UserVerifiedInner {
             _ => None,
         }
     }
-    fn clear(&mut self, client: &mut impl trussed::Client) {
+    fn clear(&mut self, client: &mut impl crate::card::Client) {
         match self.take() {
             Self::Other(k, mut cache)
             | Self::Sign(k, mut cache)
@@ -1157,7 +1147,7 @@ impl UserVerifiedInner {
         }
     }
 
-    fn clear_cached(&mut self, client: &mut impl trussed::Client, ty: KeyType) {
+    fn clear_cached(&mut self, client: &mut impl crate::card::Client, ty: KeyType) {
         let Some(cache) = self.cache_mut() else {
             return;
         };
@@ -1173,7 +1163,7 @@ impl UserVerifiedInner {
         }
     }
 
-    fn clear_aes_cached(&mut self, client: &mut impl trussed::Client) {
+    fn clear_aes_cached(&mut self, client: &mut impl crate::card::Client) {
         let Some(cache) = self.cache_mut() else {
             return;
         };
@@ -1183,14 +1173,14 @@ impl UserVerifiedInner {
         }
     }
 
-    fn clear_sign(&mut self, client: &mut impl trussed::Client) {
+    fn clear_sign(&mut self, client: &mut impl crate::card::Client) {
         match self {
             Self::Sign(_k, _cache) => self.clear(client),
             Self::OtherAndSign(k, cache) => *self = Self::Other(*k, cache.take()),
             _ => {}
         };
     }
-    fn clear_other(&mut self, client: &mut impl trussed::Client) {
+    fn clear_other(&mut self, client: &mut impl crate::card::Client) {
         match self {
             Self::Other(_k, _cache) => self.clear(client),
             Self::OtherAndSign(k, cache) => *self = Self::Sign(*k, cache.take()),
@@ -1242,14 +1232,14 @@ impl Volatile {
         self.admin.0
     }
 
-    pub fn clear_admin(&mut self, client: &mut impl trussed::Client) {
+    pub fn clear_admin(&mut self, client: &mut impl crate::card::Client) {
         if let Some(k) = self.admin.0.take() {
             syscall!(client.delete(k));
         }
     }
 
     fn load_or_get_key(
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         user_kek: KeyId,
         opt_key: &mut Option<KeyId>,
         path: &'static str,
@@ -1283,7 +1273,7 @@ impl Volatile {
 
     pub fn aes_key_id(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<KeyId, Status> {
         match &mut self.user.0 {
@@ -1299,7 +1289,7 @@ impl Volatile {
     /// Returns the requested key
     pub fn key_id(
         &mut self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         key: KeyType,
         storage: Location,
     ) -> Result<KeyId, Status> {
@@ -1343,15 +1333,15 @@ impl Volatile {
         self.user.0.user_kek()
     }
 
-    pub fn clear(&mut self, client: &mut impl trussed::Client) {
+    pub fn clear(&mut self, client: &mut impl crate::card::Client) {
         self.user.0.clear(client);
         self.clear_admin(client)
     }
 
-    pub fn clear_sign(&mut self, client: &mut impl trussed::Client) {
+    pub fn clear_sign(&mut self, client: &mut impl crate::card::Client) {
         self.user.0.clear_sign(client)
     }
-    pub fn clear_other(&mut self, client: &mut impl trussed::Client) {
+    pub fn clear_other(&mut self, client: &mut impl crate::card::Client) {
         self.user.0.clear_other(client)
     }
 }
@@ -1416,7 +1406,7 @@ impl ArbitraryDO {
 
     pub fn load(
         self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<Bytes<MAX_GENERIC_LENGTH>, Error> {
         load_if_exists(client, storage, &self.path())
@@ -1425,7 +1415,7 @@ impl ArbitraryDO {
 
     pub fn save(
         self,
-        client: &mut impl trussed::Client,
+        client: &mut impl crate::card::Client,
         storage: Location,
         bytes: &[u8],
     ) -> Result<(), Error> {
@@ -1442,7 +1432,7 @@ impl ArbitraryDO {
 }
 
 fn load_if_exists(
-    client: &mut impl trussed::Client,
+    client: &mut impl crate::card::Client,
     location: Location,
     path: &PathBuf,
 ) -> Result<Option<Bytes<MAX_MESSAGE_LENGTH>>, Error> {

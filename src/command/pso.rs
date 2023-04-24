@@ -5,14 +5,13 @@ use iso7816::Status;
 
 use trussed::types::*;
 use trussed::{syscall, try_syscall};
-use trussed_auth::AuthClient;
 
 use crate::card::LoadedContext;
 use crate::state::KeyRef;
 use crate::tlv::get_do;
 use crate::types::*;
 
-fn check_uif<const R: usize, T: trussed::Client + AuthClient>(
+fn check_uif<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
     key: KeyType,
 ) -> Result<(), Status> {
@@ -23,7 +22,7 @@ fn check_uif<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-fn prompt_uif<const R: usize, T: trussed::Client + AuthClient>(
+fn prompt_uif<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let success = ctx
@@ -40,7 +39,7 @@ fn prompt_uif<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 // § 7.2.10
-pub fn sign<const R: usize, T: trussed::Client + AuthClient>(
+pub fn sign<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id =
@@ -76,7 +75,7 @@ pub fn sign<const R: usize, T: trussed::Client + AuthClient>(
     sign_result
 }
 
-fn sign_ec<const R: usize, T: trussed::Client + AuthClient>(
+fn sign_ec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key_id: KeyId,
     mechanism: Mechanism,
@@ -95,7 +94,7 @@ fn sign_ec<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.expand(&signature)
 }
 
-fn sign_rsa<const R: usize, T: trussed::Client + AuthClient>(
+fn sign_rsa<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key_id: KeyId,
     mechanism: Mechanism,
@@ -119,7 +118,7 @@ enum RsaOrEcc {
     Ecc,
 }
 
-fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client + AuthClient>(
+fn int_aut_key_mecha_uif<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
     let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.internal_aut {
@@ -168,7 +167,7 @@ fn int_aut_key_mecha_uif<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 // § 7.2.13
-pub fn internal_authenticate<const R: usize, T: trussed::Client + AuthClient>(
+pub fn internal_authenticate<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if !ctx.state.volatile.other_verified() {
@@ -187,7 +186,7 @@ pub fn internal_authenticate<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-fn decipher_key_mecha_uif<const R: usize, T: trussed::Client + AuthClient>(
+fn decipher_key_mecha_uif<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
     let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.pso_decipher {
@@ -228,7 +227,7 @@ fn decipher_key_mecha_uif<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 // § 7.2.11
-pub fn decipher<const R: usize, T: trussed::Client + AuthClient>(
+pub fn decipher<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     if !ctx.state.volatile.other_verified() {
@@ -253,7 +252,7 @@ pub fn decipher<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-fn decrypt_rsa<const R: usize, T: trussed::Client + AuthClient>(
+fn decrypt_rsa<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     private_key: KeyId,
     mechanism: Mechanism,
@@ -281,7 +280,7 @@ fn decrypt_rsa<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.expand(&plaintext)
 }
 
-fn decrypt_ec<const R: usize, T: trussed::Client + AuthClient>(
+fn decrypt_ec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     private_key: KeyId,
     mechanism: Mechanism,
@@ -360,7 +359,7 @@ fn decrypt_ec<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.expand(&data)
 }
 
-fn decipher_aes<const R: usize, T: trussed::Client + AuthClient>(
+fn decipher_aes<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx
@@ -393,7 +392,7 @@ fn decipher_aes<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.expand(&plaintext)
 }
 
-pub fn encipher<const R: usize, T: trussed::Client + AuthClient>(
+pub fn encipher<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx

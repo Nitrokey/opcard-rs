@@ -16,12 +16,16 @@ pub mod dispatch {
         types::{Bytes, Context, Location},
     };
     use trussed_auth::{AuthBackend, AuthContext, AuthExtension, MAX_HW_KEY_LEN};
+    use trussed_staging::{
+        wrap_key_to_file::WrapKeyToFileExtension, StagingBackend, StagingContext,
+    };
 
     #[cfg(feature = "rsa")]
     use trussed_rsa_alloc::SoftwareRsa;
 
     /// Backends used by opcard
     pub const BACKENDS: &[BackendId<Backend>] = &[
+        BackendId::Custom(Backend::Staging),
         BackendId::Custom(Backend::Auth),
         #[cfg(feature = "rsa")]
         BackendId::Custom(Backend::Rsa),
@@ -33,6 +37,8 @@ pub mod dispatch {
     pub enum Backend {
         /// trussed-auth
         Auth,
+        /// trussed-staging
+        Staging,
         /// trussed-rsa-alloc
         #[cfg(feature = "rsa")]
         Rsa,
@@ -44,12 +50,15 @@ pub mod dispatch {
     pub enum Extension {
         /// trussed-auth
         Auth,
+        /// wrap_key_to_file
+        WrapKeyToFile,
     }
 
     impl From<Extension> for u8 {
         fn from(extension: Extension) -> Self {
             match extension {
                 Extension::Auth => 0,
+                Extension::WrapKeyToFile => 1,
             }
         }
     }
@@ -60,6 +69,7 @@ pub mod dispatch {
         fn try_from(id: u8) -> Result<Self, Self::Error> {
             match id {
                 0 => Ok(Extension::Auth),
+                1 => Ok(Extension::WrapKeyToFile),
                 _ => Err(Error::InternalError),
             }
         }
@@ -69,12 +79,14 @@ pub mod dispatch {
     #[derive(Debug)]
     pub struct Dispatch {
         auth: AuthBackend,
+        staging: StagingBackend,
     }
 
     /// Dispatch context for the backends required by opcard
     #[derive(Default, Debug)]
     pub struct DispatchContext {
         auth: AuthContext,
+        staging: StagingContext,
     }
 
     impl Dispatch {
@@ -82,6 +94,7 @@ pub mod dispatch {
         pub fn new() -> Self {
             Self {
                 auth: AuthBackend::new(Location::Internal),
+                staging: StagingBackend::new(),
             }
         }
 
@@ -89,6 +102,7 @@ pub mod dispatch {
         pub fn with_hw_key(hw_key: Bytes<MAX_HW_KEY_LEN>) -> Self {
             Self {
                 auth: AuthBackend::with_hw_key(Location::Internal, hw_key),
+                staging: StagingBackend::new(),
             }
         }
     }
@@ -116,6 +130,12 @@ pub mod dispatch {
                     self.auth
                         .request(&mut ctx.core, &mut ctx.backends.auth, request, resources)
                 }
+                Backend::Staging => self.staging.request(
+                    &mut ctx.core,
+                    &mut ctx.backends.staging,
+                    request,
+                    resources,
+                ),
                 #[cfg(feature = "rsa")]
                 Backend::Rsa => SoftwareRsa.request(&mut ctx.core, &mut (), request, resources),
             }
@@ -137,7 +157,18 @@ pub mod dispatch {
                         request,
                         resources,
                     ),
+                    Extension::WrapKeyToFile => Err(Error::RequestNotAvailable),
                 },
+                Backend::Staging => match extension {
+                    Extension::WrapKeyToFile => self.staging.extension_request_serialized(
+                        &mut ctx.core,
+                        &mut ctx.backends.staging,
+                        request,
+                        resources,
+                    ),
+                    Extension::Auth => Err(Error::RequestNotAvailable),
+                },
+
                 #[cfg(feature = "rsa")]
                 Backend::Rsa => Err(Error::RequestNotAvailable),
             }
@@ -148,6 +179,12 @@ pub mod dispatch {
         type Id = Extension;
 
         const ID: Self::Id = Self::Id::Auth;
+    }
+
+    impl ExtensionId<WrapKeyToFileExtension> for Dispatch {
+        type Id = Extension;
+
+        const ID: Self::Id = Self::Id::WrapKeyToFile;
     }
 }
 
