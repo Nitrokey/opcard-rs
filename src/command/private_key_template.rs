@@ -208,14 +208,12 @@ fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
     ctx: LoadedContext<'_, R, T>,
     mechanism: Mechanism,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
-    use trussed::{postcard_serialize_bytes, types::SerializedKey};
-
     let key_data = parse_rsa_template(ctx.data).ok_or_else(|| {
         warn!("Unable to parse RSA key");
         Status::IncorrectDataParameter
     })?;
 
-    let key_message: SerializedKey = postcard_serialize_bytes(&key_data).map_err(|_err| {
+    let key_message = key_data.serialize().map_err(|_err| {
         error!("Failed to serialize RSA key: {_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?;

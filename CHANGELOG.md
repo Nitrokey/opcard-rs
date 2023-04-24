@@ -5,6 +5,12 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
+## Unreleased
+
+### Changes
+
+- Use stable serialization helpers instead of postcard directly.
+
 ## [v0.4.0][] (2023-02-24)
 
 ### Features
