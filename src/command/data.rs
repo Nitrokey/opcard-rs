@@ -5,12 +5,9 @@ use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
 use trussed::{
-    syscall, try_syscall,
+    try_syscall,
     types::{KeyId, KeySerialization, Mechanism},
 };
-
-const CHACHA_NONCE_SIZE: usize = 12;
-const CHACHA_TAG_SIZE: usize = 16;
 
 use crate::{
     card::{Context, LoadedContext, Options},
@@ -798,7 +795,7 @@ fn signature_counter<const R: usize, T: crate::card::Client>(
 }
 
 fn get_arbitrary_do<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
+    ctx: Context<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     match obj.read_permission() {
@@ -811,36 +808,12 @@ fn get_arbitrary_do<const R: usize, T: crate::card::Client>(
         _ => {}
     }
 
-    let data = obj
-        .load(ctx.backend.client_mut(), ctx.options.storage)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)?;
-    ctx.reply.expand(&data)
-}
-
-fn get_arbitrary_enc_do<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-    obj: ArbitraryDO,
-    key: KeyId,
-) -> Result<(), Status> {
-    let data = obj
-        .load(ctx.backend.client_mut(), ctx.options.storage)
-        .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)?;
-    if data.is_empty() {
-        return Ok(());
-    }
-    let (data, tag) = data.split_at(data.len() - CHACHA_TAG_SIZE);
-    let (data, nonce) = data.split_at(data.len() - CHACHA_NONCE_SIZE);
-    let decrypted = syscall!(ctx.backend.client_mut().decrypt(
-        Mechanism::Chacha8Poly1305,
-        key,
-        data,
-        &[],
-        nonce,
-        tag
-    ))
-    .plaintext
-    .ok_or(Status::UnspecifiedNonpersistentExecutionError)?;
-    ctx.reply.expand(&decrypted)
+    obj.load(
+        ctx.backend.client_mut(),
+        ctx.options.storage,
+        ctx.reply,
+        None,
+    )
 }
 
 /// Get an arbitrary DO encrypted with the user key
@@ -851,7 +824,12 @@ fn get_arbitrary_user_enc_do<const R: usize, T: crate::card::Client>(
     let Some(k) = ctx.state.volatile.other_verified_kek() else {
         return Err(Status::SecurityStatusNotSatisfied);
     };
-    get_arbitrary_enc_do(ctx, obj, k)
+    obj.load(
+        ctx.backend.client_mut(),
+        ctx.options.storage,
+        ctx.reply,
+        Some(k),
+    )
 }
 
 /// Get an arbitrary DO encrypted with the admin key
@@ -862,7 +840,12 @@ fn get_arbitrary_admin_enc_do<const R: usize, T: crate::card::Client>(
     let Some(k) = ctx.state.volatile.admin_kek() else {
         return Err(Status::SecurityStatusNotSatisfied);
     };
-    get_arbitrary_enc_do(ctx, obj, k)
+    obj.load(
+        ctx.backend.client_mut(),
+        ctx.options.storage,
+        ctx.reply,
+        Some(k),
+    )
 }
 
 // § 7.2.8
@@ -1271,28 +1254,11 @@ fn put_arbitrary_enc_do<const R: usize, T: crate::card::Client>(
     obj: ArbitraryDO,
     key: KeyId,
 ) -> Result<(), Status> {
-    if ctx.data.len() + CHACHA_NONCE_SIZE + CHACHA_TAG_SIZE > MAX_GENERIC_LENGTH {
-        return Err(Status::WrongLength);
-    }
-    let mut encrypted = syscall!(ctx.backend.client_mut().encrypt(
-        Mechanism::Chacha8Poly1305,
-        key,
-        ctx.data,
-        &[],
-        None
-    ));
-    encrypted
-        .ciphertext
-        .extend_from_slice(&encrypted.nonce)
-        .map_err(|_| Status::NotEnoughMemory)?;
-    encrypted
-        .ciphertext
-        .extend_from_slice(&encrypted.tag)
-        .map_err(|_| Status::NotEnoughMemory)?;
     obj.save(
         ctx.backend.client_mut(),
         ctx.options.storage,
-        &encrypted.ciphertext,
+        ctx.data,
+        Some(key),
     )
     .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
@@ -1304,8 +1270,13 @@ fn put_arbitrary_do<const R: usize, T: crate::card::Client>(
     if ctx.data.len() > MAX_GENERIC_LENGTH {
         return Err(Status::WrongLength);
     }
-    obj.save(ctx.backend.client_mut(), ctx.options.storage, ctx.data)
-        .map_err(|_| Status::UnspecifiedPersistentExecutionError)
+    obj.save(
+        ctx.backend.client_mut(),
+        ctx.options.storage,
+        ctx.data,
+        None,
+    )
+    .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
 fn put_fingerprint<const R: usize, T: crate::card::Client>(
