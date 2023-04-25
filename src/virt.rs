@@ -11,13 +11,14 @@ pub mod dispatch {
         backend::{Backend as _, BackendId},
         error::Error,
         platform::Platform,
-        serde_extensions::{ExtensionDispatch, ExtensionId, ExtensionImpl as _},
+        serde_extensions::{ExtensionDispatch, ExtensionId, ExtensionImpl},
         service::ServiceResources,
         types::{Bytes, Context, Location},
     };
     use trussed_auth::{AuthBackend, AuthContext, AuthExtension, MAX_HW_KEY_LEN};
     use trussed_staging::{
-        wrap_key_to_file::WrapKeyToFileExtension, StagingBackend, StagingContext,
+        streaming::ChunkedExtension, wrap_key_to_file::WrapKeyToFileExtension, StagingBackend,
+        StagingContext,
     };
 
     #[cfg(feature = "rsa")]
@@ -52,6 +53,8 @@ pub mod dispatch {
         Auth,
         /// wrap_key_to_file
         WrapKeyToFile,
+        /// chunked
+        Chunked,
     }
 
     impl From<Extension> for u8 {
@@ -59,6 +62,7 @@ pub mod dispatch {
             match extension {
                 Extension::Auth => 0,
                 Extension::WrapKeyToFile => 1,
+                Extension::Chunked => 2,
             }
         }
     }
@@ -70,6 +74,7 @@ pub mod dispatch {
             match id {
                 0 => Ok(Extension::Auth),
                 1 => Ok(Extension::WrapKeyToFile),
+                2 => Ok(Extension::Chunked),
                 _ => Err(Error::InternalError),
             }
         }
@@ -82,8 +87,9 @@ pub mod dispatch {
         staging: StagingBackend,
     }
 
+    #[allow(missing_debug_implementations)]
     /// Dispatch context for the backends required by opcard
-    #[derive(Default, Debug)]
+    #[derive(Default)]
     pub struct DispatchContext {
         auth: AuthContext,
         staging: StagingContext,
@@ -157,10 +163,24 @@ pub mod dispatch {
                         request,
                         resources,
                     ),
-                    Extension::WrapKeyToFile => Err(Error::RequestNotAvailable),
+                    Extension::WrapKeyToFile | Extension::Chunked => {
+                        Err(Error::RequestNotAvailable)
+                    }
                 },
                 Backend::Staging => match extension {
-                    Extension::WrapKeyToFile => self.staging.extension_request_serialized(
+                    Extension::WrapKeyToFile => <StagingBackend as ExtensionImpl<
+                        WrapKeyToFileExtension,
+                    >>::extension_request_serialized(
+                        &mut self.staging,
+                        &mut ctx.core,
+                        &mut ctx.backends.staging,
+                        request,
+                        resources,
+                    ),
+                    Extension::Chunked => <StagingBackend as ExtensionImpl<
+                        ChunkedExtension,
+                    >>::extension_request_serialized(
+                        &mut self.staging,
                         &mut ctx.core,
                         &mut ctx.backends.staging,
                         request,
@@ -185,6 +205,11 @@ pub mod dispatch {
         type Id = Extension;
 
         const ID: Self::Id = Self::Id::WrapKeyToFile;
+    }
+    impl ExtensionId<ChunkedExtension> for Dispatch {
+        type Id = Extension;
+
+        const ID: Self::Id = Self::Id::Chunked;
     }
 }
 
