@@ -185,4 +185,27 @@
             ),
         ]
     ),
+    IoTest(
+        name: "Large certificate",
+        cmd_resp: [
+            Verify(pin: Pw3),
+            GetData(tag: CardHolderCertificate, expected_value: "", occurence: First),
+            GetData(tag: CardHolderCertificate, expected_value: "", occurence: Second),
+            GetData(tag: CardHolderCertificate, expected_value: "", occurence: Third),
+
+            PutLargeData(tag: CardHolderCertificate, start: 1, len: 2058, occurence: First),
+            GetLargeData(tag: CardHolderCertificate, start: 1, len: 2058, occurence: First),
+            GetData(tag: CardHolderCertificate, expected_value: "", occurence: Second),
+            GetData(tag: CardHolderCertificate, expected_value: "", occurence: Third),
+
+            PutLargeData(tag: CardHolderCertificate, start: 2, len: 2058, occurence: Second),
+            GetLargeData(tag: CardHolderCertificate, start: 2, len: 2058, occurence: Second),
+            GetLargeData(tag: CardHolderCertificate, start: 1, len: 2058, occurence: First),
+            GetData(tag: CardHolderCertificate, expected_value: "", occurence: Third),
+
+            PutLargeData(tag: CardHolderCertificate, start: 3, len: 2058, occurence: Third),
+            GetLargeData(tag: CardHolderCertificate, start: 3, len: 2058, occurence: Third),
+            GetLargeData(tag: CardHolderCertificate, start: 1, len: 2058, occurence: First),
+        ]
+    ),
 ]

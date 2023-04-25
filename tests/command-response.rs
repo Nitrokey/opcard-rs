@@ -8,6 +8,24 @@ use hex_literal::hex;
 use ron::{extensions::Extensions, Options};
 use serde::Deserialize;
 
+const LARGE_DATA: [u8; 10 * 1024] = {
+    let mut res = [0; 10 * 1024];
+    let mut i = 0;
+    while i < 10 * 1024 {
+        res[i] = i as u8;
+        i += 1;
+    }
+    res
+};
+
+#[derive(Deserialize, Debug, PartialEq, Clone, Copy, Default)]
+#[repr(u8)]
+enum Occurence {
+    #[default]
+    First = 0,
+    Second = 1,
+    Third = 2,
+}
 // iso7816::Status doesn't support serde
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy, Default)]
 enum Status {
@@ -375,6 +393,45 @@ enum IoCmd {
     PutData {
         tag: DataObject,
         value: String,
+        #[serde(default)]
+        occurence: Option<Occurence>,
+        /// None means default value
+        #[serde(default)]
+        expected_status: Status,
+    },
+    PutLargeData {
+        tag: DataObject,
+        start: u8,
+        len: usize,
+        #[serde(default)]
+        occurence: Option<Occurence>,
+        /// None means default value
+        #[serde(default)]
+        expected_status: Status,
+    },
+    GetData {
+        tag: DataObject,
+        expected_value: String,
+        #[serde(default)]
+        occurence: Option<Occurence>,
+        /// None means default value
+        #[serde(default)]
+        expected_status: Status,
+    },
+    GetLargeData {
+        tag: DataObject,
+        start: u8,
+        len: usize,
+        #[serde(default)]
+        occurence: Option<Occurence>,
+        /// None means default value
+        #[serde(default)]
+        expected_status: Status,
+    },
+    SelectData {
+        tag: DataObject,
+        #[serde(default)]
+        occurence: Occurence,
         /// None means default value
         #[serde(default)]
         expected_status: Status,
@@ -466,8 +523,52 @@ impl IoCmd {
             Self::PutData {
                 tag,
                 value,
+                occurence,
                 expected_status,
-            } => Self::run_put_data(*tag, &parse_hex(value), *expected_status, card),
+            } => Self::run_put_data(*tag, occurence, &parse_hex(value), *expected_status, card),
+            Self::PutLargeData {
+                tag,
+                start,
+                len,
+                occurence,
+                expected_status,
+            } => Self::run_put_data(
+                *tag,
+                occurence,
+                &LARGE_DATA[*start as usize..][..*len],
+                *expected_status,
+                card,
+            ),
+            Self::GetData {
+                tag,
+                expected_value,
+                occurence,
+                expected_status,
+            } => Self::run_get_data(
+                *tag,
+                occurence,
+                &parse_hex(expected_value),
+                *expected_status,
+                card,
+            ),
+            Self::GetLargeData {
+                tag,
+                start,
+                len,
+                occurence,
+                expected_status,
+            } => Self::run_get_data(
+                *tag,
+                occurence,
+                &LARGE_DATA[*start as usize..][..*len],
+                *expected_status,
+                card,
+            ),
+            Self::SelectData {
+                tag,
+                occurence,
+                expected_status,
+            } => Self::run_select_data(*tag, *occurence, *expected_status, card),
             Self::UnblockPin {
                 reset_code,
                 new_value,
@@ -483,8 +584,8 @@ impl IoCmd {
         card: &mut opcard::Card<T>,
     ) {
         println!("Command: {input:x?}");
-        let mut rep: heapless::Vec<u8, 1024> = heapless::Vec::new();
-        let cmd: iso7816::Command<1024> = iso7816::Command::try_from(input).unwrap_or_else(|err| {
+        let mut rep: heapless::Vec<u8, 7096> = heapless::Vec::new();
+        let cmd: iso7816::Command<7096> = iso7816::Command::try_from(input).unwrap_or_else(|err| {
             panic!("Bad command: {err:?}, for command: {}", hex::encode(input))
         });
         let status: Status = card
@@ -538,13 +639,59 @@ impl IoCmd {
 
     fn run_put_data<T: opcard::Client>(
         data_object: DataObject,
+        occurence: &Option<Occurence>,
         data: &[u8],
         expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
+        if let Some(occ) = occurence {
+            Self::run_select_data(data_object, *occ, Status::Success, card);
+        }
+
         let [p1, p2] = (data_object as u16).to_be_bytes();
 
         let input = build_command(0x00, 0xDA, p1, p2, data, 0);
+        Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
+    }
+
+    fn run_get_data<T: opcard::Client>(
+        data_object: DataObject,
+        occurence: &Option<Occurence>,
+        expected_data: &[u8],
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        if let Some(occ) = occurence {
+            Self::run_select_data(data_object, *occ, Status::Success, card);
+        }
+
+        let [p1, p2] = (data_object as u16).to_be_bytes();
+
+        let input = build_command(0x00, 0xCA, p1, p2, &[], 0);
+        Self::run_bytes(
+            &input,
+            &OutputMatcher::Bytes(Cow::Owned(expected_data.to_owned())),
+            expected_status,
+            card,
+        )
+    }
+
+    fn run_select_data<T: opcard::Client>(
+        data_object: DataObject,
+        occurence: Occurence,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let [obj1, obj2] = (data_object as u16).to_be_bytes();
+
+        let mut data = Vec::new();
+        if obj1 == 0 {
+            data.extend_from_slice(&[0x60, 0x03, 0x5C, 0x01, obj2]);
+        } else {
+            data.extend_from_slice(&[0x60, 0x04, 0x5C, 0x02, obj1, obj2]);
+        }
+
+        let input = build_command(0x00, 0xA5, occurence as u8, 4, &data, 0);
         Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
     }
 
@@ -561,7 +708,13 @@ impl IoCmd {
             template = vec![0x92];
             template.extend_from_slice(&serialize_len(key.len()))
         } else if key_kind.is_aes() {
-            return Self::run_put_data(DataObject::PSOEncDecKey, &key, expected_status, card);
+            return Self::run_put_data(
+                DataObject::PSOEncDecKey,
+                &None,
+                &key,
+                expected_status,
+                card,
+            );
         } else {
             todo!()
         }
