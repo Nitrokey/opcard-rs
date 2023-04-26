@@ -5,7 +5,6 @@ use hex_literal::hex;
 use iso7816::Status;
 use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
-use trussed_auth::AuthClient;
 
 use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
@@ -16,7 +15,7 @@ const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
 #[cfg(feature = "rsa")]
 use trussed_rsa_alloc::RsaPublicParts;
 
-fn serialize_pub<const R: usize, T: trussed::Client + AuthClient>(
+fn serialize_pub<const R: usize, T: crate::card::Client>(
     algo: CurveAlgo,
     ctx: LoadedContext<'_, R, T>,
     public_key: &[u8],
@@ -27,7 +26,7 @@ fn serialize_pub<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-pub fn sign<const R: usize, T: trussed::Client + AuthClient>(
+pub fn sign<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.sign_alg();
@@ -67,7 +66,7 @@ pub fn sign<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-pub fn dec<const R: usize, T: trussed::Client + AuthClient>(
+pub fn dec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.dec_alg();
@@ -105,7 +104,7 @@ pub fn dec<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-pub fn aut<const R: usize, T: trussed::Client + AuthClient>(
+pub fn aut<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.aut_alg();
@@ -146,7 +145,7 @@ pub fn aut<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 #[cfg(feature = "rsa2048-gen")]
-fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
+fn gen_rsa_key<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
     mechanism: Mechanism,
@@ -184,7 +183,7 @@ fn gen_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
     read_rsa_key(ctx, pubkey, mechanism)
 }
 
-fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
+fn gen_ec_key<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     key: KeyType,
     curve: CurveAlgo,
@@ -222,7 +221,7 @@ fn gen_ec_key<const R: usize, T: trussed::Client + AuthClient>(
     read_ec_key(ctx, pubkey, curve)
 }
 
-pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
+pub fn read_sign<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx
@@ -241,7 +240,7 @@ pub fn read_sign<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-pub fn read_dec<const R: usize, T: trussed::Client + AuthClient>(
+pub fn read_dec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx
@@ -266,7 +265,7 @@ pub fn read_dec<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-pub fn read_aut<const R: usize, T: trussed::Client + AuthClient>(
+pub fn read_aut<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let key_id = ctx
@@ -291,7 +290,7 @@ pub fn read_aut<const R: usize, T: trussed::Client + AuthClient>(
     }
 }
 
-fn serialize_p256<const R: usize, T: trussed::Client + AuthClient>(
+fn serialize_p256<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     serialized: &[u8],
 ) -> Result<(), Status> {
@@ -301,7 +300,7 @@ fn serialize_p256<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.expand(serialized)
 }
 
-fn serialize_25519<const R: usize, T: trussed::Client + AuthClient>(
+fn serialize_25519<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     serialized: &[u8],
 ) -> Result<(), Status> {
@@ -310,7 +309,7 @@ fn serialize_25519<const R: usize, T: trussed::Client + AuthClient>(
     ctx.reply.expand(serialized)
 }
 
-fn read_ec_key<const R: usize, T: trussed::Client + AuthClient>(
+fn read_ec_key<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     public_key: KeyId,
     curve: CurveAlgo,
@@ -330,7 +329,7 @@ fn read_ec_key<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 #[cfg(feature = "rsa")]
-fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
+fn read_rsa_key<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     public_key: KeyId,
     mechanism: Mechanism,
@@ -364,7 +363,7 @@ fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 #[cfg(not(feature = "rsa"))]
-fn read_rsa_key<const R: usize, T: trussed::Client + AuthClient>(
+fn read_rsa_key<const R: usize, T: crate::card::Client>(
     _ctx: LoadedContext<'_, R, T>,
     _key_id: KeyId,
     _mechanism: Mechanism,

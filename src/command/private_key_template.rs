@@ -4,7 +4,6 @@
 use iso7816::Status;
 use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
-use trussed_auth::AuthClient;
 
 use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
@@ -18,7 +17,7 @@ const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
 use trussed_rsa_alloc::RsaImportFormat;
 
 // § 4.4.3.12
-pub fn put_private_key_template<const R: usize, T: trussed::Client + AuthClient>(
+pub fn put_private_key_template<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let data = get_do(&[PRIVATE_KEY_TEMPLATE_DO], ctx.data).ok_or_else(|| {
@@ -37,7 +36,7 @@ pub fn put_private_key_template<const R: usize, T: trussed::Client + AuthClient>
     Ok(())
 }
 
-pub fn put_sign<const R: usize, T: trussed::Client + AuthClient>(
+pub fn put_sign<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let attr = ctx.state.persistent.sign_alg();
@@ -63,7 +62,7 @@ pub fn put_sign<const R: usize, T: trussed::Client + AuthClient>(
     Ok(())
 }
 
-pub fn put_dec<const R: usize, T: trussed::Client + AuthClient>(
+pub fn put_dec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let attr = ctx.state.persistent.dec_alg();
@@ -89,7 +88,7 @@ pub fn put_dec<const R: usize, T: trussed::Client + AuthClient>(
     Ok(())
 }
 
-pub fn put_aut<const R: usize, T: trussed::Client + AuthClient>(
+pub fn put_aut<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let attr = ctx.state.persistent.aut_alg();
@@ -115,7 +114,7 @@ pub fn put_aut<const R: usize, T: trussed::Client + AuthClient>(
     Ok(())
 }
 
-fn put_ec<const R: usize, T: trussed::Client + AuthClient>(
+fn put_ec<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
     curve: CurveAlgo,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
@@ -204,7 +203,7 @@ fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat> {
 }
 
 #[cfg(feature = "rsa")]
-fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
+fn put_rsa<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
     mechanism: Mechanism,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
@@ -254,7 +253,7 @@ fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
 }
 
 #[cfg(not(feature = "rsa"))]
-fn put_rsa<const R: usize, T: trussed::Client + AuthClient>(
+fn put_rsa<const R: usize, T: crate::card::Client>(
     _ctx: LoadedContext<'_, R, T>,
     _mechanism: Mechanism,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {

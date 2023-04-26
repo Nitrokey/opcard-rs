@@ -7,7 +7,6 @@ use std::borrow::Cow;
 use hex_literal::hex;
 use ron::{extensions::Extensions, Options};
 use serde::Deserialize;
-use trussed_auth::AuthClient;
 
 // iso7816::Status doesn't support serde
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy, Default)]
@@ -424,7 +423,7 @@ enum IoCmd {
 const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
 
 impl IoCmd {
-    fn run<T: trussed::Client + AuthClient>(&self, card: &mut opcard::Card<T>) {
+    fn run<T: opcard::Client>(&self, card: &mut opcard::Card<T>) {
         match self {
             Self::FactoryReset { already_failed } => Self::run_factory_reset(*already_failed, card),
             Self::Select => Self::run_select(card),
@@ -477,7 +476,7 @@ impl IoCmd {
         }
     }
 
-    fn run_bytes<T: trussed::Client + AuthClient>(
+    fn run_bytes<T: opcard::Client>(
         input: &[u8],
         output: &OutputMatcher,
         expected_status: Status,
@@ -504,7 +503,7 @@ impl IoCmd {
         }
     }
 
-    fn run_select<T: trussed::Client + AuthClient>(card: &mut opcard::Card<T>) {
+    fn run_select<T: opcard::Client>(card: &mut opcard::Card<T>) {
         Self::run_bytes(
             &hex!("00 A4 0400 06 D27600012401"),
             &MATCH_EMPTY,
@@ -513,10 +512,7 @@ impl IoCmd {
         )
     }
 
-    fn run_factory_reset<T: trussed::Client + AuthClient>(
-        already_failed: u8,
-        card: &mut opcard::Card<T>,
-    ) {
+    fn run_factory_reset<T: opcard::Client>(already_failed: u8, card: &mut opcard::Card<T>) {
         for i in 0..(3 - already_failed) {
             Self::run_verify(
                 Pin::Pw3,
@@ -531,7 +527,7 @@ impl IoCmd {
         Self::run_bytes(&hex!("00 44 00 00"), &MATCH_EMPTY, Status::Success, card);
     }
 
-    fn run_iodata<T: trussed::Client + AuthClient>(
+    fn run_iodata<T: opcard::Client>(
         input: &str,
         output: &OutputMatcher,
         expected_status: Status,
@@ -540,7 +536,7 @@ impl IoCmd {
         Self::run_bytes(&parse_hex(input), output, expected_status, card)
     }
 
-    fn run_put_data<T: trussed::Client + AuthClient>(
+    fn run_put_data<T: opcard::Client>(
         data_object: DataObject,
         data: &[u8],
         expected_status: Status,
@@ -552,7 +548,7 @@ impl IoCmd {
         Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
     }
 
-    fn run_import<T: trussed::Client + AuthClient>(
+    fn run_import<T: opcard::Client>(
         key: &str,
         key_type: Option<KeyType>,
         key_kind: &KeyKind,
@@ -578,7 +574,7 @@ impl IoCmd {
         Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
     }
 
-    fn run_set_attributes<T: trussed::Client + AuthClient>(
+    fn run_set_attributes<T: opcard::Client>(
         key_kind: &KeyKind,
         key_type: &KeyType,
         card: &mut opcard::Card<T>,
@@ -594,7 +590,7 @@ impl IoCmd {
         Self::run_bytes(&input, &OutputMatcher::Len(0), Status::Success, card)
     }
 
-    fn run_verify<T: trussed::Client + AuthClient>(
+    fn run_verify<T: opcard::Client>(
         pin: Pin,
         value: &Option<HexOrStr>,
         expected_status: Status,
@@ -605,7 +601,7 @@ impl IoCmd {
         let input = build_command(0x00, 0x20, 0x00, pin as u8, value, 0);
         Self::run_bytes(&input, &MATCH_EMPTY, expected_status, card)
     }
-    fn run_change<T: trussed::Client + AuthClient>(
+    fn run_change<T: opcard::Client>(
         pin: Pin,
         old_value: &Option<HexOrStr>,
         new_value: &Option<HexOrStr>,
@@ -621,7 +617,7 @@ impl IoCmd {
         Self::run_bytes(&input, &MATCH_EMPTY, expected_status, card)
     }
 
-    fn run_unblock_pin<T: trussed::Client + AuthClient>(
+    fn run_unblock_pin<T: opcard::Client>(
         reset_code: &Option<String>,
         new_value: &Option<HexOrStr>,
         expected_status: Status,
@@ -649,7 +645,7 @@ impl IoCmd {
         }
     }
 
-    fn run_read_key<T: trussed::Client + AuthClient>(
+    fn run_read_key<T: opcard::Client>(
         key_kind: &KeyKind,
         key_type: &KeyType,
         public_key: &str,
@@ -673,11 +669,7 @@ impl IoCmd {
         )
     }
 
-    fn run_sign<T: trussed::Client + AuthClient>(
-        input: &str,
-        output: &str,
-        card: &mut opcard::Card<T>,
-    ) {
+    fn run_sign<T: opcard::Client>(input: &str, output: &str, card: &mut opcard::Card<T>) {
         let input = build_command(0x00, 0x2A, 0x9E, 0x9A, &parse_hex(input), 0);
         Self::run_bytes(
             &input,
@@ -687,7 +679,7 @@ impl IoCmd {
         )
     }
 
-    fn run_decrypt<T: trussed::Client + AuthClient>(
+    fn run_decrypt<T: opcard::Client>(
         input: &str,
         output: &str,
         key_kind: &KeyKind,
