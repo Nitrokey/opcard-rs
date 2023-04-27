@@ -7,9 +7,22 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+## [v1.0.0][] (2023-04-27)
+
+- Add support for larger storage for certificates and private use data objects ([#150][])
+
 ### Changes
 
-- Use stable serialization helpers instead of postcard directly.
+- Use upstream Trussed ([#149][])
+- Use stable serialization helpers instead of postcard directly ([#148][]).
+- Add tests for RSA 3072 and make RSA feature-flags more granular ([#143][])
+
+[#143]: https://github.com/Nitrokey/opcard-rs/pull/143
+[#148]: https://github.com/Nitrokey/opcard-rs/pull/148
+[#149]: https://github.com/Nitrokey/opcard-rs/pull/149
+[#150]: https://github.com/Nitrokey/opcard-rs/pull/150
+
+[v1.0.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.0.0
 
 ## [v0.4.0][] (2023-02-24)
 
