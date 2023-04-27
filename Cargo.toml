@@ -32,7 +32,7 @@ serde = { version = "1.0", default-features = false }
 subtle = { version = "2.4.1", default-features = false }
 trussed = "0.1.0"
 trussed-rsa-alloc = { version = "0.1.0", optional = true }
-trussed-staging = { version = "0.1.0", features = ["wrap-key-to-file"]}
+trussed-staging = { version = "0.1.0", features = ["wrap-key-to-file", "chunked", "encrypted-chunked"]}
 serde_repr = "0.1"
 hex-literal = "0.3.4"
 trussed-auth = "0.2.1"
@@ -88,9 +88,9 @@ log-error = []
 [patch.crates-io]
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
 trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "55ea391367fce4bf5093ff2d3c79041d7aef0485" }
-trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", rev = "6beabd125ea57e87bf642e18278fcc2ba224c50c"}
+trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.2.2"}
 trussed-rsa-alloc = { git = "https://github.com/Nitrokey/trussed-rsa-backend", tag = "v0.1.0" }
-trussed-staging = { git = "https://github.com/Nitrokey/trussed-staging", rev = "862666b4c6d275a208803e9db4dfdfc33e92b589" }
+trussed-staging = { git = "https://github.com/Nitrokey/trussed-staging", tag = "v0.1.0" }
 
 [package.metadata.docs.rs]
 all-features = true

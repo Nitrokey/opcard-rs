@@ -60,17 +60,20 @@ impl<T: opcard::Client + Send + Sync + 'static> Card<T> {
 
 impl<T: opcard::Client + Send + Sync + 'static> CardBackend for Card<T> {
     fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync + Sync>, Error> {
-        // TODO: use reference instead of cloning
-        Ok(Box::new(Transaction {
+        let mut transaction = Transaction {
             card: self.0.clone(),
+            caps: None,
             buffer: heapless::Vec::new(),
-        }))
+        };
+        CardTransaction::initialize(&mut transaction).unwrap();
+        Ok(Box::new(transaction))
     }
 }
 
 #[derive(Debug)]
 pub struct Transaction<T: opcard::Client + Send + Sync + 'static> {
     card: Arc<Mutex<opcard::Card<T>>>,
+    caps: Option<CardCaps>,
     buffer: heapless::Vec<u8, RESPONSE_LEN>,
 }
 
@@ -99,12 +102,12 @@ impl<T: opcard::Client + Send + Sync + 'static> CardTransaction for Transaction<
         Ok(response)
     }
 
-    fn init_card_caps(&mut self, _caps: CardCaps) {
-        // TODO: implement
+    fn init_card_caps(&mut self, caps: CardCaps) {
+        self.caps = Some(caps);
     }
 
     fn card_caps(&self) -> Option<&CardCaps> {
-        None
+        self.caps.as_ref()
     }
 
     fn feature_pinpad_verify(&self) -> bool {

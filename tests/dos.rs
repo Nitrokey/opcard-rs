@@ -116,21 +116,23 @@ fn get_data() {
 
         for i in 0..3 {
             tx.select_data(i, &[0x7f, 0x21], false).unwrap();
-            tx.set_cardholder_certificate(format!("{i}").into())
-                .unwrap();
+            tx.set_cardholder_certificate(vec![i; 4096]).unwrap();
         }
 
         tx.select_data(0, &[0x7f, 0x21], false).unwrap();
-        assert_eq!(tx.cardholder_certificate().unwrap(), "0".as_bytes());
-        assert_eq!(tx.next_cardholder_certificate().unwrap(), "1".as_bytes());
-        assert_eq!(tx.next_cardholder_certificate().unwrap(), "2".as_bytes());
+        assert_eq!(tx.cardholder_certificate().unwrap(), [0; 4096].as_slice());
+        assert_eq!(
+            tx.next_cardholder_certificate().unwrap(),
+            [1; 4096].as_slice()
+        );
+        assert_eq!(
+            tx.next_cardholder_certificate().unwrap(),
+            [2; 4096].as_slice()
+        );
 
         for i in 0..3 {
             tx.select_data(i, &[0x7f, 0x21], false).unwrap();
-            assert_eq!(
-                tx.cardholder_certificate().unwrap(),
-                format!("{i}").as_bytes()
-            );
+            assert_eq!(tx.cardholder_certificate().unwrap(), [i; 4096].as_slice());
         }
     });
 }

@@ -13,7 +13,9 @@ use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::types::{KeyId, Location, Mechanism, PathBuf, StorageAttributes};
 use trussed::{syscall, try_syscall};
+use trussed_staging::streaming::utils::{write_all, EncryptionData};
 
+use crate::card::reply::Reply;
 use crate::command::{Password, PasswordMode};
 use crate::error::Error;
 use crate::types::*;
@@ -30,8 +32,7 @@ pub const DEFAULT_USER_PIN: &[u8] = b"123456";
 /// Default value for PW3
 pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
 
-/// Maximum length for generic DOs, limited by the length in trussed `read_file` command.
-pub const MAX_GENERIC_LENGTH: usize = MAX_MESSAGE_LENGTH;
+pub const MAX_GENERIC_LENGTH: usize = 4096;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
 pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_bytes();
 
@@ -1404,13 +1405,75 @@ impl ArbitraryDO {
         }
     }
 
-    pub fn load(
+    pub fn load<const R: usize>(
         self,
         client: &mut impl crate::card::Client,
         storage: Location,
-    ) -> Result<Bytes<MAX_GENERIC_LENGTH>, Error> {
-        load_if_exists(client, storage, &self.path())
-            .map(|data| data.unwrap_or_else(|| self.default()))
+        mut reply: Reply<'_, R>,
+        encryption_key: Option<KeyId>,
+    ) -> Result<(), Status> {
+        match try_syscall!(client.entry_metadata(storage, self.path())) {
+            Ok(Metadata { metadata: None }) => {
+                reply.expand(&self.default())?;
+                return Ok(());
+            }
+            Err(_err) => {
+                error!("File {:?} couldn't be read: {:?}", self, _err);
+                return Err(Status::UnspecifiedNonpersistentExecutionError);
+            }
+            Ok(Metadata { metadata: Some(_) }) => {}
+        }
+
+        let mut read;
+        let expected_len;
+        let stop_at_first;
+
+        if let Some(key) = encryption_key {
+            try_syscall!(client.start_encrypted_chunked_read(storage, self.path(), key)).map_err(
+                |_err| {
+                    error!("Failed to start reading data {:?}, err: {:?}", self, _err);
+                    Status::UnspecifiedNonpersistentExecutionError
+                },
+            )?;
+            let first_data = try_syscall!(client.read_file_chunk()).map_err(|_err| {
+                error!(
+                    "Failed to read first encrypted data {:?}, err: {:?}",
+                    self, _err
+                );
+                Status::UnspecifiedNonpersistentExecutionError
+            })?;
+            stop_at_first = !first_data.data.is_full();
+            read = first_data.data.len();
+            expected_len = first_data.data.len();
+            reply.expand(&first_data.data)?;
+        } else {
+            let first_data = try_syscall!(client.start_chunked_read(storage, self.path(),))
+                .map_err(|_err| {
+                    error!("Failed to read first data {:?}, err: {:?}", self, _err);
+                    Status::UnspecifiedNonpersistentExecutionError
+                })?;
+            stop_at_first = !first_data.data.is_full();
+            read = first_data.data.len();
+            expected_len = first_data.len;
+            reply.expand(&first_data.data)?;
+        }
+
+        if !stop_at_first {
+            loop {
+                let res = try_syscall!(client.read_file_chunk()).map_err(|_err| {
+                    error!("Failed to read data {:?}, err: {:?}", self, _err);
+                    Status::UnspecifiedNonpersistentExecutionError
+                })?;
+                debug_assert_eq!(expected_len, res.len);
+                reply.expand(&res.data)?;
+                read += res.data.len();
+                if !res.data.is_full() {
+                    debug_assert_eq!(expected_len, read);
+                    return Ok(());
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn save(
@@ -1418,12 +1481,17 @@ impl ArbitraryDO {
         client: &mut impl crate::card::Client,
         storage: Location,
         bytes: &[u8],
+        encryption_key: Option<KeyId>,
     ) -> Result<(), Error> {
-        let msg = Bytes::from(heapless::Vec::try_from(bytes).map_err(|_| {
-            error!("Buffer full");
-            Error::Saving
-        })?);
-        try_syscall!(client.write_file(storage, self.path(), msg, None)).map_err(|_err| {
+        write_all(
+            client,
+            storage,
+            self.path(),
+            bytes,
+            None,
+            encryption_key.map(|key| EncryptionData { key, nonce: None }),
+        )
+        .map_err(|_err| {
             error!("Failed to store data: {_err:?}");
             Error::Saving
         })?;
