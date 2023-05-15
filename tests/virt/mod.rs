@@ -36,6 +36,7 @@ const STDERR_FILTER: &[&str] = &[
     r"gpg \(GnuPG\) \d*.\d*.\d*; Copyright \(C\) \d* .*",
     r"This is free software: you are free to change and redistribute it.",
     r"There is NO WARRANTY, to the extent permitted by law.",
+    r"gpg: next trustdb check due at \d*-\d*-\d*",
 ];
 
 pub struct Context {
@@ -247,6 +248,7 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
         r"pinretry:3:0:3:",
         signcount,
         r"kdf:off:",
+        r"uif:0:0:0",
         r"cafpr::::",
         fpr,
         fprtimes,
