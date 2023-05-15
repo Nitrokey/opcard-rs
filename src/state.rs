@@ -381,6 +381,8 @@ impl<'a> LoadedState<'a> {
         let user_key = self.get_user_key(client, storage)?;
         let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
         syscall!(client.set_pin_with_key(Password::Pw1, new_pin, Some(3), user_key));
+        self.persistent
+            .set_pin_len(client, storage, new_value.len(), Password::Pw1)?;
         syscall!(client.delete(user_key));
         Ok(())
     }
@@ -395,6 +397,8 @@ impl<'a> LoadedState<'a> {
         let user_key = self.get_user_key_from_rc(client, storage, rc_key)?;
         let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
         syscall!(client.set_pin_with_key(Password::Pw1, new_pin, Some(3), user_key));
+        self.persistent
+            .set_pin_len(client, storage, new_value.len(), Password::Pw1)?;
         syscall!(client.delete(user_key));
         Ok(())
     }
