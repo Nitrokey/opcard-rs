@@ -7,6 +7,12 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+### Bugfixes
+
+- Return status 6285 if SELECT is called in termination state ([#154][])
+
+[#154]: https://github.com/Nitrokey/opcard-rs/issues/154
+
 ## [v1.0.0][] (2023-04-27)
 
 - Add support for larger storage for certificates and private use data objects ([#150][])

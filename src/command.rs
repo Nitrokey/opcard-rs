@@ -59,10 +59,8 @@ impl Command {
         &self,
         mut ctx: Context<'_, R, T>,
     ) -> Result<(), Status> {
-        if !self.can_lifecycle_run(State::lifecycle(
-            ctx.backend.client_mut(),
-            ctx.options.storage,
-        )) {
+        let lifecycle = State::lifecycle(ctx.backend.client_mut(), ctx.options.storage);
+        if !self.can_lifecycle_run(lifecycle) {
             warn!(
                 "Command {self:?} called in lifecycle {:?}",
                 State::lifecycle(ctx.backend.client_mut(), ctx.options.storage)
@@ -70,7 +68,7 @@ impl Command {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         match self {
-            Self::Select => select(ctx),
+            Self::Select => select(ctx, lifecycle),
             Self::GetData(mode, tag) => data::get_data(ctx, *mode, *tag),
             Self::GetNextData(tag) => data::get_next_data(ctx, *tag),
             Self::PutData(mode, tag) => data::put_data(ctx, *mode, *tag),
@@ -338,11 +336,15 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
 // § 7.2.1
 fn select<const R: usize, T: crate::card::Client>(
     context: Context<'_, R, T>,
+    lifecycle: LifeCycle,
 ) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
         context.state.volatile.cur_do = None;
         context.state.volatile.keyrefs = Default::default();
-        Ok(())
+        match lifecycle {
+            LifeCycle::Operational => Ok(()),
+            LifeCycle::Initialization => Err(Status::SelectedFileInTerminationState),
+        }
     } else {
         info!("Selected application {:x?} not found", context.data);
         Err(Status::NotFound)
