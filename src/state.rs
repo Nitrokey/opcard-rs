@@ -499,6 +499,9 @@ impl<'a> LoadedState<'a> {
         syscall!(client.delete(new_id));
         syscall!(client.delete(user_kek));
         *self.persistent.key_data_mut(ty) = Some(new_origin);
+        if matches!(ty, KeyType::Sign) {
+            self.persistent.sign_count = 0;
+        }
         self.persistent.save(client, storage)?;
         Ok(())
     }
