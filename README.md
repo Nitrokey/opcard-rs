@@ -70,6 +70,29 @@ Download the latest compiled [alpha release](https://github.com/Nitrokey/nitroke
 Plug your Nitrokey 3 and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
 `nitropy nk3 update <path/to/release/file>`
 
+## Build Dependencies
+
+`opcard` has these build dependencies:
+- clang
+- libpcsclite
+- nettle
+- pkg-config
+- Rust toolchain
+
+To run the tests, you also need these tools:
+- gnupg
+- scdaemon
+- vsmartcard (vpcd)
+
+See the [CI Dockerfile](./ci/Dockerfile) for all steps to set up the development environment on Debian-based distributions.
+
+For a complete usb token firmware implementation including Opcard for OpenPGP support, see the [Nitrokey 3 firmware repository](https://github.com/Nitrokey/nitrokey-3-firmware).
+
+## Minimum Supported Rust Version (MSRV)
+
+The minimum supported Rust version (MSRV) for this crate is the most recent stable Rust release.
+Older versions may or may not work.
+Rust versions older than 1.66.0 cannot be used to build this crate.
 
 ## Bug reports
 

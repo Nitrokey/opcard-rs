@@ -9,6 +9,7 @@ edition = "2021"
 description = "OpenPGP smart card implementation"
 repository = "https://github.com/nitrokey/opcard-rs"
 license = "LGPL-3.0-only"
+rust-version = "1.66.0"  # see MSRV section in readme
 
 [workspace]
 members = [
