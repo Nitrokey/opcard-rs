@@ -77,19 +77,22 @@ Plug your Nitrokey 3 and use [nitropy](https://docs.nitrokey.com/software/nitrop
 - libpcsclite
 - nettle
 - pkg-config
+- Rust toolchain
 
 To run the tests, you also need these tools:
 - gnupg
 - scdaemon
 - vsmartcard (vpcd)
 
-See the [CI Dockerfile](./ci/Dockerfile) for all steps to set up the build environment on Debian-based distributions.
+See the [CI Dockerfile](./ci/Dockerfile) for all steps to set up the development environment on Debian-based distributions.
+
+For a complete usb token firmware implementation including Opcard for OpenPGP support, see the [Nitrokey 3 firmware repository](https://github.com/Nitrokey/nitrokey-3-firmware).
 
 ## Minimum Supported Rust Version (MSRV)
 
 The minimum supported Rust version (MSRV) for this crate is the most recent stable Rust release.
 Older versions may or may not work.
-Rust versions older than 1.63.0 cannot be used to build this crate.
+Rust versions older than 1.66.0 cannot be used to build this crate.
 
 ## Bug reports
 
