@@ -7,11 +7,19 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+## [v1.1.0][] (2023-05-30)
+
 ### Bugfixes
 
 - Return status 6285 if SELECT is called in termination state ([#154][])
+- Save the new pin length after an RESET RETRY COUNTER call ([#158][])
+- Reset the signature counter after key generation and import ([#155][])
 
 [#154]: https://github.com/Nitrokey/opcard-rs/issues/154
+[#155]: https://github.com/Nitrokey/opcard-rs/issues/155
+[#158]: https://github.com/Nitrokey/opcard-rs/issues/158
+
+[v1.1.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.1.0
 
 ## [v1.0.0][] (2023-04-27)
 
