@@ -14,11 +14,11 @@ supporting Trussed.
 [Trussed]: https://github.com/trussed-dev/trussed
 [Nitrokey 3]: https://github.com/nitrokey/nitrokey-3-firmware
 
-## ⚠️ Security Warning
+## Usage
 
-This is **alpha** software and should currently not be used outside of
-testing. Updates may lead to data loss and the security of the keys and PINs
-is not guaranteed.
+See the [Nitrokey 3 documentation][docs].
+
+[docs]: https://docs.nitrokey.com/nitrokey3/
 
 ## Features
 
@@ -33,13 +33,6 @@ Here are the currently supported algorithms:
 - EcDSA and ECDH for P256
 - EdDSA and ECDH for Curve25519
 
-See the [issues for the v1.0.0 milestone][v1.0.0 milestone] for all missing
-features for a first stable release.
-
-[v1.0.0 milestone]: https://github.com/Nitrokey/opcard-rs/milestone/2
-
-Check out the [user guide](USAGE.md) for more information on what can be done.
-
 ## Development
 
 Opcard uses [virtualsmartcard](https://frankmorgner.github.io/vsmartcard/) for testing.
@@ -48,12 +41,12 @@ Opcard uses [virtualsmartcard](https://frankmorgner.github.io/vsmartcard/) for t
 `make dangerous-real-card-test` will instead run the tests against a real card.
 The vendor id and serial numbers can be configured with variables:
 
-- `OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR` configures the USB vendor id of the dveice
-- `OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT` configures the USB product id of the dveice
-- `OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR` configures the PGP vendor id of the dveice
-- `OPCARD_DANGEROUS_TEST_CARD_PGP_PRODUCT` configures the PGP serial number of the dveice
+- `OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR` configures the USB vendor ID of the device
+- `OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT` configures the USB product ID of the device
+- `OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR` configures the PGP vendor ID of the device
+- `OPCARD_DANGEROUS_TEST_CARD_PGP_PRODUCT` configures the PGP serial number of the device
 
-Be aware that due to conflicts between gpg-agent and `pcscd` (the smartcard daemon), this test suite will start then  stop `pcscd`
+Be aware that due to conflicts between `gpg-agent` and `pcscd` (the smartcard daemon), this test suite will start then  stop `pcscd`
 
 ```
 make dangerous-real-card-test \
@@ -64,18 +57,10 @@ make dangerous-real-card-test \
   OPCARD_DANGEROUS_TEST_CARD_NAME="test card"
 ```
 
-## Installation
-
-Download the latest compiled [alpha release](https://github.com/Nitrokey/nitrokey-3-firmware/releases).
-Plug your Nitrokey 3 and use [nitropy](https://docs.nitrokey.com/software/nitropy/) to install it with 
-`nitropy nk3 update <path/to/release/file>`
-
-
 ## Bug reports
 
 If you encounter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
 Please include the output of `gpg --card-status` so for context.
-
 
 ## License
 
