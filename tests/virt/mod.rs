@@ -184,32 +184,14 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
 
     let fprtimes = r"fprtime:\d*:\d*:\d*:";
     #[cfg(feature = "vpicc")]
-    let (reader, serial, vendor) = (
-        r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card",
-        r"vendor:0000:test card:",
-        r"serial:00000000:",
-    );
+    let reader = r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card";
     #[cfg(feature = "dangerous-test-real-card")]
-    let (reader, serial, vendor) = (
-        concat!(
-            r"Reader:",
-            env!("OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR"),
-            ":",
-            env!("OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT"),
-            ":X:0:AID:D276000124010304[A-Z0-9]*:openpgp-card"
-        ),
-        concat!(
-            r"vendor:",
-            env!("OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR"),
-            ":",
-            env!("OPCARD_DANGEROUS_TEST_CARD_NAME"),
-            ":"
-        ),
-        concat!(
-            r"serial:",
-            env!("OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT"),
-            ":"
-        ),
+    let reader = concat!(
+        r"Reader:",
+        env!("OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR"),
+        ":",
+        env!("OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT"),
+        ":X:0:AID:D276000124010304[A-Z0-9]*:openpgp-card"
     );
 
     [
