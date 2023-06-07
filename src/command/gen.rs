@@ -42,7 +42,7 @@ pub fn sign<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa2048-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
         SignatureAlgorithm::Rsa3072 => {
@@ -51,7 +51,7 @@ pub fn sign<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa3072-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
         SignatureAlgorithm::Rsa4096 => {
@@ -60,7 +60,7 @@ pub fn sign<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa4096-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
     }
@@ -80,7 +80,7 @@ pub fn dec<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa2048-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
         DecryptionAlgorithm::Rsa3072 => {
@@ -89,7 +89,7 @@ pub fn dec<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa3072-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
         DecryptionAlgorithm::Rsa4096 => {
@@ -98,7 +98,7 @@ pub fn dec<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa4096-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
     }
@@ -120,7 +120,7 @@ pub fn aut<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa2048-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
         AuthenticationAlgorithm::Rsa3072 => {
@@ -129,7 +129,7 @@ pub fn aut<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa3072-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
         AuthenticationAlgorithm::Rsa4096 => {
@@ -138,7 +138,7 @@ pub fn aut<const R: usize, T: crate::card::Client>(
             #[cfg(not(feature = "rsa4096-gen"))]
             {
                 warn!("Attempt to generate key disabled {:?}", algo);
-                return Err(Status::FunctionNotSupported);
+                Err(Status::FunctionNotSupported)
             }
         }
     }
