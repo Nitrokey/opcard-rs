@@ -41,10 +41,16 @@ Opcard uses [virtualsmartcard](https://frankmorgner.github.io/vsmartcard/) for t
 `make dangerous-real-card-test` will instead run the tests against a real card.
 The vendor id and serial numbers can be configured with variables:
 
+
 - `OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR` configures the USB vendor ID of the device
 - `OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT` configures the USB product ID of the device
+
+Those can be obtained by `lsusb`. In the line `Bus 003 Device 010: ID 20a0:42b2 Clay Logic Nitrokey 3`, `20a0` is `OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR` and `42b2` is `OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT`.
+
 - `OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR` configures the PGP vendor ID of the device
-- `OPCARD_DANGEROUS_TEST_CARD_PGP_PRODUCT` configures the PGP serial number of the device
+- `OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL` configures the PGP serial number of the device. 
+
+Those can be obtained by `opgpcard status`. In the line `OpenPGP card 000F:566F86B0 (card version 3.4)`, `000F` is `OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR` and `566F86B0` is `OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL`.
 
 Be aware that due to conflicts between `gpg-agent` and `pcscd` (the smartcard daemon), this test suite will start then  stop `pcscd`
 
