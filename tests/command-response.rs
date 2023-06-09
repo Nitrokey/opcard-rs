@@ -228,12 +228,15 @@ const ED25519_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice
 const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
 const X25519_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
-const RSA_2K_ATTRIBUTES: &[u8] = hex!("
+const RSA_2K_ATTRIBUTES: &[u8] = hex!(
+    "
     01
-    0800 // Length modulus (in bit): 2048                                                                                                                                        
+    0800 // Length modulus (in bit): 2048
     0020 // Length exponent (in bit): 32
     00   // 0: Acceptable format is: P and Q
-").as_slice();
+"
+)
+.as_slice();
 const RSA_4K_ATTRIBUTES: &[u8] = hex!(
     "
     01
