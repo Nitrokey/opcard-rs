@@ -55,9 +55,9 @@ impl<'v, const R: usize> Reply<'v, R> {
     ///
     /// Input:
     /// AAAAAAAAAABBBBBBB
-    ///           ↑  
+    ///           ↑
     ///          offset
-    ///    
+    ///
     /// Output:
     ///
     /// AAAAAAAAAA 7 BBBBBBB
