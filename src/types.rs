@@ -125,6 +125,10 @@ impl SignatureAlgorithm {
         self.attributes()[0]
     }
 
+    pub fn is_rsa(&self) -> bool {
+        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+    }
+
     pub fn attributes(&self) -> &'static [u8] {
         match self {
             Self::Ed255 => ED255_ATTRIBUTES,
@@ -181,6 +185,10 @@ impl DecryptionAlgorithm {
         self.attributes()[0]
     }
 
+    pub fn is_rsa(&self) -> bool {
+        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+    }
+
     pub fn attributes(&self) -> &'static [u8] {
         match self {
             Self::X255 => X255_ATTRIBUTES,
@@ -235,6 +243,10 @@ impl AuthenticationAlgorithm {
     #[allow(unused)]
     pub fn id(&self) -> u8 {
         self.attributes()[0]
+    }
+
+    pub fn is_rsa(&self) -> bool {
+        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
     }
 
     pub fn attributes(&self) -> &'static [u8] {
