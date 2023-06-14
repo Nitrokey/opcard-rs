@@ -533,8 +533,8 @@ impl<'a> LoadedState<'a> {
     ) -> Result<KeyId, Status> {
         use KeyType as K;
         use UserVerifiedInner as V;
-        // Self::clear_cached is there to avoid having multiple keys in the volatile storage.
-        // RSA keys can be up 2300 bytes out of the total 8000.
+        // Self::limit_cache_size is there to avoid having multiple keys in the volatile storage.
+        // RSA keys can be up 2.3KB out of the total 8KiB.
         // With 3 keys this gets us very close to being full, especially with the added overhead of littlefs metadata
         //
         // Therefore we never cache more than 1 key
