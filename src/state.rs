@@ -531,18 +531,16 @@ impl<'a> LoadedState<'a> {
         key: KeyType,
         storage: Location,
     ) -> Result<KeyId, Status> {
+        use KeyType as K;
+        use UserVerifiedInner as V;
         // Self::clear_cached is there to avoid having multiple keys in the volatile storage.
         // RSA keys can be up 2300 bytes out of the total 8000.
         // With 3 keys this gets us very close to being full, especially with the added overhead of littlefs metadata
         //
         // Therefore we never cache more than 1 key
         match (&mut self.volatile.user.0, key) {
-            (UserVerifiedInner::None, _) => Err(Status::SecurityStatusNotSatisfied),
-            (
-                UserVerifiedInner::Sign(user_kek, cache)
-                | UserVerifiedInner::OtherAndSign(user_kek, cache),
-                KeyType::Sign,
-            ) => {
+            (V::None, _) => Err(Status::SecurityStatusNotSatisfied),
+            (V::Sign(user_kek, cache) | V::OtherAndSign(user_kek, cache), K::Sign) => {
                 Self::limit_cache_size(
                     client,
                     &mut [
@@ -558,11 +556,7 @@ impl<'a> LoadedState<'a> {
                     storage,
                 )
             }
-            (
-                UserVerifiedInner::Other(user_kek, cache)
-                | UserVerifiedInner::OtherAndSign(user_kek, cache),
-                KeyType::Aut,
-            ) => {
+            (V::Other(user_kek, cache) | V::OtherAndSign(user_kek, cache), K::Aut) => {
                 Self::limit_cache_size(
                     client,
                     &mut [
@@ -572,11 +566,7 @@ impl<'a> LoadedState<'a> {
                 );
                 Volatile::load_or_get_key(client, *user_kek, &mut cache.aut, AUTH_KEY_PATH, storage)
             }
-            (
-                UserVerifiedInner::Other(user_kek, cache)
-                | UserVerifiedInner::OtherAndSign(user_kek, cache),
-                KeyType::Dec,
-            ) => {
+            (V::Other(user_kek, cache) | V::OtherAndSign(user_kek, cache), K::Dec) => {
                 Self::limit_cache_size(
                     client,
                     &mut [
