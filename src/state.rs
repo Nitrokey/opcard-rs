@@ -509,6 +509,76 @@ impl<'a> LoadedState<'a> {
         self.persistent.save(client, storage)?;
         Ok(())
     }
+
+    /// Avoid having too many RSA keys in volatile storage
+    fn limit_cache_size(
+        client: &mut impl crate::card::Client,
+        keys: &mut [(&mut Option<KeyId>, bool)],
+    ) {
+        for key in keys
+            .iter_mut()
+            .filter_map(|(k, is_rsa)| if *is_rsa { Some(k.take()) } else { None })
+            .flatten()
+        {
+            syscall!(client.delete(key));
+        }
+    }
+
+    /// Returns the requested key
+    pub fn key_id(
+        &mut self,
+        client: &mut impl crate::card::Client,
+        key: KeyType,
+        storage: Location,
+    ) -> Result<KeyId, Status> {
+        use KeyType as K;
+        use UserVerifiedInner as V;
+        // Self::limit_cache_size is there to avoid having multiple keys in the volatile storage.
+        // RSA keys can be up 2.3KB out of the total 8KiB.
+        // With 3 keys this gets us very close to being full, especially with the added overhead of littlefs metadata
+        //
+        // Therefore we never cache more than 1 key
+        match (&mut self.volatile.user.0, key) {
+            (V::None, _) => Err(Status::SecurityStatusNotSatisfied),
+            (V::Sign(user_kek, cache) | V::OtherAndSign(user_kek, cache), K::Sign) => {
+                Self::limit_cache_size(
+                    client,
+                    &mut [
+                        (&mut cache.dec, self.persistent.dec_alg.is_rsa()),
+                        (&mut cache.aut, self.persistent.aut_alg.is_rsa()),
+                    ],
+                );
+                Volatile::load_or_get_key(
+                    client,
+                    *user_kek,
+                    &mut cache.sign,
+                    SIGNING_KEY_PATH,
+                    storage,
+                )
+            }
+            (V::Other(user_kek, cache) | V::OtherAndSign(user_kek, cache), K::Aut) => {
+                Self::limit_cache_size(
+                    client,
+                    &mut [
+                        (&mut cache.sign, self.persistent.sign_alg.is_rsa()),
+                        (&mut cache.dec, self.persistent.dec_alg.is_rsa()),
+                    ],
+                );
+                Volatile::load_or_get_key(client, *user_kek, &mut cache.aut, AUTH_KEY_PATH, storage)
+            }
+            (V::Other(user_kek, cache) | V::OtherAndSign(user_kek, cache), K::Dec) => {
+                Self::limit_cache_size(
+                    client,
+                    &mut [
+                        (&mut cache.sign, self.persistent.sign_alg.is_rsa()),
+                        (&mut cache.aut, self.persistent.aut_alg.is_rsa()),
+                    ],
+                );
+                Volatile::load_or_get_key(client, *user_kek, &mut cache.dec, DEC_KEY_PATH, storage)
+            }
+            _ => Err(Status::SecurityStatusNotSatisfied),
+        }
+    }
 }
 
 enum_u8! {
@@ -1292,39 +1362,6 @@ impl Volatile {
             | UserVerifiedInner::OtherAndSign(user_kek, cache) => {
                 Self::load_or_get_key(client, *user_kek, &mut cache.aes, AES_KEY_PATH, storage)
             }
-        }
-    }
-    /// Returns the requested key
-    pub fn key_id(
-        &mut self,
-        client: &mut impl crate::card::Client,
-        key: KeyType,
-        storage: Location,
-    ) -> Result<KeyId, Status> {
-        match (&mut self.user.0, key) {
-            (UserVerifiedInner::None, _) => Err(Status::SecurityStatusNotSatisfied),
-            (
-                UserVerifiedInner::Sign(user_kek, cache)
-                | UserVerifiedInner::OtherAndSign(user_kek, cache),
-                KeyType::Sign,
-            ) => Self::load_or_get_key(
-                client,
-                *user_kek,
-                &mut cache.sign,
-                SIGNING_KEY_PATH,
-                storage,
-            ),
-            (
-                UserVerifiedInner::Other(user_kek, cache)
-                | UserVerifiedInner::OtherAndSign(user_kek, cache),
-                KeyType::Aut,
-            ) => Self::load_or_get_key(client, *user_kek, &mut cache.aut, AUTH_KEY_PATH, storage),
-            (
-                UserVerifiedInner::Other(user_kek, cache)
-                | UserVerifiedInner::OtherAndSign(user_kek, cache),
-                KeyType::Dec,
-            ) => Self::load_or_get_key(client, *user_kek, &mut cache.dec, DEC_KEY_PATH, storage),
-            _ => Err(Status::SecurityStatusNotSatisfied),
         }
     }
 
