@@ -43,57 +43,46 @@ const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
 const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
 const RSA_2K_ATTRIBUTES: &[u8] = hex!(
-    "
-    01
-    0800 // Length modulus (in bit): 2048
-    0020 // Length exponent (in bit): 32
-    00   // import in standard format
-"
+    "01"
+    "0800" // Length modulus (in bit): 2048
+    "0020" // Length exponent (in bit): 32
+    "00"   // import in standard format
 )
 .as_slice();
 const RSA_3K_ATTRIBUTES: &[u8] = hex!(
-    "
-    01
-    0C00 // Length modulus (in bit): 2048
-    0020 // Length exponent (in bit): 32
-    00   // import in standard format
-"
+    "01"
+    "0C00" // Length modulus (in bit): 2048
+    "0020" // Length exponent (in bit): 32
+    "00"   // import in standard format
 )
 .as_slice();
 const RSA_4K_ATTRIBUTES: &[u8] = hex!(
-    "
-    01
-    1000 // Length modulus (in bit): 4096
-    0020 // Length exponent (in bit): 32
-    00   // import in standard format
-"
+    "01"
+    "1000" // Length modulus (in bit): 4096
+    "0020" // Length exponent (in bit): 32
+    "00"   // import in standard format
 )
 .as_slice();
 const RSA_2K_ATTRIBUTES_CRT: &[u8] = hex!(
-    "
-    01
-    0800 // Length modulus (in bit): 2048
-    0020 // Length exponent (in bit): 32
-    02   // import in CRT Format
-"
+    "01"
+    "0800" // Length modulus (in bit): 2048
+    "0020" // Length exponent (in bit): 32
+    "02"   // import in CRT Format
 )
 .as_slice();
 const RSA_3K_ATTRIBUTES_CRT: &[u8] = hex!(
-    "
-    01
-    0C00 // Length modulus (in bit): 2048
-    0020 // Length exponent (in bit): 32
-    02   // import in CRT Format
-"
+    "01"
+    "0C00" // Length modulus (in bit): 2048
+    "0020" // Length exponent (in bit): 32
+    "02"   // import in CRT Format
 )
 .as_slice();
 const RSA_4K_ATTRIBUTES_CRT: &[u8] = hex!(
-    "
-    01
-    1000 // Length modulus (in bit): 4096
-    0020 // Length exponent (in bit): 32
-    02   // import in CRT Format
-"
+    "01"
+    "1000" // Length modulus (in bit): 4096
+    "0020" // Length exponent (in bit): 32
+    "02"   // import in CRT Format
+
 )
 .as_slice();
 
@@ -289,20 +278,23 @@ pub enum KeyType {
 
 impl KeyType {
     pub fn try_from_crt(data: &[u8]) -> Result<Self, Status> {
+        const SIGN: &[u8] = &hex!("84 01 01");
+        const DEC: &[u8] = &hex!("84 01 02");
+        const AUT: &[u8] = &hex!("84 01 03");
         if let Some(d) = get_do(&[0xB6], data) {
-            if !matches!(d, [] | hex!("84 01 01")) {
+            if !matches!(d, [] | SIGN) {
                 warn!("Incorrect CRT for Sign key");
                 return Err(Status::IncorrectDataParameter);
             }
             Ok(KeyType::Sign)
         } else if let Some(d) = get_do(&[0xB8], data) {
-            if !matches!(d, [] | hex!("84 01 02")) {
+            if !matches!(d, [] | DEC) {
                 warn!("Incorrect CRT for DEC key");
                 return Err(Status::IncorrectDataParameter);
             }
             Ok(KeyType::Dec)
         } else if let Some(d) = get_do(&[0xA4], data) {
-            if !matches!(d, [] | hex!("84 01 03")) {
+            if !matches!(d, [] | AUT) {
                 warn!("Incorrect CRT for AUT key");
                 return Err(Status::IncorrectDataParameter);
             }

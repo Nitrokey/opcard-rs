@@ -5,10 +5,10 @@
 mod card;
 mod virt;
 
-use openpgp_card::{algorithm::AlgoSimple, KeyType, OpenPgp};
+use openpgp_card::{algorithm::AlgoSimple, KeyType};
 use openpgp_card_pcsc::PcscBackend;
-use openpgp_card_sequoia::card::Open;
 use openpgp_card_sequoia::util::public_key_material_to_key;
+use openpgp_card_sequoia::{state::Open, Card};
 use sequoia_openpgp::crypto::Decryptor;
 use sequoia_openpgp::crypto::SessionKey;
 use sequoia_openpgp::crypto::Signer;
@@ -27,9 +27,8 @@ const IDENT: &str = concat!(
 
 #[cfg(feature = "rsa2048-gen")]
 fn rsa2048() {
-    let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
-    let mut pgp = OpenPgp::new(card);
-    let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
+    let mut card: Card<Open> = PcscBackend::open_by_ident(IDENT, None).unwrap().into();
+    let mut open = card.transaction().unwrap();
     open.verify_admin(b"12345678").unwrap();
     let mut admin = open.admin_card().unwrap();
 
@@ -80,9 +79,8 @@ fn rsa2048() {
 
 #[cfg(feature = "rsa3072-gen")]
 fn rsa3072() {
-    let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
-    let mut pgp = OpenPgp::new(card);
-    let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
+    let mut card: Card<Open> = PcscBackend::open_by_ident(IDENT, None).unwrap().into();
+    let mut open = card.transaction().unwrap();
     open.verify_admin(b"12345678").unwrap();
     let mut admin = open.admin_card().unwrap();
 
@@ -133,9 +131,8 @@ fn rsa3072() {
 
 #[cfg(feature = "rsa4096-gen")]
 fn rsa4096() {
-    let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
-    let mut pgp = OpenPgp::new(card);
-    let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
+    let mut card: Card<Open> = PcscBackend::open_by_ident(IDENT, None).unwrap().into();
+    let mut open = card.transaction().unwrap();
     open.verify_admin(b"12345678").unwrap();
     let mut admin = open.admin_card().unwrap();
 
@@ -184,9 +181,8 @@ fn rsa4096() {
 }
 
 fn p256() {
-    let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
-    let mut pgp = OpenPgp::new(card);
-    let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
+    let mut card: Card<Open> = PcscBackend::open_by_ident(IDENT, None).unwrap().into();
+    let mut open = card.transaction().unwrap();
     open.verify_admin(b"12345678").unwrap();
     let mut admin = open.admin_card().unwrap();
     let (material, gendate) = admin
@@ -265,9 +261,8 @@ fn p256() {
 }
 
 fn curve25519() {
-    let card = PcscBackend::open_by_ident(IDENT, None).unwrap();
-    let mut pgp = OpenPgp::new(card);
-    let mut open = Open::new(pgp.transaction().unwrap()).unwrap();
+    let mut card: Card<Open> = PcscBackend::open_by_ident(IDENT, None).unwrap().into();
+    let mut open = card.transaction().unwrap();
     open.verify_admin(b"12345678").unwrap();
     let mut admin = open.admin_card().unwrap();
 

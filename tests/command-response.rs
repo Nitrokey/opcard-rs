@@ -229,27 +229,31 @@ const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
 const X25519_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
 const RSA_2K_ATTRIBUTES: &[u8] = hex!(
-    "
-    01
-    0800 // Length modulus (in bit): 2048
-    0020 // Length exponent (in bit): 32
-    00   // 0: Acceptable format is: P and Q
-"
+    "01"
+    "0800" // Length modulus (in bit): 2048
+    "0020" // Length exponent (in bit): 32
+    "00"   // import in standard format
+)
+.as_slice();
+const RSA_3K_ATTRIBUTES: &[u8] = hex!(
+    "01"
+    "0C00" // Length modulus (in bit): 2048
+    "0020" // Length exponent (in bit): 32
+    "00"   // import in standard format
 )
 .as_slice();
 const RSA_4K_ATTRIBUTES: &[u8] = hex!(
-    "
-    01
-    1000 // Length modulus (in bit): 4096
-    0020 // Length exponent (in bit): 32
-    00   // 0: Acceptable format is: P and Q
-"
+    "01"
+    "1000" // Length modulus (in bit): 4096
+    "0020" // Length exponent (in bit): 32
+    "00"   // import in standard format
 )
 .as_slice();
 
 #[derive(Deserialize, Debug)]
 enum KeyKind {
     Rsa2048,
+    Rsa3072,
     Rsa4096,
     X25519,
     Ed25519,
@@ -265,6 +269,7 @@ impl KeyKind {
             Self::EcP256 => ECDSA_P256_ATTRIBUTES,
             Self::DhP256 => ECDH_P256_ATTRIBUTES,
             Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
             Self::Rsa4096 => RSA_4K_ATTRIBUTES,
             Self::Aes => panic!("AES cannot be used outside of decipher"),
         }
