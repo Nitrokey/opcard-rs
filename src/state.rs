@@ -689,6 +689,17 @@ impl Persistent {
         let default_user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
         #[allow(clippy::unwrap_used)]
         let default_admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
+
+        // If PINs are already there when initializing, it likely means that the state was corrupted rather than absent.
+        // In that case, we wait for the user to explicitely factory-reset the device to avoid risking loosing data.
+        // See https://github.com/Nitrokey/opcard-rs/issues/165
+        if syscall!(client.has_pin(Password::Pw1)).has_pin
+            || syscall!(client.has_pin(Password::Pw3)).has_pin
+        {
+            debug!("Init pins after pins are already there");
+            return Err(Error::Loading);
+        }
+
         syscall!(client.set_pin(
             Password::Pw1,
             default_user_pin.clone(),
