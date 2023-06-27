@@ -91,18 +91,25 @@ impl<T: Client> iso7816::App for Card<T> {
 impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Card<T> {
     fn select(
         &mut self,
+        interface: apdu_dispatch::dispatch::Interface,
         command: &iso7816::Command<C>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
+        if interface != self.options.interface {
+            return Err(Status::FunctionNotSupported);
+        }
         self.handle(command, reply)
     }
 
     fn call(
         &mut self,
-        _interface: apdu_dispatch::dispatch::Interface,
+        interface: apdu_dispatch::dispatch::Interface,
         command: &iso7816::Command<C>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
+        if interface != self.options.interface {
+            return Err(Status::FunctionNotSupported);
+        }
         self.handle(command, reply)
     }
 
@@ -128,6 +135,9 @@ pub struct Options {
     pub button_available: bool,
     /// Which trussed storage to use
     pub storage: Location,
+
+    /// Which Interface should opcard accept calls from (Opcard cannot accept calls from both without being restarted in any circumstance)
+    pub interface: iso7816::Interface,
 }
 
 impl Options {
@@ -166,6 +176,7 @@ impl Default for Options {
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
             storage: Location::External,
+            interface: iso7816::Interface::Contact,
         }
     }
 }
