@@ -7,6 +7,16 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+## [v1.1.1][] (2023-07-04)
+
+### Bugfixes
+
+- Do not override existing pins on initialization ([#166][])
+
+[#166]: https://github.com/Nitrokey/opcard-rs/issues/166
+
+[v1.1.1]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.1.1
+
 ## [v1.1.0][] (2023-05-30)
 
 ### Bugfixes
