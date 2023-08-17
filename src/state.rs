@@ -743,7 +743,9 @@ impl Persistent {
             })
         } else {
             Self::init_pins(client, storage)?;
-            Ok(Self::default())
+            let this = Self::default();
+            this.save(client, storage)?;
+            Ok(this)
         }
     }
 

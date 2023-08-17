@@ -92,6 +92,7 @@ trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "55ea391367fc
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.2.2"}
 trussed-rsa-alloc = { git = "https://github.com/Nitrokey/trussed-rsa-backend", tag = "v0.1.0" }
 trussed-staging = { git = "https://github.com/Nitrokey/trussed-staging", tag = "v0.1.0" }
+delog = { git = "https://github.com/trussed-dev/delog.git", rev = "2191ed1a3bdca09158afd8e96fb979e570be5fe4"}
 
 [package.metadata.docs.rs]
 all-features = true
