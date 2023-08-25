@@ -102,7 +102,7 @@ macro_rules! concatenated_key_newtype {
 
         impl<'de> Deserialize<'de> for $name {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                serde_bytes::deserialize(deserializer).map(|i| $name(i))
+                serde_bytes::deserialize(deserializer).map($name)
             }
         }
 
