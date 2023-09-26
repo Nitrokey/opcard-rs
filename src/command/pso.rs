@@ -3,6 +3,7 @@
 
 use iso7816::Status;
 
+use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::types::*;
 use trussed::{syscall, try_syscall};
 
@@ -79,6 +80,11 @@ fn sign_ec<const R: usize, T: crate::card::Client>(
     key_id: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
+    if ctx.data.len() > MAX_MESSAGE_LENGTH {
+        error!("Attempt to sign more than 1Kb of data");
+        return Err(Status::NotEnoughMemory);
+    }
+
     let signature = try_syscall!(ctx.backend.client_mut().sign(
         mechanism,
         key_id,
