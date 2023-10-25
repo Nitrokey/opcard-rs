@@ -470,22 +470,34 @@ impl<'a> LoadedState<'a> {
         let origin = self.persistent.key_data_mut(ty);
         let path = PathBuf::from(path_str);
 
-        let (new_id, new_origin) = match (new, origin.is_some()) {
-            (None, true) => {
+        let (new_id, new_origin) = match (new, &origin) {
+            (None, Some((k, _))) => {
+                // Copying for borrow checker
+                let pub_key = *k;
                 *origin = None;
                 self.persistent.save(client, storage)?;
                 try_syscall!(client.remove_file(storage, path)).ok();
+                try_syscall!(client.delete(pub_key)).map_err(|_err| {
+                    error!("Failed to delete key");
+                    Error::Saving
+                })?;
                 return Ok(());
             }
-            (None, false) => return Ok(()),
+            (None, None) => return Ok(()),
 
             // In this case we want to avoid storing old information with a new key, or vice-versa
-            (Some((new_id, new_origin)), true) => {
+            (Some((new_id, new_origin)), Some((k, _))) => {
+                // Copying for borrow checker
+                let pub_key = *k;
                 *origin = None;
                 self.persistent.save(client, storage)?;
+                try_syscall!(client.delete(pub_key)).map_err(|_err| {
+                    error!("Failed to delete key");
+                    Error::Saving
+                })?;
                 (new_id, new_origin)
             }
-            (Some((new_id, new_origin)), false) => (new_id, new_origin),
+            (Some((new_id, new_origin)), None) => (new_id, new_origin),
         };
 
         self.volatile.user.0.clear_cached(client, ty);
