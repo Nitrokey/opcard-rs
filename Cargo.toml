@@ -61,6 +61,10 @@ hex = { version = "0.4", features = ["serde"] }
 # usbip
 trussed-usbip = { git = "https://github.com/trussed-dev/pc-usbip-runner", default-features = false, features = ["ccid"], rev = "f3a680ca4c9a1411838ae0774f1713f79d4c2979" }
 
+# sequoia-openpgp depends on sha1collisiondetection >= 0.2.3, but only 0.2.7 works with newer Rust versions.
+# This can be removed once sequoia-openpgp is updated to a version > 1.16.1.
+sha1collisiondetection = "0.2.7"
+
 [features]
 default = []
 std = []
