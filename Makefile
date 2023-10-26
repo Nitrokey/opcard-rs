@@ -1,6 +1,8 @@
 # Copyright (C) 2022 Nitrokey GmbH
 # SPDX-License-Identifier: CC0-1.0
 
+-include variables.mk
+
 export RUST_LOG ?= info,cargo_tarpaulin=off
 export OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR ?= 0000
 export OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT ?= 000000
