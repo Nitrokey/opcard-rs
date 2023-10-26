@@ -187,11 +187,24 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
     let reader = r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card";
     #[cfg(feature = "dangerous-test-real-card")]
     let reader = concat!(
-        r"Reader:",
+        "Reader:",
+        "((",
+        // ID for the internal ccid driver
         env!("OPCARD_DANGEROUS_TEST_CARD_USB_VENDOR"),
         ":",
         env!("OPCARD_DANGEROUS_TEST_CARD_USB_PRODUCT"),
-        ":X:0:AID:D276000124010304[A-Z0-9]*:openpgp-card"
+        ":X:0",
+        ")|(",
+        // ID for the pcscd driver
+        r"Nitrokey 3 \[CCID/ICCD Interface\] \d\d \d\d",
+        "))",
+        ":AID:",
+        // AID
+        "D276000124010304",
+        env!("OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR"),
+        env!("OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL"),
+        "0000",
+        ":openpgp-card:",
     );
 
     [
