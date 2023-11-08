@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+## [v1.2.0][](2023-11-08)
+
 ### Bugfixes
 
 - Reject all requests over NFC ([#184][])
