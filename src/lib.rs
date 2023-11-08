@@ -8,7 +8,7 @@
 //! # Backends
 //!
 //! This crate is designed to work on any platform supported by [trussed](https://trussed.dev).
-//! Trussed requires a [Client][crate::card::Client] implementation for each platform.
+//! Trussed requires a [Client] implementation for each platform.
 //!
 //! # Command handling
 //!
