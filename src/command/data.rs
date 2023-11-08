@@ -1105,7 +1105,7 @@ fn put_status_bytes<const R: usize, T: crate::card::Client>(
         1 => true,
         _input => {
             warn!("Incorrect PW status byte {_input:x}");
-            return Err(Status::IncorrectDataParameter)?;
+            return Err(Status::IncorrectDataParameter);
         }
     };
 
@@ -1243,7 +1243,7 @@ fn put_arbitrary_user_enc_do<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
-    let Some(k) =ctx.state.volatile.other_verified_kek() else {
+    let Some(k) = ctx.state.volatile.other_verified_kek() else {
         return Err(Status::SecurityStatusNotSatisfied);
     };
     put_arbitrary_enc_do(ctx, obj, k)

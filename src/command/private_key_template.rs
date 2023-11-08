@@ -182,7 +182,7 @@ fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat> {
     let mut acc = 0;
     for i in 0..3 {
         let Some(tag) = template.first() else {
-            warn!("Missing template data. Only got up to {:x}", i+0x90);
+            warn!("Missing template data. Only got up to {:x}", i + 0x90);
             return None;
         };
         if *tag != i + 0x91 {

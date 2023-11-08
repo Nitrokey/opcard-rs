@@ -30,7 +30,7 @@ fn attr_ec_ask() -> Vec<&'static str> {
     .collect()
 }
 
-#[cfg(any(feature = "rsa2048-gen"))]
+#[cfg(feature = "rsa2048-gen")]
 fn attr_rsa_ask() -> Vec<&'static str> {
     iter::repeat(
         [
