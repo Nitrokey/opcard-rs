@@ -35,6 +35,8 @@ SPDX-License-Identifier: CC0-1.0
 [#170]: https://github.com/Nitrokey/opcard-rs/issues/170
 [#174]: https://github.com/Nitrokey/opcard-rs/issues/174
 
+[v1.2.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.2.0
+
 ## [v1.1.1][] (2023-07-04)
 
 ### Bugfixes
