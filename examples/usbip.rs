@@ -22,7 +22,7 @@ struct OpcardApp {
     opcard: opcard::Card<VirtClient>,
 }
 
-impl trussed_usbip::Apps<VirtClient, Dispatch> for OpcardApp {
+impl trussed_usbip::Apps<'_, VirtClient, Dispatch> for OpcardApp {
     type Data = ();
     fn new<B: ClientBuilder<VirtClient, Dispatch>>(builder: &B, _data: ()) -> Self {
         OpcardApp {
