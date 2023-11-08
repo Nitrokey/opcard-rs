@@ -3,7 +3,7 @@
 
 [package]
 name = "opcard"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Nitrokey GmbH <info@nitrokey.com>"]
 edition = "2021"
 description = "OpenPGP smart card implementation"
@@ -88,13 +88,13 @@ log-error = []
 [patch.crates-io]
 iso7816 = { git = "https://github.com/Nitrokey/iso7816.git", tag = "v0.1.1-nitrokey.1" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "55ea391367fce4bf5093ff2d3c79041d7aef0485" }
+trussed = { git = "https://github.com/nitrokey/trussed" , tag = "v0.1.0-nitrokey.11" }
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.2.2"}
 trussed-rsa-alloc = { git = "https://github.com/Nitrokey/trussed-rsa-backend", tag = "v0.1.0" }
 trussed-staging = { git = "https://github.com/Nitrokey/trussed-staging", tag = "v0.1.0" }
-apdu-dispatch = { git = "https://github.com/trussed-dev/apdu-dispatch", rev = "915fc237103fcecc29d0f0b73391f19abf6576de" }
-trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", rev = "43655c47e13687f96fab607e6f06b331538c6bfc" }
-usbd-ccid = { git = "https://github.com/trussed-dev/usbd-ccid", rev = "eeea54f85cfa69a43c676b63c030608830ea35ea" }
+apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1.2-nitrokey.2" }
+trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", tag = "v0.0.1-nitrokey.1" }
+usbd-ccid = { git = "https://github.com/Nitrokey/usbd-ccid", tag = "v0.2.0-nitrokey.1" }
 
 [package.metadata.docs.rs]
 all-features = true
