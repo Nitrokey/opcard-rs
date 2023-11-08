@@ -59,7 +59,7 @@ serde_cbor = "0.11"
 hex = { version = "0.4", features = ["serde"] }
 
 # usbip
-trussed-usbip = { git = "https://github.com/trussed-dev/pc-usbip-runner", default-features = false, features = ["ccid"], rev = "f3a680ca4c9a1411838ae0774f1713f79d4c2979" }
+trussed-usbip = { version = "0.0.1", default-features = false, features = ["ccid"] }
 
 [features]
 default = []
@@ -92,6 +92,9 @@ trussed = { git = "https://github.com/trussed-dev/trussed" , rev = "55ea391367fc
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.2.2"}
 trussed-rsa-alloc = { git = "https://github.com/Nitrokey/trussed-rsa-backend", tag = "v0.1.0" }
 trussed-staging = { git = "https://github.com/Nitrokey/trussed-staging", tag = "v0.1.0" }
+apdu-dispatch = { git = "https://github.com/trussed-dev/apdu-dispatch", rev = "915fc237103fcecc29d0f0b73391f19abf6576de" }
+trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", rev = "43655c47e13687f96fab607e6f06b331538c6bfc" }
+usbd-ccid = { git = "https://github.com/trussed-dev/usbd-ccid", rev = "eeea54f85cfa69a43c676b63c030608830ea35ea" }
 
 [package.metadata.docs.rs]
 all-features = true

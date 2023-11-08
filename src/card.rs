@@ -91,18 +91,27 @@ impl<T: Client> iso7816::App for Card<T> {
 impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Card<T> {
     fn select(
         &mut self,
+        interface: apdu_dispatch::dispatch::Interface,
         command: &iso7816::Command<C>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
+        use apdu_dispatch::dispatch::Interface;
+        if interface != Interface::Contact {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         self.handle(command, reply)
     }
 
     fn call(
         &mut self,
-        _interface: apdu_dispatch::dispatch::Interface,
+        interface: apdu_dispatch::dispatch::Interface,
         command: &iso7816::Command<C>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
+        use apdu_dispatch::dispatch::Interface;
+        if interface != Interface::Contact {
+            return Err(Status::ConditionsOfUseNotSatisfied);
+        }
         self.handle(command, reply)
     }
 

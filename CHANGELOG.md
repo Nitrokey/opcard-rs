@@ -7,6 +7,32 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+### Bugfixes
+
+- Reject all requests over NFC ([#184][])
+- Fix missing state save that could lead to a corrupted state ([#170][])
+- Fix crash when signing more than 1024 bytes ([#174][])
+
+### Changes
+
+- Add variables.mk file ([#177][])
+- Tests: add support for gnupg over pcscd ([#180][])
+- Update CI setup ([#175][] and [#183][])
+- Update delog dependency ([#181][])
+- Fix `sha1collisiondetection ` dependency version ([#179][] and [#182][])
+
+[#184]: https://github.com/Nitrokey/opcard-rs/issues/184
+[#182]: https://github.com/Nitrokey/opcard-rs/issues/182
+[#179]: https://github.com/Nitrokey/opcard-rs/issues/179
+[#181]: https://github.com/Nitrokey/opcard-rs/issues/181
+[#183]: https://github.com/Nitrokey/opcard-rs/issues/183
+[#175]: https://github.com/Nitrokey/opcard-rs/issues/175
+[#180]: https://github.com/Nitrokey/opcard-rs/issues/180
+[#180]: https://github.com/Nitrokey/opcard-rs/issues/180
+[#177]: https://github.com/Nitrokey/opcard-rs/issues/177
+[#170]: https://github.com/Nitrokey/opcard-rs/issues/170
+[#174]: https://github.com/Nitrokey/opcard-rs/issues/174
+
 ## [v1.1.1][] (2023-07-04)
 
 ### Bugfixes

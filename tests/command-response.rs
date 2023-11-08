@@ -133,7 +133,6 @@ fn serialize_len(len: usize) -> heapless::Vec<u8, 3> {
     } else if let Ok(len) = u16::try_from(len) {
         let arr = len.to_be_bytes();
         buf.extend_from_slice(&[0x82, arr[0], arr[1]]).ok();
-    } else {
     }
     buf
 }
