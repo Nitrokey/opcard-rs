@@ -36,6 +36,7 @@ trussed-staging = { version = "0.1.0", features = ["wrap-key-to-file", "chunked"
 serde_repr = "0.1"
 hex-literal = "0.4.1"
 trussed-auth = "0.2.1"
+admin-app = "0.1.0"
 
 # optional dependencies
 apdu-dispatch = { version = "0.1", optional = true }
@@ -88,13 +89,15 @@ log-error = []
 [patch.crates-io]
 iso7816 = { git = "https://github.com/Nitrokey/iso7816.git", tag = "v0.1.1-nitrokey.1" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/nitrokey/trussed" , tag = "v0.1.0-nitrokey.11" }
-trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.2.2"}
-trussed-rsa-alloc = { git = "https://github.com/Nitrokey/trussed-rsa-backend", tag = "v0.1.0" }
-trussed-staging = { git = "https://github.com/Nitrokey/trussed-staging", tag = "v0.1.0" }
+trussed = { git = "https://github.com/nitrokey/trussed" , rev = "976372331be2f1b37cab532420cb6c55e0d54473" }
+trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", rev = "4b8191f248c26cb074cdac887c7f3f48f9c449a4"}
+trussed-rsa-alloc = { git = "https://github.com/Nitrokey/trussed-rsa-backend", rev = "baced761b2be0f207d88aca47fbe2fad4736618a" }
+trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "10baac2608e98e25ea77ade974a4e26f778d6c8e" }
 apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1.2-nitrokey.2" }
 trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", tag = "v0.0.1-nitrokey.1" }
 usbd-ccid = { git = "https://github.com/Nitrokey/usbd-ccid", tag = "v0.2.0-nitrokey.1" }
+admin-app = { git = "https://github.com/Nitrokey/admin-app.git", rev = "8a9270ddff00c775c9d5d3739e6aa1669cec76f2" }
+ctaphid-dispatch = { git = "https://github.com/trussed-dev/ctaphid-dispatch.git", rev = "57cb3317878a8593847595319aa03ef17c29ec5b" }
 
 [package.metadata.docs.rs]
 all-features = true

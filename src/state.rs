@@ -161,7 +161,7 @@ pub enum LifeCycle {
     Operational = 0x05,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct State {
     // Persistent state may not be loaded, or may error when loaded
     pub persistent: Option<Persistent>,
@@ -234,7 +234,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct LoadedState<'s> {
     pub persistent: &'s mut Persistent,
     pub volatile: &'s mut Volatile,
@@ -1307,7 +1307,7 @@ impl Drop for AdminVerified {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone)]
 pub struct Volatile {
     user: UserVerified,
     admin: AdminVerified,

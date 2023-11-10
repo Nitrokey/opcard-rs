@@ -1,6 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+use admin_app::{ResetSignal, ResetSignalAllocation};
 use hex_literal::hex;
 use iso7816::Status;
 use trussed::types::Location;
@@ -51,6 +52,19 @@ impl<T: Client> Card<T> {
         command: &iso7816::Command<C>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
+        if let Some(reset_signal) = self.options.reset_signal {
+            match reset_signal.load() {
+                ResetSignal::None => {}
+                ResetSignal::ConfigChanged => {
+                    return Err(Status::SelectedFileInTerminationState);
+                }
+                ResetSignal::FactoryReset => {
+                    self.state = State::default();
+                    reset_signal.ack_factory_reset();
+                }
+            }
+        }
+
         trace!("Received APDU {:?}", command);
         let card_command = Command::try_from(command).inspect_err_stable(|_err| {
             warn!("Failed to parse command: {command:x?} {_err:?}");
@@ -68,6 +82,20 @@ impl<T: Client> Card<T> {
 
     /// Resets the state of the card.
     pub fn reset(&mut self) {
+        if let Some(reset_signal) = self.options.reset_signal {
+            match reset_signal.load() {
+                ResetSignal::None => {}
+                ResetSignal::ConfigChanged => {
+                    debug!("Attempt to reset opcard with reset signal active");
+                    return;
+                }
+                ResetSignal::FactoryReset => {
+                    self.state = State::default();
+                    reset_signal.ack_factory_reset();
+                }
+            }
+        }
+
         self.state.volatile.clear(self.backend.client_mut());
         let state = State::default();
         self.state = state;
@@ -121,7 +149,7 @@ impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Car
 }
 
 /// Options for the OpenPGP card.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Options {
     /// The manufacturer ID returned in the AID, see § 4.2.1 of the spec.
@@ -137,6 +165,9 @@ pub struct Options {
     pub button_available: bool,
     /// Which trussed storage to use
     pub storage: Location,
+
+    /// Flag to signal that the application has had its configuration changed or was factory-resetted by the admin application
+    pub reset_signal: Option<&'static ResetSignalAllocation>,
 }
 
 impl Options {
@@ -175,6 +206,7 @@ impl Default for Options {
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
             storage: Location::External,
+            reset_signal: None,
         }
     }
 }
