@@ -10,6 +10,7 @@ use rand::Rng;
 use test_log::test;
 
 use virt::gnupg_test;
+use virt::Context;
 use virt::GpgCommand::*;
 
 #[cfg(feature = "vpicc")]
@@ -58,6 +59,8 @@ impl<'s> Drop for FileDropper<'s> {
 }
 
 fn gpg_255() {
+    let ctx = Context::new();
+
     let file_number: u32 = rand::rngs::OsRng.gen();
     let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
     let encrypted_file = &tmp;
@@ -96,6 +99,7 @@ fn gpg_255() {
         .collect::<Vec<&str>>(),
         &[],
         CardStatus,
+        &ctx,
     );
 
     gnupg_test(
@@ -167,6 +171,7 @@ fn gpg_255() {
                 r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
             ],
             EditCard,
+            &ctx,
         );
 
     println!("================ FINISHED GENERATING 25519 KEYS ================");
@@ -183,6 +188,7 @@ fn gpg_255() {
             o: encrypted_file,
             r: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED ENCRYPTION ================");
@@ -222,6 +228,7 @@ fn gpg_255() {
             i: encrypted_file,
             o: decrypted_file,
         },
+        &ctx,
     );
 
     println!("================ FINISHED DECRYPTION ================");
@@ -247,6 +254,7 @@ fn gpg_255() {
             o: sign_file,
             s: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED SIGNATURE ================");
@@ -267,6 +275,7 @@ fn gpg_255() {
             r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
         ],
         Verify { i: sign_file },
+        &ctx,
     );
     gnupg_test(
         &[
@@ -300,10 +309,13 @@ fn gpg_255() {
             r"gpg: Note: This command destroys all keys stored on the card!",
         ],
         EditCard,
+        &ctx,
     );
 }
 
 fn gpg_p256() {
+    let ctx = Context::new();
+
     let file_number: u32 = rand::rngs::OsRng.gen();
     let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
     let encrypted_file = &tmp;
@@ -342,6 +354,7 @@ fn gpg_p256() {
         .collect::<Vec<&str>>(),
         &[],
         CardStatus,
+        &ctx,
     );
 
     gnupg_test(
@@ -413,6 +426,7 @@ fn gpg_p256() {
                 r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
             ],
             EditCard,
+            &ctx,
         );
 
     println!("================ FINISHED GENERATING P256 KEYS ================");
@@ -429,6 +443,7 @@ fn gpg_p256() {
             o: encrypted_file,
             r: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED ENCRYPTION ================");
@@ -469,6 +484,7 @@ fn gpg_p256() {
             i: encrypted_file,
             o: decrypted_file,
         },
+        &ctx,
     );
 
     println!("================ FINISHED DECRYPTION ================");
@@ -494,6 +510,7 @@ fn gpg_p256() {
             o: sign_file,
             s: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED SIGNATURE ================");
@@ -514,6 +531,7 @@ fn gpg_p256() {
             r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
         ],
         Verify { i: sign_file },
+        &ctx,
     );
 
     gnupg_test(
@@ -548,11 +566,14 @@ fn gpg_p256() {
             r"gpg: Note: This command destroys all keys stored on the card!",
         ],
         EditCard,
+        &ctx,
     );
 }
 
 #[cfg(feature = "rsa2048-gen")]
 fn gpg_rsa_2048() {
+    let ctx = Context::new();
+
     let file_number: u32 = rand::rngs::OsRng.gen();
     let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
     let encrypted_file = &tmp;
@@ -591,6 +612,7 @@ fn gpg_rsa_2048() {
         .collect::<Vec<&str>>(),
         &[],
         CardStatus,
+        &ctx,
     );
 
     gnupg_test(
@@ -648,6 +670,7 @@ fn gpg_rsa_2048() {
                 r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
             ],
             EditCard,
+            &ctx,
         );
 
     println!("================ FINISHED GENERATING 25519 KEYS ================");
@@ -664,6 +687,7 @@ fn gpg_rsa_2048() {
             o: encrypted_file,
             r: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED ENCRYPTION ================");
@@ -703,6 +727,7 @@ fn gpg_rsa_2048() {
             i: encrypted_file,
             o: decrypted_file,
         },
+        &ctx,
     );
 
     println!("================ FINISHED DECRYPTION ================");
@@ -728,6 +753,7 @@ fn gpg_rsa_2048() {
             o: sign_file,
             s: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED SIGNATURE ================");
@@ -748,6 +774,7 @@ fn gpg_rsa_2048() {
             r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
         ],
         Verify { i: sign_file },
+        &ctx,
     );
     gnupg_test(
         &[
@@ -781,11 +808,14 @@ fn gpg_rsa_2048() {
             r"gpg: Note: This command destroys all keys stored on the card!",
         ],
         EditCard,
+        &ctx,
     );
 }
 
 #[cfg(feature = "rsa3072-gen")]
 fn gpg_rsa_3072() {
+    let ctx = Context::new();
+
     let file_number: u32 = rand::rngs::OsRng.gen();
     let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
     let encrypted_file = &tmp;
@@ -824,6 +854,7 @@ fn gpg_rsa_3072() {
         .collect::<Vec<&str>>(),
         &[],
         CardStatus,
+        &ctx,
     );
 
     gnupg_test(
@@ -895,6 +926,7 @@ fn gpg_rsa_3072() {
                 r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
             ],
             EditCard,
+            &ctx,
         );
 
     println!("================ FINISHED GENERATING 25519 KEYS ================");
@@ -911,6 +943,7 @@ fn gpg_rsa_3072() {
             o: encrypted_file,
             r: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED ENCRYPTION ================");
@@ -950,6 +983,7 @@ fn gpg_rsa_3072() {
             i: encrypted_file,
             o: decrypted_file,
         },
+        &ctx,
     );
 
     println!("================ FINISHED DECRYPTION ================");
@@ -975,6 +1009,7 @@ fn gpg_rsa_3072() {
             o: sign_file,
             s: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED SIGNATURE ================");
@@ -995,6 +1030,7 @@ fn gpg_rsa_3072() {
             r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
         ],
         Verify { i: sign_file },
+        &ctx,
     );
     gnupg_test(
         &[
@@ -1028,11 +1064,14 @@ fn gpg_rsa_3072() {
             r"gpg: Note: This command destroys all keys stored on the card!",
         ],
         EditCard,
+        &ctx,
     );
 }
 
 #[cfg(feature = "rsa4096-gen")]
 fn gpg_rsa_4096() {
+    let ctx = Context::new();
+
     let file_number: u32 = rand::rngs::OsRng.gen();
     let tmp = format!("/tmp/opcard-tests-{file_number}.gpg");
     let encrypted_file = &tmp;
@@ -1071,6 +1110,7 @@ fn gpg_rsa_4096() {
         .collect::<Vec<&str>>(),
         &[],
         CardStatus,
+        &ctx,
     );
 
     gnupg_test(
@@ -1142,6 +1182,7 @@ fn gpg_rsa_4096() {
                 r"gpg: depth:[ 0-9]*valid:[ 0-9]*signed:[ 0-9]*trust: \d*-, \d*q, \d*n, \d*m, \d*f, \d*u",
             ],
             EditCard,
+            &ctx,
         );
 
     println!("================ FINISHED GENERATING 25519 KEYS ================");
@@ -1158,6 +1199,7 @@ fn gpg_rsa_4096() {
             o: encrypted_file,
             r: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED ENCRYPTION ================");
@@ -1197,6 +1239,7 @@ fn gpg_rsa_4096() {
             i: encrypted_file,
             o: decrypted_file,
         },
+        &ctx,
     );
 
     println!("================ FINISHED DECRYPTION ================");
@@ -1222,6 +1265,7 @@ fn gpg_rsa_4096() {
             o: sign_file,
             s: temp_email,
         },
+        &ctx,
     );
 
     println!("================ FINISHED SIGNATURE ================");
@@ -1242,6 +1286,7 @@ fn gpg_rsa_4096() {
             r#"pg: Good signature from "test name\d* \(no comment\) <test\d*@email.com>"#,
         ],
         Verify { i: sign_file },
+        &ctx,
     );
     gnupg_test(
         &[
@@ -1275,6 +1320,7 @@ fn gpg_rsa_4096() {
             r"gpg: Note: This command destroys all keys stored on the card!",
         ],
         EditCard,
+        &ctx,
     );
 }
 

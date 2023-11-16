@@ -5,6 +5,7 @@
 use std::{
     io::{BufRead, BufReader, Write},
     mem::drop,
+    path::PathBuf,
     process::{Command, Stdio},
     thread,
 };
@@ -13,6 +14,7 @@ use std::{
 use std::{sync::mpsc, thread::sleep, time::Duration};
 
 use regex::{Regex, RegexSet};
+use tempfile::TempDir;
 
 #[cfg(feature = "vpicc")]
 use stoppable_thread::spawn;
@@ -35,6 +37,26 @@ const STDERR_FILTER: &[&str] = &[
     r"This is free software: you are free to change and redistribute it.",
     r"There is NO WARRANTY, to the extent permitted by law.",
 ];
+
+pub struct Context {
+    tempdir: TempDir,
+}
+
+impl Context {
+    #[allow(unused)]
+    pub fn new() -> Self {
+        let tempdir = TempDir::with_prefix("opcard-test-").expect("failed to create tempdir");
+        Self { tempdir }
+    }
+
+    fn keyring(&self) -> PathBuf {
+        self.tempdir.path().join("keyring.gpg")
+    }
+
+    fn trustdb(&self) -> PathBuf {
+        self.tempdir.path().join("trustdb.gpg")
+    }
+}
 
 #[cfg(feature = "vpicc")]
 #[allow(unused)]
@@ -256,7 +278,7 @@ pub enum GpgCommand<'a> {
 }
 
 impl GpgCommand<'_> {
-    fn command(&self) -> Command {
+    fn command(&self, ctx: &Context) -> Command {
         let mut cmd = Command::new("gpg");
         cmd.args([
             "--command-fd=0",
@@ -266,7 +288,12 @@ impl GpgCommand<'_> {
             "loopback",
             "--expert",
             "--no-tty",
+            "--no-default-keyring",
         ])
+        .arg("--keyring")
+        .arg(ctx.keyring())
+        .arg("--trustdb")
+        .arg(ctx.trustdb())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::piped());
@@ -292,11 +319,17 @@ impl GpgCommand<'_> {
 /// Takes an array of strings that will be passed as input to `gpg --command-fd=0 --status-fd=1 --pinentry-mode loopback --card-edit`
 /// and an array of Regex over the output
 #[allow(unused)]
-pub fn gnupg_test(stdin: &[&str], stdout: &[&str], stderr: &[&str], cmd: GpgCommand) {
+pub fn gnupg_test(
+    stdin: &[&str],
+    stdout: &[&str],
+    stderr: &[&str],
+    cmd: GpgCommand,
+    ctx: &Context,
+) {
     let out_re: Vec<Regex> = stdout.iter().map(|s| Regex::new(s).unwrap()).collect();
     let err_re: Vec<Regex> = stderr.iter().map(|s| Regex::new(s).unwrap()).collect();
     let mut gpg = cmd
-        .command()
+        .command(ctx)
         .spawn()
         .expect("failed to run gpg --card-status");
     let mut gpg_in = gpg.stdin.take().unwrap();
