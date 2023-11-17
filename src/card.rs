@@ -45,6 +45,7 @@ impl<T: Client> Card<T> {
         }
     }
 
+    #[cfg(feature = "admin-app")]
     fn ack_factory_reset(&mut self, reset_signal: &ResetSignalAllocation) -> bool {
         self.state = State::default();
         reset_signal.ack_factory_reset()
