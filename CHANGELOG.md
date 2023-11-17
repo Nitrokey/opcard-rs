@@ -7,6 +7,10 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+- Support factory reset through the admin app ([#188][])
+
+[#188]: https://github.com/Nitrokey/opcard-rs/pull/188
+
 ## [v1.2.0][](2023-11-08)
 
 ### Bugfixes
