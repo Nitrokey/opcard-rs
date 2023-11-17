@@ -1,6 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
+#[cfg(feature = "admin-app")]
 use admin_app::{ResetSignal, ResetSignalAllocation};
 use hex_literal::hex;
 use iso7816::Status;
@@ -52,6 +53,7 @@ impl<T: Client> Card<T> {
         command: &iso7816::Command<C>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
+        #[cfg(feature = "admin-app")]
         if let Some(reset_signal) = self.options.reset_signal {
             match reset_signal.load() {
                 ResetSignal::None => {}
@@ -82,6 +84,7 @@ impl<T: Client> Card<T> {
 
     /// Resets the state of the card.
     pub fn reset(&mut self) {
+        #[cfg(feature = "admin-app")]
         if let Some(reset_signal) = self.options.reset_signal {
             match reset_signal.load() {
                 ResetSignal::None => {}
@@ -167,6 +170,9 @@ pub struct Options {
     pub storage: Location,
 
     /// Flag to signal that the application has had its configuration changed or was factory-resetted by the admin application
+    ///
+    /// Requires the feature-flag admin-app
+    #[cfg(feature = "admin-app")]
     pub reset_signal: Option<&'static ResetSignalAllocation>,
 }
 
@@ -206,6 +212,7 @@ impl Default for Options {
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
             storage: Location::External,
+            #[cfg(feature = "admin-app")]
             reset_signal: None,
         }
     }
