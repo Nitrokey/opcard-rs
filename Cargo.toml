@@ -96,7 +96,7 @@ trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", 
 apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1.2-nitrokey.2" }
 trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", tag = "v0.0.1-nitrokey.1" }
 usbd-ccid = { git = "https://github.com/Nitrokey/usbd-ccid", tag = "v0.2.0-nitrokey.1" }
-admin-app = { git = "https://github.com/Nitrokey/admin-app.git", rev = "8a9270ddff00c775c9d5d3739e6aa1669cec76f2" }
+admin-app = { git = "https://github.com/Nitrokey/admin-app.git", rev = "410899311ae7b194360366ff477f74d4d278e056" }
 ctaphid-dispatch = { git = "https://github.com/trussed-dev/ctaphid-dispatch.git", rev = "57cb3317878a8593847595319aa03ef17c29ec5b" }
 
 [package.metadata.docs.rs]

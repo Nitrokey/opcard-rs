@@ -45,6 +45,11 @@ impl<T: Client> Card<T> {
         }
     }
 
+    fn ack_factory_reset(&mut self, reset_signal: &ResetSignalAllocation) -> bool {
+        self.state = State::default();
+        reset_signal.ack_factory_reset()
+    }
+
     /// Handles an APDU command and writes the response to the given buffer.
     ///
     /// The APDU command must be complete, i. e. chained commands must be resolved by the caller.
@@ -61,8 +66,9 @@ impl<T: Client> Card<T> {
                     return Err(Status::SelectedFileInTerminationState);
                 }
                 ResetSignal::FactoryReset => {
-                    self.state = State::default();
-                    reset_signal.ack_factory_reset();
+                    if !self.ack_factory_reset(reset_signal) {
+                        return Err(Status::SelectedFileInTerminationState);
+                    }
                 }
             }
         }
@@ -93,8 +99,7 @@ impl<T: Client> Card<T> {
                     return;
                 }
                 ResetSignal::FactoryReset => {
-                    self.state = State::default();
-                    reset_signal.ack_factory_reset();
+                    self.ack_factory_reset(reset_signal);
                     return;
                 }
             }
