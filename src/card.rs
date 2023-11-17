@@ -95,6 +95,7 @@ impl<T: Client> Card<T> {
                 ResetSignal::FactoryReset => {
                     self.state = State::default();
                     reset_signal.ack_factory_reset();
+                    return;
                 }
             }
         }
