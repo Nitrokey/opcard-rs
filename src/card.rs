@@ -3,6 +3,7 @@
 
 #[cfg(feature = "admin-app")]
 use admin_app::{ResetSignal, ResetSignalAllocation};
+use cfg_if::cfg_if;
 use hex_literal::hex;
 use iso7816::Status;
 use trussed::types::Location;
@@ -158,6 +159,38 @@ impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Car
     }
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum RsaKeySizes {
+    Rsa2048,
+    Rsa3072,
+    Rsa4096,
+}
+
+impl RsaKeySizes {
+    fn default_max_gen() -> Self {
+        cfg_if! {
+            if #[cfg(feature = "rsa4096-gen")] {
+                Self::Rsa4096
+            } else if #[cfg(feature = "rsa3072-gen")] {
+                Self::Rsa3072
+            } else {
+                Self::Rsa2048
+            }
+        }
+    }
+    fn default_max_import() -> Self {
+        cfg_if! {
+            if #[cfg(feature = "rsa4096")] {
+                Self::Rsa4096
+            } else if #[cfg(feature = "rsa3072")] {
+                Self::Rsa3072
+            } else {
+                Self::Rsa2048
+            }
+        }
+    }
+}
+
 /// Options for the OpenPGP card.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
@@ -175,6 +208,12 @@ pub struct Options {
     pub button_available: bool,
     /// Which trussed storage to use
     pub storage: Location,
+
+    /// Max RSA size allowed to be imported
+    pub rsa_max_import: RsaKeySizes,
+
+    /// Max RSA size allowed to be generated
+    pub rsa_max_gen: RsaKeySizes,
 
     /// Flag to signal that the application has had its configuration changed or was factory-resetted by the admin application
     ///
@@ -219,6 +258,8 @@ impl Default for Options {
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
             storage: Location::External,
+            rsa_max_import: RsaKeySizes::default_max_import(),
+            rsa_max_gen: RsaKeySizes::default_max_gen(),
             #[cfg(feature = "admin-app")]
             reset_signal: None,
         }
@@ -300,6 +341,11 @@ mod tests {
             Options::default().aid(),
             hex!("D2 76 00 01 24 01 03 04 00 00 00 00 00 00 00 00"),
         )
+    }
+
+    #[test]
+    fn key_sizes() {
+        assert!(RsaKeySizes::Rsa2048 < RsaKeySizes::Rsa4096);
     }
 }
 
