@@ -43,13 +43,13 @@ pub fn put_sign<const R: usize, T: crate::card::Client>(
     let key_id = match attr {
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        SignatureAlgorithm::Rsa2048 if ctx.options.rsa_import >= RsaKeySizes::Rsa2048 => {
+        SignatureAlgorithm::Rsa2048 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa2048 => {
             put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?
         }
-        SignatureAlgorithm::Rsa3072 if ctx.options.rsa_import >= RsaKeySizes::Rsa3072 => {
+        SignatureAlgorithm::Rsa3072 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa3072 => {
             put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?
         }
-        SignatureAlgorithm::Rsa4096 if ctx.options.rsa_import >= RsaKeySizes::Rsa4096 => {
+        SignatureAlgorithm::Rsa4096 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa4096 => {
             put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?
         }
         _ => {
@@ -79,13 +79,13 @@ pub fn put_dec<const R: usize, T: crate::card::Client>(
     let key_id = match attr {
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
-        DecryptionAlgorithm::Rsa2048 if ctx.options.rsa_import >= RsaKeySizes::Rsa2048 => {
+        DecryptionAlgorithm::Rsa2048 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa2048 => {
             put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?
         }
-        DecryptionAlgorithm::Rsa3072 if ctx.options.rsa_import >= RsaKeySizes::Rsa3072 => {
+        DecryptionAlgorithm::Rsa3072 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa3072 => {
             put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?
         }
-        DecryptionAlgorithm::Rsa4096 if ctx.options.rsa_import >= RsaKeySizes::Rsa4096 => {
+        DecryptionAlgorithm::Rsa4096 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa4096 => {
             put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?
         }
         _ => {
@@ -115,13 +115,13 @@ pub fn put_aut<const R: usize, T: crate::card::Client>(
     let key_id = match attr {
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        AuthenticationAlgorithm::Rsa2048 if ctx.options.rsa_import >= RsaKeySizes::Rsa2048 => {
+        AuthenticationAlgorithm::Rsa2048 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa2048 => {
             put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?
         }
-        AuthenticationAlgorithm::Rsa3072 if ctx.options.rsa_import >= RsaKeySizes::Rsa3072 => {
+        AuthenticationAlgorithm::Rsa3072 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa3072 => {
             put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?
         }
-        AuthenticationAlgorithm::Rsa4096 if ctx.options.rsa_import >= RsaKeySizes::Rsa4096 => {
+        AuthenticationAlgorithm::Rsa4096 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa4096 => {
             put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?
         }
         _ => {

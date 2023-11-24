@@ -37,7 +37,7 @@ pub fn sign<const R: usize, T: crate::card::Client>(
             gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP256)
         }
         SignatureAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa2048 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
                 gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -45,7 +45,7 @@ pub fn sign<const R: usize, T: crate::card::Client>(
             }
         }
         SignatureAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa3072 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
                 gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -53,7 +53,7 @@ pub fn sign<const R: usize, T: crate::card::Client>(
             }
         }
         SignatureAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa4096 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
                 gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -72,7 +72,7 @@ pub fn dec<const R: usize, T: crate::card::Client>(
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa2048 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
                 gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -80,7 +80,7 @@ pub fn dec<const R: usize, T: crate::card::Client>(
             }
         }
         DecryptionAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa3072 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
                 gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -88,7 +88,7 @@ pub fn dec<const R: usize, T: crate::card::Client>(
             }
         }
         DecryptionAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa4096 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
                 gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -109,7 +109,7 @@ pub fn aut<const R: usize, T: crate::card::Client>(
             gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP256)
         }
         AuthenticationAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa2048 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
                 gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -117,7 +117,7 @@ pub fn aut<const R: usize, T: crate::card::Client>(
             }
         }
         AuthenticationAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa3072 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
                 gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);
@@ -125,7 +125,7 @@ pub fn aut<const R: usize, T: crate::card::Client>(
             }
         }
         AuthenticationAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_gen >= RsaKeySizes::Rsa4096 {
+            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
                 gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs1v15)
             } else {
                 warn!("Attempt to generate key disabled {:?}", algo);

@@ -167,7 +167,7 @@ pub enum RsaKeySizes {
 }
 
 impl RsaKeySizes {
-    fn default_gen() -> Self {
+    fn default_max_gen() -> Self {
         cfg_if! {
             if #[cfg(feature = "rsa4096-gen")] {
                 Self::Rsa4096
@@ -178,7 +178,7 @@ impl RsaKeySizes {
             }
         }
     }
-    fn default_import() -> Self {
+    fn default_max_import() -> Self {
         cfg_if! {
             if #[cfg(feature = "rsa4096")] {
                 Self::Rsa4096
@@ -210,10 +210,10 @@ pub struct Options {
     pub storage: Location,
 
     /// Max RSA size allowed to be imported
-    pub rsa_import: RsaKeySizes,
+    pub rsa_max_import: RsaKeySizes,
 
     /// Max RSA size allowed to be generated
-    pub rsa_gen: RsaKeySizes,
+    pub rsa_max_gen: RsaKeySizes,
 
     /// Flag to signal that the application has had its configuration changed or was factory-resetted by the admin application
     ///
@@ -258,8 +258,8 @@ impl Default for Options {
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
             storage: Location::External,
-            rsa_import: RsaKeySizes::default_import(),
-            rsa_gen: RsaKeySizes::default_gen(),
+            rsa_max_import: RsaKeySizes::default_max_import(),
+            rsa_max_gen: RsaKeySizes::default_max_gen(),
             #[cfg(feature = "admin-app")]
             reset_signal: None,
         }
