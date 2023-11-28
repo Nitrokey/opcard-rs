@@ -159,10 +159,17 @@ impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Car
     }
 }
 
+/// Represent RSA key sizes in bits
+///
+/// Used to configure the maximum sizes allowed for key generation and import through
+/// [`Options::rsa_max_import`] and [`Options::rsa_max_gen`]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum RsaKeySizes {
+    /// RSA key with 2048 bit modulus
     Rsa2048,
+    /// RSA key with 3072 bit modulus
     Rsa3072,
+    /// RSA key with 4096 bit modulus
     Rsa4096,
 }
 
