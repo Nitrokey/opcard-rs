@@ -5,11 +5,15 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
-## Unreleased
+## [v1.2.1][](2023-11-30)
 
 - Support factory reset through the admin app ([#188][])
+- Make RSA key size support a runtime configuration ([#190][])
 
 [#188]: https://github.com/Nitrokey/opcard-rs/pull/188
+[#190]: https://github.com/Nitrokey/opcard-rs/pull/190
+
+[v1.2.1]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.2.1
 
 ## [v1.2.0][](2023-11-08)
 
