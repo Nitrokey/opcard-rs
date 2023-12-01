@@ -5,6 +5,15 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
+
+## [v1.3.0][](2023-12-01)
+
+- Use the trussed clear API required for SE050 compatibility ([#187][])
+
+[#187]: https://github.com/Nitrokey/opcard-rs/pull/187
+
+[v1.3.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.3.0
+
 ## [v1.2.1][](2023-11-30)
 
 - Support factory reset through the admin app ([#188][])
