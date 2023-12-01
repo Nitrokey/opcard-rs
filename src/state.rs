@@ -102,7 +102,7 @@ macro_rules! concatenated_key_newtype {
 
         impl<'de> Deserialize<'de> for $name {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                serde_bytes::deserialize(deserializer).map(|i| $name(i))
+                serde_bytes::deserialize(deserializer).map($name)
             }
         }
 
@@ -470,22 +470,34 @@ impl<'a> LoadedState<'a> {
         let origin = self.persistent.key_data_mut(ty);
         let path = PathBuf::from(path_str);
 
-        let (new_id, new_origin) = match (new, origin.is_some()) {
-            (None, true) => {
+        let (new_id, new_origin) = match (new, &origin) {
+            (None, Some((k, _))) => {
+                // Copying for borrow checker
+                let pub_key = *k;
                 *origin = None;
                 self.persistent.save(client, storage)?;
                 try_syscall!(client.remove_file(storage, path)).ok();
+                try_syscall!(client.delete(pub_key)).map_err(|_err| {
+                    error!("Failed to delete key");
+                    Error::Saving
+                })?;
                 return Ok(());
             }
-            (None, false) => return Ok(()),
+            (None, None) => return Ok(()),
 
             // In this case we want to avoid storing old information with a new key, or vice-versa
-            (Some((new_id, new_origin)), true) => {
+            (Some((new_id, new_origin)), Some((k, _))) => {
+                // Copying for borrow checker
+                let pub_key = *k;
                 *origin = None;
                 self.persistent.save(client, storage)?;
+                try_syscall!(client.delete(pub_key)).map_err(|_err| {
+                    error!("Failed to delete key");
+                    Error::Saving
+                })?;
                 (new_id, new_origin)
             }
-            (Some((new_id, new_origin)), false) => (new_id, new_origin),
+            (Some((new_id, new_origin)), None) => (new_id, new_origin),
         };
 
         self.volatile.user.0.clear_cached(client, ty);
@@ -500,9 +512,23 @@ impl<'a> LoadedState<'a> {
             storage,
             path_str.as_bytes()
         ));
-        syscall!(client.delete(new_id));
+
+        let private_to_change = match ty {
+            KeyType::Sign => &mut self.persistent.signing_private_to_delete,
+            KeyType::Dec => &mut self.persistent.confidentiality_private_to_delete,
+            KeyType::Aut => &mut self.persistent.aut_private_to_delete,
+        };
+
+        // Delete the old private key metadata (that was only ever deleted with `clear`)
+        if let Some(id) = private_to_change.take() {
+            syscall!(client.delete(id));
+        }
+
+        *private_to_change = Some(new_id);
+        syscall!(client.clear(new_id));
         syscall!(client.delete(user_kek));
         *self.persistent.key_data_mut(ty) = Some(new_origin);
+
         if matches!(ty, KeyType::Sign) {
             self.persistent.sign_count = 0;
         }
@@ -520,7 +546,7 @@ impl<'a> LoadedState<'a> {
             .filter_map(|(k, is_rsa)| if *is_rsa { Some(k.take()) } else { None })
             .flatten()
         {
-            syscall!(client.delete(key));
+            syscall!(client.clear(key));
         }
     }
 
@@ -607,10 +633,16 @@ pub struct Persistent {
     reset_code_pin_len: Option<u8>,
     /// (public_key, origin)
     signing_key: Option<(KeyId, KeyOrigin)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    signing_private_to_delete: Option<KeyId>,
     /// (public_key, origin)
     confidentiality_key: Option<(KeyId, KeyOrigin)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    confidentiality_private_to_delete: Option<KeyId>,
     /// (public_key, origin)
     aut_key: Option<(KeyId, KeyOrigin)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    aut_private_to_delete: Option<KeyId>,
     sign_alg: SignatureAlgorithm,
     dec_alg: DecryptionAlgorithm,
     aut_alg: AuthenticationAlgorithm,
@@ -650,8 +682,11 @@ impl Persistent {
             language_preferences: Bytes::new(),
             sign_count: 0,
             signing_key: None,
+            signing_private_to_delete: None,
             confidentiality_key: None,
+            confidentiality_private_to_delete: None,
             aut_key: None,
+            aut_private_to_delete: None,
             sign_alg: SignatureAlgorithm::default(),
             dec_alg: DecryptionAlgorithm::default(),
             aut_alg: AuthenticationAlgorithm::default(),
@@ -1042,10 +1077,22 @@ impl Persistent {
         client: &mut impl crate::card::Client,
         storage: Location,
     ) -> Result<(), Error> {
-        let (key, path) = match ty {
-            KeyType::Sign => (self.signing_key.take(), SIGNING_KEY_PATH),
-            KeyType::Dec => (self.confidentiality_key.take(), DEC_KEY_PATH),
-            KeyType::Aut => (self.aut_key.take(), AUTH_KEY_PATH),
+        let (key, priv_to_delete, path) = match ty {
+            KeyType::Sign => (
+                self.signing_key.take(),
+                self.signing_private_to_delete.take(),
+                SIGNING_KEY_PATH,
+            ),
+            KeyType::Dec => (
+                self.confidentiality_key.take(),
+                self.confidentiality_private_to_delete.take(),
+                DEC_KEY_PATH,
+            ),
+            KeyType::Aut => (
+                self.aut_key.take(),
+                self.aut_private_to_delete.take(),
+                AUTH_KEY_PATH,
+            ),
         };
 
         if let Some((pubkey, _)) = key {
@@ -1061,6 +1108,9 @@ impl Persistent {
                     error!("Failed to delete public key: {:?} (ignored)", _err);
                 })
                 .ok();
+        }
+        if let Some(id) = priv_to_delete {
+            syscall!(client.delete(id));
         }
         Ok(())
     }
@@ -1108,7 +1158,7 @@ impl UserKeys {
             .into_iter()
             .flat_map(Option::take)
         {
-            syscall!(client.delete(k));
+            syscall!(client.clear(k));
         }
     }
 }
@@ -1250,7 +1300,7 @@ impl UserVerifiedInner {
         };
 
         if let Some(k) = key {
-            syscall!(client.delete(k));
+            syscall!(client.clear(k));
         }
     }
 
