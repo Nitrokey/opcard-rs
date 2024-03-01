@@ -90,11 +90,12 @@ log-error = []
 
 [patch.crates-io]
 iso7816 = { git = "https://github.com/Nitrokey/iso7816.git", tag = "v0.1.1-nitrokey.1" }
+littlefs2 = { git = "https://github.com/trussed-dev/littlefs2.git", rev = "ebd27e49ca321089d01d8c9b169c4aeb58ceeeca" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/nitrokey/trussed" , tag = "v0.1.0-nitrokey.15" }
+trussed = { git = "https://github.com/Nitrokey/trussed" , tag = "v0.1.0-nitrokey.18" }
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", rev = "4b8191f248c26cb074cdac887c7f3f48f9c449a4"}
 trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", rev = "9732a9a3e98af72112286afdc9b7174c66c2869a" }
-trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "10baac2608e98e25ea77ade974a4e26f778d6c8e" }
+trussed-staging = { git = "https://github.com/Nitrokey/trussed-staging.git", tag = "v0.1.0-nitrokey-hmac256p256.3" }
 apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1.2-nitrokey.2" }
 trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", tag = "v0.0.1-nitrokey.1" }
 usbd-ccid = { git = "https://github.com/Nitrokey/usbd-ccid", tag = "v0.2.0-nitrokey.1" }

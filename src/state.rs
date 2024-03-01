@@ -331,6 +331,7 @@ impl<'a> LoadedState<'a> {
             admin_key,
             user_wrapped,
             ADMIN_USER_KEY_BACKUP.as_bytes(),
+            &[],
             StorageAttributes::new().set_persistence(Location::Volatile)
         ))
         .map_err(|_err| {
@@ -358,6 +359,7 @@ impl<'a> LoadedState<'a> {
             rc_key,
             user_wrapped,
             RC_USER_KEY_BACKUP.as_bytes(),
+            &[],
             StorageAttributes::new().set_persistence(Location::Volatile)
         ))
         .map_err(|_err| {
@@ -423,7 +425,8 @@ impl<'a> LoadedState<'a> {
             Mechanism::Chacha8Poly1305,
             rc_key,
             user_key,
-            RC_USER_KEY_BACKUP.as_bytes()
+            RC_USER_KEY_BACKUP.as_bytes(),
+            None,
         ))
         .wrapped_key;
         syscall!(client.write_file(
@@ -760,7 +763,8 @@ impl Persistent {
             Mechanism::Chacha8Poly1305,
             admin_key,
             user_key,
-            ADMIN_USER_KEY_BACKUP.as_bytes()
+            ADMIN_USER_KEY_BACKUP.as_bytes(),
+            None,
         ))
         .wrapped_key;
         syscall!(client.write_file(location, PathBuf::from(ADMIN_USER_KEY_BACKUP), backup, None));
