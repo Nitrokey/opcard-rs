@@ -16,10 +16,9 @@ pub mod dispatch {
         types::{Bytes, Context, Location},
     };
     use trussed_auth::{AuthBackend, AuthContext, AuthExtension, MAX_HW_KEY_LEN};
-    use trussed_staging::{
-        streaming::ChunkedExtension, wrap_key_to_file::WrapKeyToFileExtension, StagingBackend,
-        StagingContext,
-    };
+    use trussed_chunked::ChunkedExtension;
+    use trussed_staging::{StagingBackend, StagingContext};
+    use trussed_wrap_key_to_file::WrapKeyToFileExtension;
 
     #[cfg(feature = "rsa")]
     use trussed_rsa_alloc::SoftwareRsa;
