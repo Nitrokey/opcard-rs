@@ -8,7 +8,7 @@ use hex_literal::hex;
 use iso7816::Status;
 use trussed::types::Location;
 use trussed_auth::AuthClient;
-use trussed_staging::streaming::ChunkedClient;
+use trussed_chunked::ChunkedClient;
 
 pub(crate) mod reply;
 
@@ -356,7 +356,7 @@ mod tests {
     }
 }
 
-use trussed_staging::wrap_key_to_file::WrapKeyToFileClient;
+use trussed_wrap_key_to_file::WrapKeyToFileClient;
 
 /// Super trait with all trussed extensions required by opcard
 pub trait Client: trussed::Client + AuthClient + WrapKeyToFileClient + ChunkedClient {}

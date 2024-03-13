@@ -13,7 +13,7 @@ use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
 use trussed::types::{KeyId, Location, Mechanism, PathBuf, StorageAttributes};
 use trussed::{syscall, try_syscall};
-use trussed_staging::streaming::utils::{write_all, EncryptionData};
+use trussed_chunked::utils::{write_all, EncryptionData};
 
 use crate::card::reply::Reply;
 use crate::command::{Password, PasswordMode};

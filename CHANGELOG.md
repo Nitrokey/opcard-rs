@@ -5,6 +5,12 @@ SPDX-License-Identifier: CC0-1.0
 
 # Changelog
 
+## Unreleased
+
+- Use `trussed-chunked` and `trussed-wrap-key-to-file` instead of
+  `trussed-staging`, see [trussed-staging#19][].
+
+[trussed-staging#19]: https://github.com/trussed-dev/trussed-staging/pull/19
 
 ## [v1.3.0][] (2023-12-01)
 
