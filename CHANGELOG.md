@@ -7,9 +7,20 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+-
+
+## [v1.4.0][] (2024-03-22)
+
+[v1.4.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.4.0
+
 - Use `trussed-chunked` and `trussed-wrap-key-to-file` instead of
   `trussed-staging`, see [trussed-staging#19][].
+- Update dependencies:
+  - trussed ([#198][])
+  - trussed-rsa-backend ([#195][])
 
+[#195]: https://github.com/Nitrokey/opcard-rs/pull/195
+[#198]: https://github.com/Nitrokey/opcard-rs/pull/198
 [trussed-staging#19]: https://github.com/trussed-dev/trussed-staging/pull/19
 
 ## [v1.3.0][] (2023-12-01)
