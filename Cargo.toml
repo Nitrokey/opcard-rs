@@ -36,7 +36,7 @@ trussed-rsa-alloc = { version = "0.1.0", optional = true }
 trussed-wrap-key-to-file = "0.1.0"
 serde_repr = "0.1"
 hex-literal = "0.4.1"
-trussed-auth = "0.2.1"
+trussed-auth = "0.3.0"
 admin-app = { version = "0.1.0", optional = true }
 
 # optional dependencies
@@ -95,7 +95,7 @@ iso7816 = { git = "https://github.com/Nitrokey/iso7816.git", tag = "v0.1.1-nitro
 littlefs2 = { git = "https://github.com/trussed-dev/littlefs2.git", rev = "ebd27e49ca321089d01d8c9b169c4aeb58ceeeca" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
 trussed = { git = "https://github.com/Nitrokey/trussed" , tag = "v0.1.0-nitrokey.18" }
-trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", rev = "4b8191f248c26cb074cdac887c7f3f48f9c449a4"}
+trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.3.0"}
 trussed-chunked = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "chunked-v0.1.0" }
 trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "manage-v0.1.0" }
 trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", rev = "9732a9a3e98af72112286afdc9b7174c66c2869a" }
