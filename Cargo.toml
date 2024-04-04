@@ -45,6 +45,7 @@ delog = { version = "0.1.7", optional = true }
 trussed-staging = { version = "0.2.0", features = ["chunked", "wrap-key-to-file"], optional = true }
 vpicc = { version = "0.1.0", optional = true }
 cfg-if = "1.0.0"
+littlefs2 = { version = "0.4.0", default-features = false }
 
 [dev-dependencies]
 env_logger = "0.9"

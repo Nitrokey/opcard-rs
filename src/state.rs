@@ -6,6 +6,7 @@ use core::mem::take;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
+use littlefs2::{path, path::Path};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -36,10 +37,10 @@ pub const MAX_GENERIC_LENGTH: usize = 4096;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
 pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_bytes();
 
-pub const SIGNING_KEY_PATH: &str = "signing_key.bin";
-pub const DEC_KEY_PATH: &str = "conf_key.bin";
-pub const AUTH_KEY_PATH: &str = "auth_key.bin";
-pub const AES_KEY_PATH: &str = "aes_key.bin";
+pub const SIGNING_KEY_PATH: &Path = path!("signing_key.bin");
+pub const DEC_KEY_PATH: &Path = path!("conf_key.bin");
+pub const AUTH_KEY_PATH: &Path = path!("auth_key.bin");
+pub const AES_KEY_PATH: &Path = path!("aes_key.bin");
 
 macro_rules! enum_u8 {
     (
@@ -200,7 +201,7 @@ impl State {
         })
     }
 
-    const LIFECYCLE_PATH: &'static str = "lifecycle.empty";
+    const LIFECYCLE_PATH: &'static Path = path!("lifecycle.empty");
     fn lifecycle_path() -> PathBuf {
         PathBuf::from(Self::LIFECYCLE_PATH)
     }
@@ -455,7 +456,7 @@ impl<'a> LoadedState<'a> {
             new,
             PathBuf::from(AES_KEY_PATH),
             storage,
-            AES_KEY_PATH.as_bytes()
+            AES_KEY_PATH.as_ref().as_bytes()
         ));
         syscall!(client.delete(new));
         Ok(())
@@ -513,7 +514,7 @@ impl<'a> LoadedState<'a> {
             new_id,
             path,
             storage,
-            path_str.as_bytes()
+            path_str.as_ref().as_bytes()
         ));
 
         let private_to_change = match ty {
@@ -1387,7 +1388,7 @@ impl Volatile {
         client: &mut impl crate::card::Client,
         user_kek: KeyId,
         opt_key: &mut Option<KeyId>,
-        path: &'static str,
+        path: &Path,
         storage: Location,
     ) -> Result<KeyId, Status> {
         if let Some(k) = opt_key {
@@ -1400,7 +1401,7 @@ impl Volatile {
             PathBuf::from(path),
             storage,
             Location::Volatile,
-            path.as_bytes()
+            path.as_ref().as_bytes()
         ))
         .map_err(|_err| {
             error!("Failed to load key: {:?}", _err);
