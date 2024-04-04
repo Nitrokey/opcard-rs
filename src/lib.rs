@@ -65,4 +65,5 @@ pub mod virt;
 #[cfg(feature = "vpicc")]
 pub use self::vpicc::VpiccCard;
 pub use card::{Card, Client, Options, RsaKeySizes};
+pub use state::STATE_FILES;
 pub use state::{DEFAULT_ADMIN_PIN, DEFAULT_USER_PIN};

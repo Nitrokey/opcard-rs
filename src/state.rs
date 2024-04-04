@@ -169,6 +169,8 @@ pub struct State {
     pub volatile: Volatile,
 }
 
+const LIFECYCLE_PATH: &'static Path = path!("lifecycle.empty");
+
 impl State {
     /// Loads the persistent state from flash
     pub fn load<'s, T: crate::card::Client>(
@@ -201,9 +203,8 @@ impl State {
         })
     }
 
-    const LIFECYCLE_PATH: &'static Path = path!("lifecycle.empty");
     fn lifecycle_path() -> PathBuf {
-        PathBuf::from(Self::LIFECYCLE_PATH)
+        PathBuf::from(LIFECYCLE_PATH)
     }
     pub fn lifecycle<T: crate::card::Client>(client: &mut T, storage: Location) -> LifeCycle {
         match try_syscall!(client.entry_metadata(storage, Self::lifecycle_path())) {
@@ -1485,19 +1486,23 @@ pub enum PermissionRequirement {
 }
 
 impl ArbitraryDO {
+    const fn path_ref(self) -> &'static Path {
+        match self {
+            Self::Url => path!("url"),
+            Self::KdfDo => path!("kdf_do"),
+            Self::PrivateUse1 => path!("private_use_1"),
+            Self::PrivateUse2 => path!("private_use_2"),
+            Self::PrivateUse3 => path!("private_use_3"),
+            Self::PrivateUse4 => path!("private_use_4"),
+            Self::LoginData => path!("login_data"),
+            Self::CardHolderCertAut => path!("cardholder_cert_aut"),
+            Self::CardHolderCertDec => path!("cardholder_cert_dec"),
+            Self::CardHolderCertSig => path!("cardholder_cert_sig"),
+        }
+    }
+
     fn path(self) -> PathBuf {
-        PathBuf::from(match self {
-            Self::Url => "url",
-            Self::KdfDo => "kdf_do",
-            Self::PrivateUse1 => "private_use_1",
-            Self::PrivateUse2 => "private_use_2",
-            Self::PrivateUse3 => "private_use_3",
-            Self::PrivateUse4 => "private_use_4",
-            Self::LoginData => "login_data",
-            Self::CardHolderCertAut => "cardholder_cert_aut",
-            Self::CardHolderCertDec => "cardholder_cert_dec",
-            Self::CardHolderCertSig => "cardholder_cert_sig",
-        })
+        self.path_ref().into()
     }
 
     fn default(self) -> Bytes<MAX_GENERIC_LENGTH> {
@@ -1633,3 +1638,23 @@ fn load_if_exists(
         },
     }
 }
+
+/// List of files stored on the filesystem by Opcard
+/// If any of these files is actually stored, this means that opcard is being used
+pub const STATE_FILES: &[&Path] = &[
+    LIFECYCLE_PATH,
+    SIGNING_KEY_PATH,
+    DEC_KEY_PATH,
+    AUTH_KEY_PATH,
+    AES_KEY_PATH,
+    ArbitraryDO::Url.path_ref(),
+    ArbitraryDO::KdfDo.path_ref(),
+    ArbitraryDO::PrivateUse1.path_ref(),
+    ArbitraryDO::PrivateUse2.path_ref(),
+    ArbitraryDO::PrivateUse3.path_ref(),
+    ArbitraryDO::PrivateUse4.path_ref(),
+    ArbitraryDO::LoginData.path_ref(),
+    ArbitraryDO::CardHolderCertAut.path_ref(),
+    ArbitraryDO::CardHolderCertDec.path_ref(),
+    ArbitraryDO::CardHolderCertSig.path_ref(),
+];
