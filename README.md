@@ -28,8 +28,8 @@ key import, signing, decrypting, card administration).
 Here are the currently supported algorithms:
 
 - RSA-2048
-- RSA-3072 (no key generation, key import only)
-- RSA-4096 (no key generation, key import only)
+- RSA-3072
+- RSA-4096
 - EcDSA and ECDH for P256
 - EdDSA and ECDH for Curve25519
 
