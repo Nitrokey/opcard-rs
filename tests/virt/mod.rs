@@ -37,6 +37,7 @@ const STDERR_FILTER: &[&str] = &[
     r"This is free software: you are free to change and redistribute it.",
     r"There is NO WARRANTY, to the extent permitted by law.",
     r"gpg: next trustdb check due at \d*-\d*-\d*",
+    r"gpg: all values passed to '--default-key",
 ];
 
 pub struct Context {
@@ -219,7 +220,7 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
         ":X:0",
         ")|(",
         // ID for the pcscd driver
-        r"Nitrokey 3 \[CCID/ICCD Interface\] \d\d \d\d",
+        r"(Nitrokey ){1,2}3 \[CCID/ICCD Interface\] \d\d \d\d",
         "))",
         ":AID:",
         // AID
