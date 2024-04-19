@@ -6,7 +6,7 @@ use iso7816::Status;
 use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
 
-use crate::card::{LoadedContext, RsaKeySizes};
+use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
 use crate::types::*;
 
@@ -30,6 +30,10 @@ pub fn sign<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.sign_alg();
+    if !algo.is_allowed(ctx.options.allowed_generation) {
+        warn!("Attempt to generate key disabled {:?}", algo);
+        return Err(Status::FunctionNotSupported);
+    }
     info!("Generating sign key with algorithm: {algo:?}");
     match algo {
         SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::Ed255),
@@ -37,28 +41,13 @@ pub fn sign<const R: usize, T: crate::card::Client>(
             gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP256)
         }
         SignatureAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
-                gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
         }
         SignatureAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
-                gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15)
         }
         SignatureAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
-                gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15)
         }
     }
 }
@@ -67,33 +56,22 @@ pub fn dec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.dec_alg();
+    if !algo.is_allowed(ctx.options.allowed_generation) {
+        warn!("Attempt to generate key disabled {:?}", algo);
+        return Err(Status::FunctionNotSupported);
+    }
     info!("Generating dec key with algorithm: {algo:?}");
     match algo {
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
         DecryptionAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
-                gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
         }
         DecryptionAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
-                gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15)
         }
         DecryptionAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
-                gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs1v15)
         }
     }
 }
@@ -102,6 +80,10 @@ pub fn aut<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.aut_alg();
+    if !algo.is_allowed(ctx.options.allowed_generation) {
+        warn!("Attempt to generate key disabled {:?}", algo);
+        return Err(Status::FunctionNotSupported);
+    }
     info!("Generating aut key with algorithm: {algo:?}");
     match algo {
         AuthenticationAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::Ed255),
@@ -109,28 +91,13 @@ pub fn aut<const R: usize, T: crate::card::Client>(
             gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP256)
         }
         AuthenticationAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
-                gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
-                gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
-                gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs1v15)
         }
     }
 }
