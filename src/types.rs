@@ -6,6 +6,7 @@ use iso7816::Status;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use trussed::types::Mechanism;
 
+use crate::card::AllowedAlgorithms;
 use crate::error::Error;
 use crate::tlv::get_do;
 
@@ -23,6 +24,57 @@ macro_rules! iterable_enum {
             $(
                 $var,
             )*
+        }
+
+        #[allow(unused)]
+        impl $name {
+            $vis fn iter_all() -> impl Iterator<Item = Self> {
+                [
+                    $(
+                        $name::$var,
+                    )*
+                ].into_iter()
+            }
+        }
+    }
+}
+
+macro_rules! iterable_sub_enum {
+
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident($parent:ident) {
+            $($var:ident),+
+            $(,)*
+        }
+    ) => {
+        $(#[$outer])*
+        $vis enum $name {
+            $(
+                $var,
+            )*
+        }
+
+        impl From<$name> for $parent {
+            fn from(value: $name) -> $parent {
+                match value {
+                    $(
+                        $name::$var => $parent::$var,
+                    )*
+                }
+            }
+        }
+
+        impl TryFrom<$parent> for $name {
+            type Error = AlgorithmFromAttributesError;
+            fn try_from(value: $parent) -> Result<$name, AlgorithmFromAttributesError> {
+                match value {
+                    $(
+                        $parent::$var => Ok($name::$var),
+                    )*
+                    _ => Err(AlgorithmFromAttributesError),
+                }
+            }
         }
 
         #[allow(unused)]
@@ -92,7 +144,76 @@ pub struct AlgorithmFromAttributesError;
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum SignatureAlgorithm {
+    pub enum Algorithm {
+        X255,
+        Ed255,
+        EcDhP256,
+        EcDsaP256,
+        Rsa2048,
+        Rsa3072,
+        Rsa4096,
+    }
+}
+
+impl TryFrom<&[u8]> for Algorithm {
+    type Error = AlgorithmFromAttributesError;
+
+    fn try_from(v: &[u8]) -> Result<Self, AlgorithmFromAttributesError> {
+        match v {
+            X255_ATTRIBUTES => Ok(Self::X255),
+            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
+            ED255_ATTRIBUTES => Ok(Self::Ed255),
+            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
+            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
+            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
+            _ => Err(AlgorithmFromAttributesError),
+        }
+    }
+}
+
+impl Algorithm {
+    pub fn id(&self) -> u8 {
+        self.attributes()[0]
+    }
+
+    pub fn is_rsa(&self) -> bool {
+        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+    }
+
+    pub fn attributes(&self) -> &'static [u8] {
+        match self {
+            Self::X255 => X255_ATTRIBUTES,
+            Self::Ed255 => ED255_ATTRIBUTES,
+            Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
+            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
+            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
+            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
+        }
+    }
+
+    pub fn oid(&self) -> &'static [u8] {
+        &self.attributes()[1..]
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        match self {
+            Self::X255 => allowed.contains(AllowedAlgorithms::X_25519),
+            Self::Ed255 => allowed.contains(AllowedAlgorithms::ED_25519),
+            Self::EcDhP256 => allowed.contains(AllowedAlgorithms::P_256),
+            Self::EcDsaP256 => allowed.contains(AllowedAlgorithms::P_256),
+            Self::Rsa2048 => allowed.contains(AllowedAlgorithms::RSA_2048),
+            Self::Rsa3072 => allowed.contains(AllowedAlgorithms::RSA_3072),
+            Self::Rsa4096 => allowed.contains(AllowedAlgorithms::RSA_4096),
+        }
+    }
+}
+
+iterable_sub_enum! {
+    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
+    #[repr(u8)]
+    pub enum SignatureAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
@@ -109,28 +230,29 @@ impl Default for SignatureAlgorithm {
 }
 
 impl SignatureAlgorithm {
+    pub fn as_algorithm(self) -> Algorithm {
+        self.into()
+    }
     #[allow(unused)]
     pub fn id(&self) -> u8 {
-        self.attributes()[0]
+        self.as_algorithm().id()
     }
 
     pub fn is_rsa(&self) -> bool {
-        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+        self.as_algorithm().is_rsa()
     }
 
     pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::Ed255 => ED255_ATTRIBUTES,
-            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
-            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
-            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
-            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
-        }
+        self.as_algorithm().attributes()
     }
 
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
+        self.as_algorithm().oid()
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        self.as_algorithm().is_allowed(allowed)
     }
 }
 
@@ -138,21 +260,14 @@ impl TryFrom<&[u8]> for SignatureAlgorithm {
     type Error = AlgorithmFromAttributesError;
 
     fn try_from(v: &[u8]) -> Result<SignatureAlgorithm, AlgorithmFromAttributesError> {
-        match v {
-            ED255_ATTRIBUTES => Ok(Self::Ed255),
-            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
-            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
-            _ => Err(AlgorithmFromAttributesError),
-        }
+        Algorithm::try_from(v)?.try_into()
     }
 }
 
-iterable_enum! {
+iterable_sub_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum DecryptionAlgorithm {
+    pub enum DecryptionAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         X255,
         EcDhP256,
@@ -169,28 +284,29 @@ impl Default for DecryptionAlgorithm {
 }
 
 impl DecryptionAlgorithm {
+    pub fn as_algorithm(self) -> Algorithm {
+        self.into()
+    }
     #[allow(unused)]
     pub fn id(&self) -> u8 {
-        self.attributes()[0]
+        self.as_algorithm().id()
     }
 
     pub fn is_rsa(&self) -> bool {
-        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+        self.as_algorithm().is_rsa()
     }
 
     pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::X255 => X255_ATTRIBUTES,
-            Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
-            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
-            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
-            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
-        }
+        self.as_algorithm().attributes()
     }
 
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
+        self.as_algorithm().oid()
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        self.as_algorithm().is_allowed(allowed)
     }
 }
 
@@ -198,21 +314,14 @@ impl TryFrom<&[u8]> for DecryptionAlgorithm {
     type Error = AlgorithmFromAttributesError;
 
     fn try_from(v: &[u8]) -> Result<DecryptionAlgorithm, AlgorithmFromAttributesError> {
-        match v {
-            X255_ATTRIBUTES => Ok(Self::X255),
-            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
-            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
-            _ => Err(AlgorithmFromAttributesError),
-        }
+        Algorithm::try_from(v)?.try_into()
     }
 }
 
-iterable_enum! {
+iterable_sub_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum AuthenticationAlgorithm {
+    pub enum AuthenticationAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
@@ -229,28 +338,29 @@ impl Default for AuthenticationAlgorithm {
 }
 
 impl AuthenticationAlgorithm {
+    pub fn as_algorithm(self) -> Algorithm {
+        self.into()
+    }
     #[allow(unused)]
     pub fn id(&self) -> u8 {
-        self.attributes()[0]
+        self.as_algorithm().id()
     }
 
     pub fn is_rsa(&self) -> bool {
-        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+        self.as_algorithm().is_rsa()
     }
 
     pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::Ed255 => ED255_ATTRIBUTES,
-            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
-            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
-            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
-            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
-        }
+        self.as_algorithm().attributes()
     }
 
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
+        self.as_algorithm().oid()
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        self.as_algorithm().is_allowed(allowed)
     }
 }
 
@@ -258,14 +368,7 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
     type Error = AlgorithmFromAttributesError;
 
     fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithm, AlgorithmFromAttributesError> {
-        match v {
-            ED255_ATTRIBUTES => Ok(Self::Ed255),
-            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
-            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
-            _ => Err(AlgorithmFromAttributesError),
-        }
+        Algorithm::try_from(v)?.try_into()
     }
 }
 
