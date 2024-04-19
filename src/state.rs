@@ -562,6 +562,11 @@ impl<'a> LoadedState<'a> {
     ) -> Result<KeyId, Status> {
         use KeyType as K;
         use UserVerifiedInner as V;
+
+        if self.persistent.public_key_id(key).is_none() {
+            return Err(Status::KeyReferenceNotFound);
+        }
+
         // Self::limit_cache_size is there to avoid having multiple keys in the volatile storage.
         // RSA keys can be up 2.3KB out of the total 8KiB.
         // With 3 keys this gets us very close to being full, especially with the added overhead of littlefs metadata

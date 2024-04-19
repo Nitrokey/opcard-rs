@@ -208,4 +208,21 @@
             GetLargeData(tag: CardHolderCertificate, start: 1, len: 2058, occurence: First),
         ]
     ),
+    IoTest(
+        name: "Key not found"  ,
+        cmd_resp: [
+            Verify(pin: Pw1),
+            Sign(
+                expected_status: KeyReferenceNotFound,
+            ),
+            Verify(pin: Pw82),
+            Decrypt(
+                key_kind: Rsa2048,
+                expected_status: KeyReferenceNotFound,
+            ),
+            Authenticate(
+                expected_status: KeyReferenceNotFound,
+            ),
+        ],
+    ),
 ]
