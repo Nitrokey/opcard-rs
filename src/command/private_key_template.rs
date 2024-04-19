@@ -5,7 +5,7 @@ use iso7816::Status;
 use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
 
-use crate::card::{LoadedContext, RsaKeySizes};
+use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
 use crate::tlv::get_do;
 use crate::types::*;
@@ -40,22 +40,16 @@ pub fn put_sign<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let attr = ctx.state.persistent.sign_alg();
+    if !attr.is_allowed(ctx.options.allowed_imports) {
+        warn!("Attempt to import key disabled {:?}", attr);
+        return Err(Status::FunctionNotSupported);
+    }
     let key_id = match attr {
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        SignatureAlgorithm::Rsa2048 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa2048 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?
-        }
-        SignatureAlgorithm::Rsa3072 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa3072 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?
-        }
-        SignatureAlgorithm::Rsa4096 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa4096 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?
-        }
-        _ => {
-            warn!("Attempt to import key disabled {:?}", attr);
-            return Err(Status::FunctionNotSupported);
-        }
+        SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
+        SignatureAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
+        SignatureAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|(private_key, pubkey)| (private_key, (pubkey, KeyOrigin::Imported)));
     ctx.state
@@ -76,22 +70,16 @@ pub fn put_dec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let attr = ctx.state.persistent.dec_alg();
+    if !attr.is_allowed(ctx.options.allowed_imports) {
+        warn!("Attempt to import key disabled {:?}", attr);
+        return Err(Status::FunctionNotSupported);
+    }
     let key_id = match attr {
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
-        DecryptionAlgorithm::Rsa2048 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa2048 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?
-        }
-        DecryptionAlgorithm::Rsa3072 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa3072 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?
-        }
-        DecryptionAlgorithm::Rsa4096 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa4096 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?
-        }
-        _ => {
-            warn!("Attempt to import key disabled {:?}", attr);
-            return Err(Status::FunctionNotSupported);
-        }
+        DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
+        DecryptionAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
+        DecryptionAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|(private_key, pubkey)| (private_key, (pubkey, KeyOrigin::Imported)));
     ctx.state
@@ -112,22 +100,16 @@ pub fn put_aut<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let attr = ctx.state.persistent.aut_alg();
+    if !attr.is_allowed(ctx.options.allowed_imports) {
+        warn!("Attempt to import key disabled {:?}", attr);
+        return Err(Status::FunctionNotSupported);
+    }
     let key_id = match attr {
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
-        AuthenticationAlgorithm::Rsa2048 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa2048 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?
-        }
-        AuthenticationAlgorithm::Rsa3072 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa3072 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?
-        }
-        AuthenticationAlgorithm::Rsa4096 if ctx.options.rsa_max_import >= RsaKeySizes::Rsa4096 => {
-            put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?
-        }
-        _ => {
-            warn!("Attempt to import key disabled {:?}", attr);
-            return Err(Status::FunctionNotSupported);
-        }
+        AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
+        AuthenticationAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
+        AuthenticationAlgorithm::Rsa4096 => put_rsa(ctx.lend(), Mechanism::Rsa4096Pkcs1v15)?,
     }
     .map(|(private_key, public_key)| (private_key, (public_key, KeyOrigin::Imported)));
     ctx.state

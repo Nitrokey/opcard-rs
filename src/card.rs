@@ -3,7 +3,7 @@
 
 #[cfg(feature = "admin-app")]
 use admin_app::{ResetSignal, ResetSignalAllocation};
-use cfg_if::cfg_if;
+use bitflags::bitflags;
 use hex_literal::hex;
 use iso7816::Status;
 use trussed::types::Location;
@@ -159,42 +159,65 @@ impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Car
     }
 }
 
-/// Represent RSA key sizes in bits
-///
-/// Used to configure the maximum sizes allowed for key generation and import through
-/// [`Options::rsa_max_import`] and [`Options::rsa_max_gen`]
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub enum RsaKeySizes {
-    /// RSA key with 2048 bit modulus
-    Rsa2048,
-    /// RSA key with 3072 bit modulus
-    Rsa3072,
-    /// RSA key with 4096 bit modulus
-    Rsa4096,
+bitflags! {
+    /// The algorithms that are allowed to be generated or imported.
+    ///
+    /// Used in [`Options`](allowed_generation) and [`Options`](allowed_imports)
+    #[derive(Clone, Copy, Debug)]
+    pub struct AllowedAlgorithms: u32 {
+        /// P256 NIST curve
+        const P_256 = 1;
+        /// P384 NIST curve
+        const P_384 = 1 << 1;
+        /// P521 NIST curve
+        const P_521 = 1 << 2;
+        /// RSA 2048
+        const RSA_2048 = 1 << 3;
+        /// RSA 3072
+        const RSA_3072 = 1 << 4;
+        /// RSA 4096
+        const RSA_4096 = 1 << 5;
+        /// X25519
+        const X_25519 = 1 << 6;
+        /// EdDsa25519
+        const ED_25519 = 1 << 6;
+    }
 }
 
-impl RsaKeySizes {
-    fn default_max_gen() -> Self {
-        cfg_if! {
-            if #[cfg(feature = "rsa4096-gen")] {
-                Self::Rsa4096
-            } else if #[cfg(feature = "rsa3072-gen")] {
-                Self::Rsa3072
-            } else {
-                Self::Rsa2048
-            }
-        }
+impl AllowedAlgorithms {
+    fn default_gen() -> Self {
+        [
+            Self::P_256,
+            Self::P_384,
+            Self::P_521,
+            #[cfg(feature = "rsa2048-gen")]
+            Self::RSA_2048,
+            #[cfg(feature = "rsa3072-gen")]
+            Self::RSA_3072,
+            #[cfg(feature = "rsa4096-gen")]
+            Self::RSA_4096,
+            Self::X_25519,
+            Self::ED_25519,
+        ]
+        .into_iter()
+        .fold(Self::empty(), |acc, value| acc | value)
     }
-    fn default_max_import() -> Self {
-        cfg_if! {
-            if #[cfg(feature = "rsa4096")] {
-                Self::Rsa4096
-            } else if #[cfg(feature = "rsa3072")] {
-                Self::Rsa3072
-            } else {
-                Self::Rsa2048
-            }
-        }
+    fn default_import() -> Self {
+        [
+            Self::P_256,
+            Self::P_384,
+            Self::P_521,
+            #[cfg(feature = "rsa2048")]
+            Self::RSA_2048,
+            #[cfg(feature = "rsa3072")]
+            Self::RSA_3072,
+            #[cfg(feature = "rsa4096")]
+            Self::RSA_4096,
+            Self::X_25519,
+            Self::ED_25519,
+        ]
+        .into_iter()
+        .fold(Self::empty(), |acc, value| acc | value)
     }
 }
 
@@ -216,11 +239,11 @@ pub struct Options {
     /// Which trussed storage to use
     pub storage: Location,
 
-    /// Max RSA size allowed to be imported
-    pub rsa_max_import: RsaKeySizes,
+    /// Bitflags of algorithms allowed to be imported
+    pub allowed_imports: AllowedAlgorithms,
 
-    /// Max RSA size allowed to be generated
-    pub rsa_max_gen: RsaKeySizes,
+    /// Bitflags of algorithms allowed to be generated
+    pub allowed_generation: AllowedAlgorithms,
 
     /// Flag to signal that the application has had its configuration changed or was factory-resetted by the admin application
     ///
@@ -265,8 +288,8 @@ impl Default for Options {
             historical_bytes: heapless::Vec::from_slice(&hex!("0031F573C00160009000")).unwrap(),
             button_available: true,
             storage: Location::External,
-            rsa_max_import: RsaKeySizes::default_max_import(),
-            rsa_max_gen: RsaKeySizes::default_max_gen(),
+            allowed_imports: AllowedAlgorithms::default_import(),
+            allowed_generation: AllowedAlgorithms::default_gen(),
             #[cfg(feature = "admin-app")]
             reset_signal: None,
         }
@@ -354,10 +377,5 @@ mod tests {
             Options::default().aid(),
             hex!("D2 76 00 01 24 01 03 04 00 00 00 00 00 00 00 00"),
         )
-    }
-
-    #[test]
-    fn key_sizes() {
-        assert!(RsaKeySizes::Rsa2048 < RsaKeySizes::Rsa4096);
     }
 }
