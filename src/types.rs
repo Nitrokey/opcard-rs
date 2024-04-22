@@ -92,7 +92,11 @@ macro_rules! iterable_sub_enum {
 
 const ED255_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice();
 const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
+const ECDSA_P384_ATTRIBUTES: &[u8] = hex!("132b81040022").as_slice();
+const ECDSA_P521_ATTRIBUTES: &[u8] = hex!("132b81040023").as_slice();
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
+const ECDH_P384_ATTRIBUTES: &[u8] = hex!("122b81040022").as_slice();
+const ECDH_P521_ATTRIBUTES: &[u8] = hex!("122b81040023").as_slice();
 const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
 const RSA_2K_ATTRIBUTES: &[u8] = hex!(
     "01"
@@ -149,6 +153,10 @@ iterable_enum! {
         Ed255,
         EcDhP256,
         EcDsaP256,
+        EcDhP384,
+        EcDsaP384,
+        EcDhP521,
+        EcDsaP521,
         Rsa2048,
         Rsa3072,
         Rsa4096,
@@ -161,9 +169,13 @@ impl TryFrom<&[u8]> for Algorithm {
     fn try_from(v: &[u8]) -> Result<Self, AlgorithmFromAttributesError> {
         match v {
             X255_ATTRIBUTES => Ok(Self::X255),
-            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
             ED255_ATTRIBUTES => Ok(Self::Ed255),
+            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
             ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
+            ECDH_P384_ATTRIBUTES => Ok(Self::EcDhP384),
+            ECDSA_P384_ATTRIBUTES => Ok(Self::EcDsaP384),
+            ECDH_P521_ATTRIBUTES => Ok(Self::EcDhP521),
+            ECDSA_P521_ATTRIBUTES => Ok(Self::EcDsaP521),
             RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
             RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
             RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
@@ -187,6 +199,10 @@ impl Algorithm {
             Self::Ed255 => ED255_ATTRIBUTES,
             Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
             Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
+            Self::EcDhP384 => ECDH_P384_ATTRIBUTES,
+            Self::EcDsaP384 => ECDSA_P384_ATTRIBUTES,
+            Self::EcDhP521 => ECDH_P521_ATTRIBUTES,
+            Self::EcDsaP521 => ECDSA_P521_ATTRIBUTES,
             Self::Rsa2048 => RSA_2K_ATTRIBUTES,
             Self::Rsa3072 => RSA_3K_ATTRIBUTES,
             Self::Rsa4096 => RSA_4K_ATTRIBUTES,
@@ -203,6 +219,10 @@ impl Algorithm {
             Self::Ed255 => allowed.contains(AllowedAlgorithms::ED_25519),
             Self::EcDhP256 => allowed.contains(AllowedAlgorithms::P_256),
             Self::EcDsaP256 => allowed.contains(AllowedAlgorithms::P_256),
+            Self::EcDhP384 => allowed.contains(AllowedAlgorithms::P_384),
+            Self::EcDsaP384 => allowed.contains(AllowedAlgorithms::P_384),
+            Self::EcDhP521 => allowed.contains(AllowedAlgorithms::P_521),
+            Self::EcDsaP521 => allowed.contains(AllowedAlgorithms::P_521),
             Self::Rsa2048 => allowed.contains(AllowedAlgorithms::RSA_2048),
             Self::Rsa3072 => allowed.contains(AllowedAlgorithms::RSA_3072),
             Self::Rsa4096 => allowed.contains(AllowedAlgorithms::RSA_4096),
@@ -217,6 +237,8 @@ iterable_sub_enum! {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
+        EcDsaP384,
+        EcDsaP521,
         Rsa2048,
         Rsa3072,
         Rsa4096,
@@ -271,6 +293,8 @@ iterable_sub_enum! {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         X255,
         EcDhP256,
+        EcDhP384,
+        EcDhP521,
         Rsa2048,
         Rsa3072,
         Rsa4096,
@@ -325,6 +349,8 @@ iterable_sub_enum! {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
+        EcDsaP384,
+        EcDsaP521,
         Rsa2048,
         Rsa3072,
         Rsa4096,
@@ -493,6 +519,10 @@ impl<const C: usize> From<&iso7816::Command<C>> for Tag {
 pub enum CurveAlgo {
     EcDhP256,
     EcDsaP256,
+    EcDhP384,
+    EcDsaP384,
+    EcDhP521,
+    EcDsaP521,
     X255,
     Ed255,
 }
@@ -501,6 +531,8 @@ impl CurveAlgo {
     pub fn mechanism(self) -> Mechanism {
         match self {
             Self::EcDsaP256 | Self::EcDhP256 => Mechanism::P256,
+            Self::EcDsaP384 | Self::EcDhP384 => Mechanism::P384,
+            Self::EcDsaP521 | Self::EcDhP521 => Mechanism::P521,
             Self::X255 => Mechanism::X255,
             Self::Ed255 => Mechanism::Ed255,
         }

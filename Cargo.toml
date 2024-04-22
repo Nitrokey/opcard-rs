@@ -56,7 +56,7 @@ openpgp-card-pcsc = "0.3"
 regex = "1.6.0"
 stoppable_thread = "0.2.1"
 test-log = "0.2.10"
-trussed = { version = "0.1.0", features = ["virt"] }
+trussed = { version = "0.1.0", features = ["virt", "p384", "p521"] }
 trussed-rsa-alloc = { version = "0.2.0", features = ["virt"] }
 rand = "0.8.5"
 ron = "0.8"
@@ -93,9 +93,9 @@ log-error = []
 
 [patch.crates-io]
 iso7816 = { git = "https://github.com/Nitrokey/iso7816.git", tag = "v0.1.1-nitrokey.1" }
-littlefs2 = { git = "https://github.com/trussed-dev/littlefs2.git", rev = "ebd27e49ca321089d01d8c9b169c4aeb58ceeeca" }
+littlefs2 = { git = "https://github.com/sosthene-nitrokey/littlefs2.git", rev = "2b45a7559ff44260c6dd693e4cb61f54ae5efc53" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/Nitrokey/trussed" , tag = "v0.1.0-nitrokey.18" }
+trussed = { git = "https://github.com/Nitrokey/trussed" , rev = "c7a4722b9f414c40ac635c568c595a5ec257082f" }
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.3.0"}
 trussed-chunked = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "chunked-v0.1.0" }
 trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "manage-v0.1.0" }

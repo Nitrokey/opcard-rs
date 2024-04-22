@@ -46,6 +46,8 @@ pub fn put_sign<const R: usize, T: crate::card::Client>(
     }
     let key_id = match attr {
         SignatureAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
+        SignatureAlgorithm::EcDsaP384 => put_ec(ctx.lend(), CurveAlgo::EcDsaP384)?,
+        SignatureAlgorithm::EcDsaP521 => put_ec(ctx.lend(), CurveAlgo::EcDsaP521)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
         SignatureAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
@@ -76,6 +78,8 @@ pub fn put_dec<const R: usize, T: crate::card::Client>(
     }
     let key_id = match attr {
         DecryptionAlgorithm::EcDhP256 => put_ec(ctx.lend(), CurveAlgo::EcDhP256)?,
+        DecryptionAlgorithm::EcDhP384 => put_ec(ctx.lend(), CurveAlgo::EcDhP384)?,
+        DecryptionAlgorithm::EcDhP521 => put_ec(ctx.lend(), CurveAlgo::EcDhP521)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
         DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
         DecryptionAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
@@ -106,6 +110,8 @@ pub fn put_aut<const R: usize, T: crate::card::Client>(
     }
     let key_id = match attr {
         AuthenticationAlgorithm::EcDsaP256 => put_ec(ctx.lend(), CurveAlgo::EcDsaP256)?,
+        AuthenticationAlgorithm::EcDsaP384 => put_ec(ctx.lend(), CurveAlgo::EcDsaP384)?,
+        AuthenticationAlgorithm::EcDsaP521 => put_ec(ctx.lend(), CurveAlgo::EcDsaP521)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
         AuthenticationAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
@@ -177,7 +183,7 @@ fn put_ec<const R: usize, T: crate::card::Client>(
         StorageAttributes::default().set_persistence(ctx.options.storage)
     ))
     .map_err(|_err| {
-        warn!("Failed to derive_ke: {_err:?}");
+        warn!("Failed to derive_key: {_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
