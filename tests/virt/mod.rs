@@ -108,6 +108,10 @@ pub enum KeyType {
     Cv25519NoAut,
     P256,
     P256NoAut,
+    P384,
+    P384NoAut,
+    P521,
+    P521NoAut,
 }
 
 #[allow(unused)]
@@ -137,6 +141,34 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
         KeyType::P256NoAut => (
             r"keyattr:1:19:NIST P-256:",
             r"keyattr:2:18:NIST P-256:",
+            r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
+        ),
+        KeyType::P384 => (
+            r"keyattr:1:19:NIST P-384:",
+            r"keyattr:2:18:NIST P-384:",
+            r"keyattr:3:19:NIST P-384:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+        ),
+        KeyType::P384NoAut => (
+            r"keyattr:1:19:NIST P-384:",
+            r"keyattr:2:18:NIST P-384:",
+            r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
+        ),
+        KeyType::P521 => (
+            r"keyattr:1:19:NIST P-521:",
+            r"keyattr:2:18:NIST P-521:",
+            r"keyattr:3:19:NIST P-521:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+        ),
+        KeyType::P521NoAut => (
+            r"keyattr:1:19:NIST P-521:",
+            r"keyattr:2:18:NIST P-521:",
             r"keyattr:3:1:2048:",
             "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
             "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
