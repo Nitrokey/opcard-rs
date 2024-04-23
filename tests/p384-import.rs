@@ -7,12 +7,12 @@ mod virt;
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
 #[test]
-fn gpg_p384_import() {
+fn p384_import_gpg() {
     virt::with_vsc(|| gpg::gpg_test_import(gpg::KeyAlgo::P384));
 }
 
 // #[cfg(feature = "dangerous-test-real-card")]
 // #[test]
-// fn gpg_p384_import_hardware() {
+// fn p384_import_gpg_hardware() {
 //     gpg::gpg_test_import(gpg::KeyAlgo::P384);
 // }

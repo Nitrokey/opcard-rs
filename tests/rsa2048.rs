@@ -7,12 +7,12 @@ mod virt;
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
 #[test]
-fn gpg_rsa2048() {
+fn rsa2048_gpg() {
     virt::with_vsc(|| gpg::gpg_test(gpg::KeyAlgo::Rsa2048));
 }
 
 #[cfg(feature = "dangerous-test-real-card")]
 #[test]
-fn gpg_rsa2048_hardware() {
+fn rsa2048_gpg_hardware() {
     gpg::gpg_test(gpg::KeyAlgo::Rsa2048);
 }

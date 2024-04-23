@@ -40,9 +40,9 @@ test:
 .PHONY: test
 dangerous-real-card-test:
 	ps aux | grep pcscd | grep -v grep || sudo pcscd
-	cargo test --features rsa2048-gen,rsa4096,dangerous-test-real-card sequoia
+	cargo test --features rsa2048-gen,rsa4096,dangerous-test-real-card sequoia_hardware
 	sudo pkill pcscd
-	cargo test --features rsa2048-gen,rsa4096-gen,dangerous-test-real-card _hardware
+	cargo test --features rsa2048-gen,rsa4096-gen,dangerous-test-real-card gpg_hardware
 
 .PHONY: fuzz
 fuzz: fuzz-corpus

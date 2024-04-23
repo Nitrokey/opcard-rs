@@ -7,12 +7,12 @@ mod virt;
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
 #[test]
-fn gpg_cv25519() {
+fn cv25519_gpg() {
     virt::with_vsc(|| gpg::gpg_test(gpg::KeyAlgo::Cv25519));
 }
 
 #[cfg(feature = "dangerous-test-real-card")]
 #[test]
-fn gpg_cv25519_hardware() {
+fn cv25519_gpg_hardware() {
     gpg::gpg_test(gpg::KeyAlgo::Cv25519);
 }

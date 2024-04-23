@@ -7,12 +7,12 @@ mod virt;
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
 #[test]
-fn gpg_rsa4096_import() {
+fn rsa4096_import_gpg() {
     virt::with_vsc(|| gpg::gpg_test_import(gpg::KeyAlgo::Rsa4096));
 }
 
 #[cfg(feature = "dangerous-test-real-card")]
 #[test]
-fn gpg_rsa4096_import_hardware() {
+fn rsa4096_import_gpg_hardware() {
     gpg::gpg_test_import(gpg::KeyAlgo::Rsa4096);
 }
