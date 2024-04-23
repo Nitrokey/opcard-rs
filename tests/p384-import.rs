@@ -2,16 +2,17 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![cfg(feature = "vpicc")]
 
+mod gpg;
 mod virt;
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
 #[test]
 fn gpg_p384_import() {
-    virt::with_vsc(|| virt::gpg_test_import(virt::KeyAlgo::P384));
+    virt::with_vsc(|| gpg::gpg_test_import(gpg::KeyAlgo::P384));
 }
 
 // #[cfg(feature = "dangerous-test-real-card")]
 // #[test]
 // fn gpg_p384_import_hardware() {
-//     virt::gpg_test_import(virt::KeyAlgo::P384);
+//     gpg::gpg_test_import(gpg::KeyAlgo::P384);
 // }
