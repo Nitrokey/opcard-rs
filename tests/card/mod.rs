@@ -9,8 +9,11 @@ use iso7816::{command::FromSliceError, Command, Status};
 use opcard::virt::VirtClient;
 use opcard::Options;
 use openpgp_card::{
-    CardBackend, CardCaps, CardTransaction, Error, OpenPgp, OpenPgpTransaction, PinType,
+    algorithm::AlgoSimple, CardBackend, CardCaps, CardTransaction, Error, OpenPgp,
+    OpenPgpTransaction, PinType,
 };
+use sequoia_openpgp::types::HashAlgorithm;
+
 use trussed::{
     virt::{Platform, Ram},
     Service,
@@ -163,4 +166,199 @@ pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
         }
         Err(e) => panic!("Unexpected error {e}"),
     }
+}
+#[cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
+const IDENT: &str = "0000:00000000";
+#[cfg(feature = "dangerous-test-real-card")]
+const IDENT: &str = concat!(
+    env!("OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR"),
+    ":",
+    env!("OPCARD_DANGEROUS_TEST_CARD_PGP_SERIAL")
+);
+
+#[allow(unused)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyAlgo {
+    Rsa2048,
+    Rsa3072,
+    Rsa4096,
+    Cv25519,
+    P256,
+    P384,
+    P521,
+}
+
+impl From<KeyAlgo> for AlgoSimple {
+    fn from(value: KeyAlgo) -> Self {
+        match value {
+            KeyAlgo::Rsa2048 => AlgoSimple::RSA2k,
+            KeyAlgo::Rsa3072 => AlgoSimple::RSA3k,
+            KeyAlgo::Rsa4096 => AlgoSimple::RSA4k,
+            KeyAlgo::Cv25519 => AlgoSimple::Curve25519,
+            KeyAlgo::P256 => AlgoSimple::NIST256,
+            KeyAlgo::P384 => AlgoSimple::NIST384,
+            KeyAlgo::P521 => AlgoSimple::NIST521,
+        }
+    }
+}
+
+impl KeyAlgo {
+    fn hash_algo(self) -> HashAlgorithm {
+        match self {
+            KeyAlgo::Rsa2048 => HashAlgorithm::SHA256,
+            KeyAlgo::Rsa3072 => HashAlgorithm::SHA384,
+            KeyAlgo::Rsa4096 => HashAlgorithm::SHA512,
+            KeyAlgo::Cv25519 => HashAlgorithm::SHA256,
+            KeyAlgo::P256 => HashAlgorithm::SHA256,
+            KeyAlgo::P384 => HashAlgorithm::SHA384,
+            KeyAlgo::P521 => HashAlgorithm::SHA512,
+        }
+    }
+
+    fn plaintext_len(self) -> usize {
+        match self {
+            KeyAlgo::Rsa2048 => 32,
+            KeyAlgo::Rsa3072 => 48,
+            KeyAlgo::Rsa4096 => 64,
+            KeyAlgo::Cv25519 => 32,
+            KeyAlgo::P256 => 32,
+            KeyAlgo::P384 => 48,
+            KeyAlgo::P521 => 64,
+        }
+    }
+
+    fn can_work_with_mse(self) -> bool {
+        match self {
+            KeyAlgo::Cv25519 => false,
+            KeyAlgo::Rsa2048
+            | KeyAlgo::Rsa3072
+            | KeyAlgo::Rsa4096
+            | KeyAlgo::P256
+            | KeyAlgo::P384
+            | KeyAlgo::P521 => true,
+        }
+    }
+}
+
+pub fn sequoia_test(algo: KeyAlgo) {
+    use openpgp_card::KeyType;
+    use openpgp_card_pcsc::PcscBackend;
+    use openpgp_card_sequoia::util::public_key_material_to_key;
+    use openpgp_card_sequoia::{state::Open, Card};
+    use sequoia_openpgp::crypto::Decryptor;
+    use sequoia_openpgp::crypto::SessionKey;
+    use sequoia_openpgp::crypto::Signer;
+
+    let mut card: Card<Open> = PcscBackend::open_by_ident(IDENT, None).unwrap().into();
+    let mut open = card.transaction().unwrap();
+    open.verify_admin(b"12345678").unwrap();
+    let mut admin = open.admin_card().unwrap();
+    let (material, gendate) = admin
+        .generate_key_simple(KeyType::Decryption, Some(algo.into()))
+        .unwrap();
+
+    let dec_pubk =
+        public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None).unwrap();
+    let dec_pubk_aut =
+        public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+            .unwrap();
+
+    println!("======== GENERATED {algo:?} Decryption key =======");
+
+    let (material, gendate) = admin
+        .generate_key_simple(KeyType::Authentication, Some(algo.into()))
+        .unwrap();
+    let aut_pubk =
+        public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
+            .unwrap();
+    let aut_pubk_dec =
+        public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None).unwrap();
+
+    println!("======== GENERATED {algo:?} Authentication key =======");
+
+    let (material, gendate) = admin
+        .generate_key_simple(KeyType::Signing, Some(algo.into()))
+        .unwrap();
+    let sign_pubk =
+        public_key_material_to_key(&material, KeyType::Signing, &gendate, None, None).unwrap();
+
+    println!("======== GENERATED {algo:?} Signing key =======");
+
+    open.verify_user_for_signing(b"123456").unwrap();
+    let mut sign_card = open.signing_card().unwrap();
+    let mut signer = sign_card.signer_from_public(sign_pubk.clone(), &|| {});
+    let data = vec![1; algo.plaintext_len()];
+    let signature = signer.sign(algo.hash_algo(), &data).unwrap();
+    assert!(sign_pubk
+        .verify(&signature, algo.hash_algo(), &data)
+        .is_ok());
+
+    println!("======== Verified signature =======");
+
+    open.verify_user(b"123456").unwrap();
+    let mut user_card = open.user_card().unwrap();
+    let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+    let data = vec![2; algo.plaintext_len()];
+    let signature = authenticator.sign(algo.hash_algo(), &data).unwrap();
+    assert!(dec_pubk_aut
+        .verify(&signature, algo.hash_algo(), &data)
+        .is_err());
+    assert!(aut_pubk.verify(&signature, algo.hash_algo(), &data).is_ok());
+
+    println!("======== Verified authentication =======");
+
+    let mut session = SessionKey::new(19);
+    session[0] = 7;
+    let ciphertext = dec_pubk.encrypt(&session).unwrap();
+    let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+    assert_eq!(
+        session,
+        decryptor
+            .decrypt(&ciphertext, Some(algo.plaintext_len()))
+            .unwrap()
+    );
+
+    open.manage_security_environment(KeyType::Authentication, KeyType::Decryption)
+        .unwrap();
+    let mut user_card = open.user_card().unwrap();
+    let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+    let data = vec![3; algo.plaintext_len()];
+    if algo.can_work_with_mse() {
+        let signature = authenticator.sign(algo.hash_algo(), &data).unwrap();
+        assert!(aut_pubk
+            .verify(&signature, algo.hash_algo(), &data)
+            .is_err());
+        dec_pubk_aut
+            .verify(&signature, algo.hash_algo(), &data)
+            .unwrap();
+    } else {
+        _ = authenticator.sign(algo.hash_algo(), &data).unwrap_err();
+    }
+
+    println!("======== Verified MSE 1 =======");
+
+    open.manage_security_environment(KeyType::Decryption, KeyType::Authentication)
+        .unwrap();
+    let mut user_card = open.user_card().unwrap();
+    let mut session = SessionKey::new(19);
+    session[0] = 7;
+    if algo.can_work_with_mse() {
+        let ciphertext = aut_pubk_dec.encrypt(&session).unwrap();
+        let mut decryptor = user_card.decryptor_from_public(aut_pubk_dec, &|| {});
+        assert_eq!(
+            session,
+            decryptor
+                .decrypt(&ciphertext, Some(algo.plaintext_len()))
+                .unwrap()
+        );
+    } else {
+        let mut decryptor = user_card.decryptor_from_public(aut_pubk_dec, &|| {});
+        assert!(decryptor
+            .decrypt(&ciphertext, Some(algo.plaintext_len()))
+            .is_err());
+    }
+
+    println!("======== Verified MSE 2 =======");
+
+    open.factory_reset().unwrap();
 }
