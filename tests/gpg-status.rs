@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-#![cfg(feature = "vpicc")]
+#![cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
 
 mod virt;
 
