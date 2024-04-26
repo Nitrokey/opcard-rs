@@ -5,6 +5,8 @@
 mod gpg;
 mod virt;
 
+use test_log::test;
+
 #[cfg(not(feature = "dangerous-test-real-card"))]
 #[test]
 fn p384_gpg() {
