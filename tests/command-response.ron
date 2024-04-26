@@ -110,7 +110,7 @@
             Verify(pin: Pw3),
             Verify(pin: Pw82),
             ImportKey(
-                key: "FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211",
+                private_key: "FFEEDDCCBBAA00998877665544332211FFEEDDCCBBAA00998877665544332211",
                 key_kind: Aes,
             ),
             // Encrypt with AES
@@ -133,7 +133,8 @@
             Verify(pin: Pw82),
             SetAttributes (key_type: Dec, key_kind: X25519),
             ImportKey(
-                key: "2a2cb91da5fb77b12a99c0eb872f4cdf4566b25172c1163c7da518730a6d0777",
+                private_key: "2a2cb91da5fb77b12a99c0eb872f4cdf4566b25172c1163c7da518730a6d0777",
+                public_key: "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
                 key_type: Dec,
                 key_kind: X25519,
             ),
@@ -156,7 +157,8 @@
             Verify(pin: Pw82),
             SetAttributes (key_type: Sign, key_kind: Ed25519),
             ImportKey(
-                key: "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
+                private_key: "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
+                public_key: "ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf",
                 key_type: Sign,
                 key_kind: Ed25519,
             ),
@@ -174,7 +176,8 @@
             Verify(pin: Pw82),
             SetAttributes (key_type: Dec, key_kind: X25519),
             ImportKey(
-                key: "56ca9c48fec3ef2874f3e4c39730a7014da61cf77f50af086998957102837b00",
+                private_key: "56ca9c48fec3ef2874f3e4c39730a7014da61cf77f50af086998957102837b00",
+                public_key: "38B64BB09D88839BDC98DB56CF640ED80D3618E5A7EF2FA6EAD6DDDF1D3CB642",
                 key_type: Dec,
                 key_kind: X25519,
             ),

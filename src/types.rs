@@ -91,13 +91,21 @@ macro_rules! iterable_sub_enum {
 }
 
 const ED255_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice();
+const ED255_ATTRIBUTES_PK: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01 FF").as_slice();
 const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
 const ECDSA_P384_ATTRIBUTES: &[u8] = hex!("132b81040022").as_slice();
 const ECDSA_P521_ATTRIBUTES: &[u8] = hex!("132b81040023").as_slice();
+const ECDSA_P256_ATTRIBUTES_PK: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07 FF").as_slice();
+const ECDSA_P384_ATTRIBUTES_PK: &[u8] = hex!("132b81040022 FF").as_slice();
+const ECDSA_P521_ATTRIBUTES_PK: &[u8] = hex!("132b81040023 FF").as_slice();
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
 const ECDH_P384_ATTRIBUTES: &[u8] = hex!("122b81040022").as_slice();
 const ECDH_P521_ATTRIBUTES: &[u8] = hex!("122b81040023").as_slice();
+const ECDH_P256_ATTRIBUTES_PK: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07 FF").as_slice();
+const ECDH_P384_ATTRIBUTES_PK: &[u8] = hex!("122b81040022 FF").as_slice();
+const ECDH_P521_ATTRIBUTES_PK: &[u8] = hex!("122b81040023 FF").as_slice();
 const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
+const X255_ATTRIBUTES_PK: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01 FF").as_slice();
 const RSA_2K_ATTRIBUTES: &[u8] = hex!(
     "01"
     "0800" // Length modulus (in bit): 2048
@@ -168,14 +176,14 @@ impl TryFrom<&[u8]> for Algorithm {
 
     fn try_from(v: &[u8]) -> Result<Self, AlgorithmFromAttributesError> {
         match v {
-            X255_ATTRIBUTES => Ok(Self::X255),
-            ED255_ATTRIBUTES => Ok(Self::Ed255),
-            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
-            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            ECDH_P384_ATTRIBUTES => Ok(Self::EcDhP384),
-            ECDSA_P384_ATTRIBUTES => Ok(Self::EcDsaP384),
-            ECDH_P521_ATTRIBUTES => Ok(Self::EcDhP521),
-            ECDSA_P521_ATTRIBUTES => Ok(Self::EcDsaP521),
+            X255_ATTRIBUTES | X255_ATTRIBUTES_PK => Ok(Self::X255),
+            ED255_ATTRIBUTES | ED255_ATTRIBUTES_PK => Ok(Self::Ed255),
+            ECDH_P256_ATTRIBUTES | ECDH_P256_ATTRIBUTES_PK => Ok(Self::EcDhP256),
+            ECDSA_P256_ATTRIBUTES | ECDSA_P256_ATTRIBUTES_PK => Ok(Self::EcDsaP256),
+            ECDH_P384_ATTRIBUTES | ECDH_P384_ATTRIBUTES_PK => Ok(Self::EcDhP384),
+            ECDSA_P384_ATTRIBUTES | ECDSA_P384_ATTRIBUTES_PK => Ok(Self::EcDsaP384),
+            ECDH_P521_ATTRIBUTES | ECDH_P521_ATTRIBUTES_PK => Ok(Self::EcDhP521),
+            ECDSA_P521_ATTRIBUTES | ECDSA_P521_ATTRIBUTES_PK => Ok(Self::EcDsaP521),
             RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
             RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
             RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
@@ -195,14 +203,14 @@ impl Algorithm {
 
     pub fn attributes(&self) -> &'static [u8] {
         match self {
-            Self::X255 => X255_ATTRIBUTES,
-            Self::Ed255 => ED255_ATTRIBUTES,
-            Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
-            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
-            Self::EcDhP384 => ECDH_P384_ATTRIBUTES,
-            Self::EcDsaP384 => ECDSA_P384_ATTRIBUTES,
-            Self::EcDhP521 => ECDH_P521_ATTRIBUTES,
-            Self::EcDsaP521 => ECDSA_P521_ATTRIBUTES,
+            Self::X255 => X255_ATTRIBUTES_PK,
+            Self::Ed255 => ED255_ATTRIBUTES_PK,
+            Self::EcDhP256 => ECDH_P256_ATTRIBUTES_PK,
+            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES_PK,
+            Self::EcDhP384 => ECDH_P384_ATTRIBUTES_PK,
+            Self::EcDsaP384 => ECDSA_P384_ATTRIBUTES_PK,
+            Self::EcDhP521 => ECDH_P521_ATTRIBUTES_PK,
+            Self::EcDsaP521 => ECDSA_P521_ATTRIBUTES_PK,
             Self::Rsa2048 => RSA_2K_ATTRIBUTES,
             Self::Rsa3072 => RSA_3K_ATTRIBUTES,
             Self::Rsa4096 => RSA_4K_ATTRIBUTES,
@@ -535,6 +543,15 @@ impl CurveAlgo {
             Self::EcDsaP521 | Self::EcDhP521 => Mechanism::P521,
             Self::X255 => Mechanism::X255,
             Self::Ed255 => Mechanism::Ed255,
+        }
+    }
+
+    pub fn public_key_header(self) -> u8 {
+        match self {
+            Self::EcDsaP256 | Self::EcDhP256 => 0x04,
+            Self::EcDsaP384 | Self::EcDhP384 => 0x04,
+            Self::EcDsaP521 | Self::EcDhP521 => 0x04,
+            Self::X255 | Self::Ed255 => 0x40,
         }
     }
 }

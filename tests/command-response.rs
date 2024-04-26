@@ -453,7 +453,9 @@ enum IoCmd {
         expected_status: Status,
     },
     ImportKey {
-        key: String,
+        private_key: String,
+        #[serde(default)]
+        public_key: String,
         #[serde(default)]
         key_type: Option<KeyType>,
         key_kind: KeyKind,
@@ -540,11 +542,19 @@ impl IoCmd {
                 expected_status,
             } => Self::run_change(*pin, old_value, new_value, *expected_status, card),
             Self::ImportKey {
-                key,
+                private_key,
+                public_key,
                 key_type,
                 key_kind,
                 expected_status,
-            } => Self::run_import(key, *key_type, key_kind, *expected_status, card),
+            } => Self::run_import(
+                private_key,
+                public_key,
+                *key_type,
+                key_kind,
+                *expected_status,
+                card,
+            ),
             Self::SetAttributes { key_kind, key_type } => {
                 Self::run_set_attributes(key_kind, key_type, card)
             }
@@ -729,35 +739,45 @@ impl IoCmd {
     }
 
     fn run_import<T: opcard::Client>(
-        key: &str,
+        private_key: &str,
+        public_key: &str,
         key_type: Option<KeyType>,
         key_kind: &KeyKind,
         expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
-        let key = parse_hex(key);
+        let private_key = parse_hex(private_key);
+        let public_key = parse_hex(public_key);
         let mut template;
         if key_kind.is_ec() {
             template = vec![0x92];
-            template.extend_from_slice(&serialize_len(key.len()))
+            template.extend_from_slice(&serialize_len(private_key.len()));
+            template.push(0x99);
+            template.extend_from_slice(&serialize_len(public_key.len() + 1));
+            let key: Vec<_> = private_key
+                .into_iter()
+                .chain([0x40])
+                .chain(public_key)
+                .collect();
+            let crt = key_type.unwrap().crt();
+            let mut data = Vec::from(crt);
+            data.extend_from_slice(&tlv(&[0x7F, 0x48], &template));
+            data.extend_from_slice(&tlv(&[0x5F, 0x48], &key));
+
+            let input = build_command(0x00, 0xDB, 0x3F, 0xFF, &tlv(&[0x4d], &data), 0);
+            Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
         } else if key_kind.is_aes() {
-            return Self::run_put_data(
+            assert!(public_key.is_empty());
+            Self::run_put_data(
                 DataObject::PSOEncDecKey,
                 &None,
-                &key,
+                &private_key,
                 expected_status,
                 card,
-            );
+            )
         } else {
             todo!()
         }
-        let crt = key_type.unwrap().crt();
-        let mut data = Vec::from(crt);
-        data.extend_from_slice(&tlv(&[0x7F, 0x48], &template));
-        data.extend_from_slice(&tlv(&[0x5F, 0x48], &key));
-
-        let input = build_command(0x00, 0xDB, 0x3F, 0xFF, &tlv(&[0x4d], &data), 0);
-        Self::run_bytes(&input, &OutputMatcher::Len(0), expected_status, card)
     }
 
     fn run_set_attributes<T: opcard::Client>(

@@ -11,6 +11,7 @@ use crate::tlv::get_do;
 use crate::types::*;
 
 const PRIVATE_KEY_TEMPLATE_DO: u16 = 0x4D;
+const CARDHOLDER_PRIVATE_KEY_TEMPLATE_DO: u16 = 0x7F48;
 const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
 
 #[cfg(feature = "rsa")]
@@ -136,8 +137,39 @@ fn put_ec<const R: usize, T: crate::card::Client>(
     ctx: LoadedContext<'_, R, T>,
     curve: CurveAlgo,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
+    use crate::tlv::take_len;
     debug!("Importing key for algo {curve:?}");
-    let private_key_data = get_do(
+
+    let cardholder_do = get_do(
+        &[PRIVATE_KEY_TEMPLATE_DO, CARDHOLDER_PRIVATE_KEY_TEMPLATE_DO],
+        ctx.data,
+    )
+    .ok_or_else(|| {
+        warn!("Missing private key length data");
+        Status::IncorrectDataParameter
+    })?;
+
+    let [0x92, rem @ ..] = cardholder_do else {
+        warn!("Cardholder DO does not start with private key length");
+        return Err(Status::IncorrectDataParameter);
+    };
+
+    let Some((priv_key_len, rem)) = take_len(rem) else {
+        warn!("Could not parse private key length");
+        return Err(Status::IncorrectDataParameter);
+    };
+
+    let [0x99, rem @ ..] = rem else {
+        warn!("Cardholder DO does not have public key length");
+        return Err(Status::IncorrectDataParameter);
+    };
+
+    let Some((pub_key_len, _)) = take_len(rem) else {
+        warn!("Could not parse private key length");
+        return Err(Status::IncorrectDataParameter);
+    };
+
+    let key_data = get_do(
         &[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO],
         ctx.data,
     )
@@ -145,6 +177,18 @@ fn put_ec<const R: usize, T: crate::card::Client>(
         warn!("Missing key data");
         Status::IncorrectDataParameter
     })?;
+
+    if key_data.len() != pub_key_len + priv_key_len {
+        warn!("Key data is too small");
+        return Err(Status::IncorrectDataParameter);
+    }
+
+    let (private_key_data, public_key_data) = key_data.split_at(priv_key_len);
+    if public_key_data.is_empty() || public_key_data[0] != curve.public_key_header() {
+        warn!("Bad public key data format");
+        return Err(Status::IncorrectDataParameter);
+    }
+    let public_key_data = &public_key_data[1..];
 
     // GPG stores scalars as big endian when X25519 specifies them to be little endian
     // See https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html
@@ -176,14 +220,14 @@ fn put_ec<const R: usize, T: crate::card::Client>(
     })?
     .key;
 
-    let pubkey = try_syscall!(ctx.backend.client_mut().derive_key(
+    let pubkey = try_syscall!(ctx.backend.client_mut().deserialize_key(
         curve.mechanism(),
-        key,
-        None,
+        public_key_data,
+        KeySerialization::Raw,
         StorageAttributes::default().set_persistence(ctx.options.storage)
     ))
     .map_err(|_err| {
-        warn!("Failed to derive_key: {_err:?}");
+        warn!("Failed to store key: {_err:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
