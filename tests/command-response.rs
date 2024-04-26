@@ -469,14 +469,30 @@ enum IoCmd {
         key_kind: KeyKind,
         key_type: KeyType,
     },
-    Decrypt {
+    Sign {
+        #[serde(default)]
         input: String,
+        #[serde(default)]
+        output: String,
+        #[serde(default)]
+        expected_status: Status,
+    },
+    Authenticate {
+        #[serde(default)]
+        input: String,
+        #[serde(default)]
+        output: String,
+        #[serde(default)]
+        expected_status: Status,
+    },
+    Decrypt {
+        #[serde(default)]
+        input: String,
+        #[serde(default)]
         output: String,
         key_kind: KeyKind,
-    },
-    Sign {
-        input: String,
-        output: String,
+        #[serde(default)]
+        expected_status: Status,
     },
     FactoryReset {
         #[serde(default)]
@@ -496,12 +512,22 @@ impl IoCmd {
                 output,
                 expected_status,
             } => Self::run_iodata(input, output, *expected_status, card),
+            Self::Sign {
+                input,
+                output,
+                expected_status,
+            } => Self::run_sign(input, output, *expected_status, card),
             Self::Decrypt {
                 input,
                 output,
                 key_kind,
-            } => Self::run_decrypt(input, output, key_kind, card),
-            Self::Sign { input, output } => Self::run_sign(input, output, card),
+                expected_status,
+            } => Self::run_decrypt(input, output, key_kind, *expected_status, card),
+            Self::Authenticate {
+                input,
+                output,
+                expected_status,
+            } => Self::run_authenticate(input, output, *expected_status, card),
             Self::Verify {
                 pin,
                 value,
@@ -829,12 +855,32 @@ impl IoCmd {
         )
     }
 
-    fn run_sign<T: opcard::Client>(input: &str, output: &str, card: &mut opcard::Card<T>) {
+    fn run_sign<T: opcard::Client>(
+        input: &str,
+        output: &str,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
         let input = build_command(0x00, 0x2A, 0x9E, 0x9A, &parse_hex(input), 0);
         Self::run_bytes(
             &input,
             &OutputMatcher::Bytes(Cow::Owned(parse_hex(output))),
-            Status::Success,
+            expected_status,
+            card,
+        )
+    }
+
+    fn run_authenticate<T: opcard::Client>(
+        input: &str,
+        output: &str,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let input = build_command(0x00, 0x88, 0x00, 0x00, &parse_hex(input), 0);
+        Self::run_bytes(
+            &input,
+            &OutputMatcher::Bytes(Cow::Owned(parse_hex(output))),
+            expected_status,
             card,
         )
     }
@@ -843,6 +889,7 @@ impl IoCmd {
         input: &str,
         output: &str,
         key_kind: &KeyKind,
+        expected_status: Status,
         card: &mut opcard::Card<T>,
     ) {
         let input = parse_hex(input);
@@ -861,7 +908,7 @@ impl IoCmd {
         Self::run_bytes(
             &input,
             &OutputMatcher::Bytes(Cow::Owned(parse_hex(output))),
-            Status::Success,
+            expected_status,
             card,
         )
     }
