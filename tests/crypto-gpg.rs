@@ -197,11 +197,13 @@ fn gpg_255() {
         r"\[GNUPG:\] USERID_HINT [a-fA-F0-9]{{16}} {temp_name} \(no comment\) <{temp_email}>"
     );
     let custom2 = format!(r"{temp_name} \(no comment\) <{temp_email}>");
+
     gnupg_test(
         &[DEFAULT_PW1],
         &[
             vec![
                 r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
                 &custom1,
                 r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 18 0",
             ],
@@ -221,7 +223,7 @@ fn gpg_255() {
         .flatten()
         .collect::<Vec<&str>>(),
         &[
-            r"gpg: encrypted with \d*-bit ECDH key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            r"gpg: encrypted with cv25519 key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
             &custom2,
         ],
         Decrypt {
@@ -243,7 +245,7 @@ fn gpg_255() {
                 r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 22 0",
             ],
             virt::gpg_inquire_pin(),
-            vec![r"\[GNUPG:\] SIG_CREATED S 22 8 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
+            vec![r"\[GNUPG:\] SIG_CREATED S 22 10 00 [a-fA-F0-9]{10} [a-fA-F0-9]{40}"],
         ]
         .into_iter()
         .flatten()
@@ -265,7 +267,7 @@ fn gpg_255() {
             r"\[GNUPG:\] NEWSIG test\d*@email.com",
             r"\[GNUPG:\] SIG_ID [^ ]* \d{4}-\d\d-\d\d [a-fA-F0-9]{10}",
             r"\[GNUPG:\] GOODSIG [a-fA-F0-9]{16} test name\d* \(no comment\) <test\d*@email.com>",
-            r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 22 8 00 [a-fA-F0-9]{40}",
+            r"\[GNUPG:\] VALIDSIG [a-fA-F0-9]{40} \d{4}-\d\d-\d\d [a-fA-F0-9]{10} \d \d \d 22 10 00 [a-fA-F0-9]{40}",
             r"\[GNUPG:\] TRUST_ULTIMATE 0 pgp",
         ],
         &[
@@ -458,6 +460,7 @@ fn gpg_p256() {
         &[
             vec![
                 r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
                 &custom1,
                 r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 18 0",
             ],
@@ -477,7 +480,7 @@ fn gpg_p256() {
         .flatten()
         .collect::<Vec<&str>>(),
         &[
-            r"gpg: encrypted with \d*-bit ECDH key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            r"gpg: encrypted with nistp256 key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
             &custom2,
         ],
         Decrypt {
@@ -701,6 +704,7 @@ fn gpg_rsa_2048() {
         &[
             vec![
                 r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
                 &custom1,
                 r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
             ],
@@ -720,7 +724,7 @@ fn gpg_rsa_2048() {
         .flatten()
         .collect::<Vec<&str>>(),
         &[
-            r"gpg: encrypted with \d*-bit RSA key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            r"gpg: encrypted with rsa2048 key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
             &custom2,
         ],
         Decrypt {
@@ -957,6 +961,7 @@ fn gpg_rsa_3072() {
         &[
             vec![
                 r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
                 &custom1,
                 r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
             ],
@@ -976,7 +981,7 @@ fn gpg_rsa_3072() {
         .flatten()
         .collect::<Vec<&str>>(),
         &[
-            r"gpg: encrypted with \d*-bit RSA key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            r"gpg: encrypted with rsa3072 key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
             &custom2,
         ],
         Decrypt {
@@ -1213,6 +1218,7 @@ fn gpg_rsa_4096() {
         &[
             vec![
                 r"\[GNUPG:\] ENC_TO [a-fA-F0-9]{16} \d* \d*",
+                r"\[GNUPG:\] CARDCTRL 3 D276000124010304[A-Z0-9]*",
                 &custom1,
                 r"\[GNUPG:\] NEED_PASSPHRASE [a-fA-F0-9]{16} [a-fA-F0-9]{16} 1 0",
             ],
@@ -1232,7 +1238,7 @@ fn gpg_rsa_4096() {
         .flatten()
         .collect::<Vec<&str>>(),
         &[
-            r"gpg: encrypted with \d*-bit RSA key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
+            r"gpg: encrypted with rsa4096 key, ID [a-fA-F0-9]{16}, created \d{4}-\d\d-\d\d",
             &custom2,
         ],
         Decrypt {
