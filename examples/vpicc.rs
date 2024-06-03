@@ -28,8 +28,10 @@
 fn main() {
     env_logger::init();
 
-    opcard::virt::with_ram_client("opcard", |client| {
-        let card = opcard::Card::new(client, opcard::Options::default());
+    opcard::virt::with_fs_client("internal.lfs", "opcard", |client| {
+        let mut options = opcard::Options::default();
+        options.storage = trussed::types::Location::Internal;
+        let card = opcard::Card::new(client, options);
         let mut vpicc_card = opcard::VpiccCard::new(card);
         let vpicc = vpicc::connect().expect("failed to connect to vpicc");
         vpicc
