@@ -337,6 +337,12 @@ impl<'a, const R: usize, T: Client> LoadedContext<'a, R, T> {
     }
 }
 
+use trussed_wrap_key_to_file::WrapKeyToFileClient;
+
+/// Super trait with all trussed extensions required by opcard
+pub trait Client: trussed::Client + AuthClient + WrapKeyToFileClient + ChunkedClient {}
+impl<C: trussed::Client + WrapKeyToFileClient + AuthClient + ChunkedClient> Client for C {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -355,9 +361,3 @@ mod tests {
         assert!(RsaKeySizes::Rsa2048 < RsaKeySizes::Rsa4096);
     }
 }
-
-use trussed_wrap_key_to_file::WrapKeyToFileClient;
-
-/// Super trait with all trussed extensions required by opcard
-pub trait Client: trussed::Client + AuthClient + WrapKeyToFileClient + ChunkedClient {}
-impl<C: trussed::Client + WrapKeyToFileClient + AuthClient + ChunkedClient> Client for C {}
