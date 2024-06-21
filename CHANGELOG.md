@@ -7,7 +7,13 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
--
+## [v1.4.1][] (2024-03-22)
+
+[v1.4.1]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.4.1
+
+- Bump RSA backend version ([#209][])
+
+[#209]: https://github.com/Nitrokey/opcard-rs/pull/209
 
 ## [v1.4.0][] (2024-03-22)
 
