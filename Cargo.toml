@@ -32,7 +32,7 @@ serde = { version = "1.0", default-features = false }
 subtle = { version = "2.4.1", default-features = false }
 trussed = "0.1.0"
 trussed-chunked = "0.1.0"
-trussed-rsa-alloc = { version = "0.1.0", optional = true }
+trussed-rsa-alloc = { version = "0.2.0", optional = true }
 trussed-wrap-key-to-file = "0.1.0"
 serde_repr = "0.1"
 hex-literal = "0.4.1"
@@ -56,7 +56,7 @@ regex = "1.6.0"
 stoppable_thread = "0.2.1"
 test-log = "0.2.10"
 trussed = { version = "0.1.0", features = ["virt"] }
-trussed-rsa-alloc = { version = "0.1.0", features = ["virt"] }
+trussed-rsa-alloc = { version = "0.2.0", features = ["virt"] }
 rand = "0.8.5"
 ron = "0.8"
 serde_cbor = "0.11"
@@ -98,7 +98,7 @@ trussed = { git = "https://github.com/Nitrokey/trussed" , tag = "v0.1.0-nitrokey
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.3.0"}
 trussed-chunked = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "chunked-v0.1.0" }
 trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "manage-v0.1.0" }
-trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", rev = "9732a9a3e98af72112286afdc9b7174c66c2869a" }
+trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", tag = "v0.2.0" }
 trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "v0.2.0" }
 trussed-wrap-key-to-file = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "wrap-key-to-file-v0.1.0" }
 apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1.2-nitrokey.2" }
