@@ -15,8 +15,8 @@ fn p384_sequoia() {
     virt::with_vsc(|| sequoia_test(KeyAlgo::P384));
 }
 
-// #[cfg(feature = "dangerous-test-real-card")]
-// #[test]
-// fn p384_sequoia_hardware() {
-//     sequoia_test(KeyAlgo::P384);
-// }
+#[cfg(feature = "dangerous-test-real-card")]
+#[test]
+fn p384_sequoia_hardware() {
+    sequoia_test(KeyAlgo::P384);
+}

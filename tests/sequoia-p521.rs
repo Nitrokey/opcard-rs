@@ -15,8 +15,8 @@ fn p521_sequoia() {
     virt::with_vsc(|| sequoia_test(KeyAlgo::P521));
 }
 
-// #[cfg(feature = "dangerous-test-real-card")]
-// #[test]
-// fn p521_sequoia_hardware() {
-//     sequoia_test(KeyAlgo::P521);
-// }
+#[cfg(feature = "dangerous-test-real-card")]
+#[test]
+fn p521_sequoia_hardware() {
+    sequoia_test(KeyAlgo::P521);
+}
