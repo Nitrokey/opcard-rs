@@ -1,14 +1,13 @@
 # Copyright (C) 2022 Nitrokey GmbH
 # SPDX-License-Identifier: CC0-1.0
 
-FROM docker.io/rust:bullseye
+FROM docker.io/archlinux
 
-RUN apt update && apt upgrade --yes
-RUN apt install --yes gnupg scdaemon libclang-dev llvm python3-pip vsmartcard-vpcd pkg-config nettle-dev libpcsclite-dev
-RUN python3 -m pip install reuse
+RUN pacman --noconfirm -Syu gnupg clang llvm python pkgconf nettle pcsclite reuse rustup cargo-tarpaulin cargo-fuzz base-devel git
 
-RUN rustup component add clippy rustfmt && rustup toolchain install nightly
-RUN cargo install cargo-tarpaulin cargo-fuzz --profile release && rm -rf "$CARGO_HOME"/registry
+RUN rustup default stable && rustup component add clippy rustfmt && rustup toolchain install nightly
+COPY vsmartcard-0.9-1-x86_64.pkg.tar.zst vsmartcard-0.9-1-x86_64.pkg.tar.zst
+RUN pacman --noconfirm -U vsmartcard-0.9-1-x86_64.pkg.tar.zst && rm vsmartcard-0.9-1-x86_64.pkg.tar.zst
 
 RUN mkdir -p ~/.gnupg
 RUN echo "disable-ccid" > ~/.gnupg/scdaemon.conf
