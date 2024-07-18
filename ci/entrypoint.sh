@@ -8,5 +8,6 @@ if [ ! -e "$CARGO_HOME" ]
 then
 	cp -r /usr/local/cargo $CARGO_HOME
 fi
-pcscd
+# pkill pcscd;
+pcscd --disable-polkit
 exec "$@"
