@@ -182,7 +182,7 @@ bitflags! {
         /// EdDsa25519
         const ED_25519 = 1 << 7;
         /// BRAINPOOL_P256R1 Brainpool curve
-        const BRAINPOOL_P256R1 = 1<<8;
+        const BRAINPOOL_P256R1 = 1 << 8;
         /// BRAINPOOL_P384R1 Brainpool curve
         const BRAINPOOL_P384R1 = 1 << 9;
         /// BRAINPOOL_P521R1 Brainpool curve
