@@ -6,6 +6,7 @@ use iso7816::Status;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use trussed::types::Mechanism;
 
+use crate::card::AllowedAlgorithms;
 use crate::error::Error;
 use crate::tlv::get_do;
 
@@ -38,10 +39,85 @@ macro_rules! iterable_enum {
     }
 }
 
+macro_rules! iterable_sub_enum {
+
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident($parent:ident) {
+            $($var:ident),+
+            $(,)*
+        }
+    ) => {
+        $(#[$outer])*
+        $vis enum $name {
+            $(
+                $var,
+            )*
+        }
+
+        impl From<$name> for $parent {
+            fn from(value: $name) -> $parent {
+                match value {
+                    $(
+                        $name::$var => $parent::$var,
+                    )*
+                }
+            }
+        }
+
+        impl TryFrom<$parent> for $name {
+            type Error = AlgorithmFromAttributesError;
+            fn try_from(value: $parent) -> Result<$name, AlgorithmFromAttributesError> {
+                match value {
+                    $(
+                        $parent::$var => Ok($name::$var),
+                    )*
+                    _ => Err(AlgorithmFromAttributesError),
+                }
+            }
+        }
+
+        #[allow(unused)]
+        impl $name {
+            $vis fn iter_all() -> impl Iterator<Item = Self> {
+                [
+                    $(
+                        $name::$var,
+                    )*
+                ].into_iter()
+            }
+        }
+    }
+}
+
 const ED255_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice();
+const ED255_ATTRIBUTES_PK: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01 FF").as_slice();
 const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
+const ECDSA_P384_ATTRIBUTES: &[u8] = hex!("132b81040022").as_slice();
+const ECDSA_P521_ATTRIBUTES: &[u8] = hex!("132b81040023").as_slice();
+const ECDSA_P256_ATTRIBUTES_PK: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07 FF").as_slice();
+const ECDSA_P384_ATTRIBUTES_PK: &[u8] = hex!("132b81040022 FF").as_slice();
+const ECDSA_P521_ATTRIBUTES_PK: &[u8] = hex!("132b81040023 FF").as_slice();
+const ECDSA_BRAINPOOL_P256R1_ATTRIBUTES: &[u8] = hex!("132b2403030208010107").as_slice();
+const ECDSA_BRAINPOOL_P384R1_ATTRIBUTES: &[u8] = hex!("132b240303020801010b").as_slice();
+const ECDSA_BRAINPOOL_P512R1_ATTRIBUTES: &[u8] = hex!("132b240303020801010d").as_slice();
+const ECDSA_BRAINPOOL_P256R1_ATTRIBUTES_PK: &[u8] = hex!("132b2403030208010107 FF").as_slice();
+const ECDSA_BRAINPOOL_P384R1_ATTRIBUTES_PK: &[u8] = hex!("132b240303020801010b FF").as_slice();
+const ECDSA_BRAINPOOL_P512R1_ATTRIBUTES_PK: &[u8] = hex!("132b240303020801010d FF").as_slice();
 const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
+const ECDH_P384_ATTRIBUTES: &[u8] = hex!("122b81040022").as_slice();
+const ECDH_P521_ATTRIBUTES: &[u8] = hex!("122b81040023").as_slice();
+const ECDH_P256_ATTRIBUTES_PK: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07 FF").as_slice();
+const ECDH_P384_ATTRIBUTES_PK: &[u8] = hex!("122b81040022 FF").as_slice();
+const ECDH_P521_ATTRIBUTES_PK: &[u8] = hex!("122b81040023 FF").as_slice();
+const ECDH_BRAINPOOL_P256R1_ATTRIBUTES: &[u8] = hex!("122b2403030208010107").as_slice();
+const ECDH_BRAINPOOL_P384R1_ATTRIBUTES: &[u8] = hex!("122b240303020801010b").as_slice();
+const ECDH_BRAINPOOL_P512R1_ATTRIBUTES: &[u8] = hex!("122b240303020801010d").as_slice();
+const ECDH_BRAINPOOL_P256R1_ATTRIBUTES_PK: &[u8] = hex!("122b2403030208010107 FF").as_slice();
+const ECDH_BRAINPOOL_P384R1_ATTRIBUTES_PK: &[u8] = hex!("122b240303020801010b FF").as_slice();
+const ECDH_BRAINPOOL_P512R1_ATTRIBUTES_PK: &[u8] = hex!("122b240303020801010d FF").as_slice();
 const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
+const X255_ATTRIBUTES_PK: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01 FF").as_slice();
 const RSA_2K_ATTRIBUTES: &[u8] = hex!(
     "01"
     "0800" // Length modulus (in bit): 2048
@@ -92,13 +168,139 @@ pub struct AlgorithmFromAttributesError;
 iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum SignatureAlgorithm {
+    pub enum Algorithm {
+        X255,
+        Ed255,
+        EcDhP256,
+        EcDsaP256,
+        Rsa2048,
+        Rsa3072,
+        Rsa4096,
+        EcDhP384,
+        EcDsaP384,
+        EcDhP521,
+        EcDsaP521,
+        EcDhBrainpoolP256R1,
+        EcDsaBrainpoolP256R1,
+        EcDhBrainpoolP384R1,
+        EcDsaBrainpoolP384R1,
+        EcDhBrainpoolP512R1,
+        EcDsaBrainpoolP512R1,
+    }
+}
+
+impl TryFrom<&[u8]> for Algorithm {
+    type Error = AlgorithmFromAttributesError;
+
+    fn try_from(v: &[u8]) -> Result<Self, AlgorithmFromAttributesError> {
+        match v {
+            X255_ATTRIBUTES | X255_ATTRIBUTES_PK => Ok(Self::X255),
+            ED255_ATTRIBUTES | ED255_ATTRIBUTES_PK => Ok(Self::Ed255),
+            ECDH_P256_ATTRIBUTES | ECDH_P256_ATTRIBUTES_PK => Ok(Self::EcDhP256),
+            ECDSA_P256_ATTRIBUTES | ECDSA_P256_ATTRIBUTES_PK => Ok(Self::EcDsaP256),
+            ECDH_P384_ATTRIBUTES | ECDH_P384_ATTRIBUTES_PK => Ok(Self::EcDhP384),
+            ECDSA_P384_ATTRIBUTES | ECDSA_P384_ATTRIBUTES_PK => Ok(Self::EcDsaP384),
+            ECDH_P521_ATTRIBUTES | ECDH_P521_ATTRIBUTES_PK => Ok(Self::EcDhP521),
+            ECDSA_P521_ATTRIBUTES | ECDSA_P521_ATTRIBUTES_PK => Ok(Self::EcDsaP521),
+            ECDH_BRAINPOOL_P256R1_ATTRIBUTES | ECDH_BRAINPOOL_P256R1_ATTRIBUTES_PK => {
+                Ok(Self::EcDhBrainpoolP256R1)
+            }
+            ECDSA_BRAINPOOL_P256R1_ATTRIBUTES | ECDSA_BRAINPOOL_P256R1_ATTRIBUTES_PK => {
+                Ok(Self::EcDsaBrainpoolP256R1)
+            }
+            ECDH_BRAINPOOL_P384R1_ATTRIBUTES | ECDH_BRAINPOOL_P384R1_ATTRIBUTES_PK => {
+                Ok(Self::EcDhBrainpoolP384R1)
+            }
+            ECDSA_BRAINPOOL_P384R1_ATTRIBUTES | ECDSA_BRAINPOOL_P384R1_ATTRIBUTES_PK => {
+                Ok(Self::EcDsaBrainpoolP384R1)
+            }
+            ECDH_BRAINPOOL_P512R1_ATTRIBUTES | ECDH_BRAINPOOL_P512R1_ATTRIBUTES_PK => {
+                Ok(Self::EcDhBrainpoolP512R1)
+            }
+            ECDSA_BRAINPOOL_P512R1_ATTRIBUTES | ECDSA_BRAINPOOL_P512R1_ATTRIBUTES_PK => {
+                Ok(Self::EcDsaBrainpoolP512R1)
+            }
+            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
+            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
+            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
+            _ => Err(AlgorithmFromAttributesError),
+        }
+    }
+}
+
+impl Algorithm {
+    pub fn id(&self) -> u8 {
+        self.attributes()[0]
+    }
+
+    pub fn is_rsa(&self) -> bool {
+        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+    }
+
+    pub fn attributes(&self) -> &'static [u8] {
+        match self {
+            Self::X255 => X255_ATTRIBUTES_PK,
+            Self::Ed255 => ED255_ATTRIBUTES_PK,
+            Self::EcDhP256 => ECDH_P256_ATTRIBUTES_PK,
+            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES_PK,
+            Self::EcDhP384 => ECDH_P384_ATTRIBUTES_PK,
+            Self::EcDsaP384 => ECDSA_P384_ATTRIBUTES_PK,
+            Self::EcDhP521 => ECDH_P521_ATTRIBUTES_PK,
+            Self::EcDsaP521 => ECDSA_P521_ATTRIBUTES_PK,
+            Self::EcDhBrainpoolP256R1 => ECDH_BRAINPOOL_P256R1_ATTRIBUTES_PK,
+            Self::EcDsaBrainpoolP256R1 => ECDSA_BRAINPOOL_P256R1_ATTRIBUTES_PK,
+            Self::EcDhBrainpoolP384R1 => ECDH_BRAINPOOL_P384R1_ATTRIBUTES_PK,
+            Self::EcDsaBrainpoolP384R1 => ECDSA_BRAINPOOL_P384R1_ATTRIBUTES_PK,
+            Self::EcDhBrainpoolP512R1 => ECDH_BRAINPOOL_P512R1_ATTRIBUTES_PK,
+            Self::EcDsaBrainpoolP512R1 => ECDSA_BRAINPOOL_P512R1_ATTRIBUTES_PK,
+            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
+            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
+            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
+        }
+    }
+
+    pub fn oid(&self) -> &'static [u8] {
+        &self.attributes()[1..]
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        match self {
+            Self::X255 => allowed.contains(AllowedAlgorithms::X_25519),
+            Self::Ed255 => allowed.contains(AllowedAlgorithms::ED_25519),
+            Self::EcDhP256 => allowed.contains(AllowedAlgorithms::P_256),
+            Self::EcDsaP256 => allowed.contains(AllowedAlgorithms::P_256),
+            Self::EcDhP384 => allowed.contains(AllowedAlgorithms::P_384),
+            Self::EcDsaP384 => allowed.contains(AllowedAlgorithms::P_384),
+            Self::EcDhP521 => allowed.contains(AllowedAlgorithms::P_521),
+            Self::EcDsaP521 => allowed.contains(AllowedAlgorithms::P_521),
+            Self::EcDhBrainpoolP256R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P256R1),
+            Self::EcDsaBrainpoolP256R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P256R1),
+            Self::EcDhBrainpoolP384R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P384R1),
+            Self::EcDsaBrainpoolP384R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P384R1),
+            Self::EcDhBrainpoolP512R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P512R1),
+            Self::EcDsaBrainpoolP512R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P512R1),
+            Self::Rsa2048 => allowed.contains(AllowedAlgorithms::RSA_2048),
+            Self::Rsa3072 => allowed.contains(AllowedAlgorithms::RSA_3072),
+            Self::Rsa4096 => allowed.contains(AllowedAlgorithms::RSA_4096),
+        }
+    }
+}
+
+iterable_sub_enum! {
+    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
+    #[repr(u8)]
+    pub enum SignatureAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
         Rsa2048,
         Rsa3072,
         Rsa4096,
+        EcDsaP384,
+        EcDsaP521,
+        EcDsaBrainpoolP256R1,
+        EcDsaBrainpoolP384R1,
+        EcDsaBrainpoolP512R1,
     }
 }
 
@@ -109,28 +311,29 @@ impl Default for SignatureAlgorithm {
 }
 
 impl SignatureAlgorithm {
+    pub fn as_algorithm(self) -> Algorithm {
+        self.into()
+    }
     #[allow(unused)]
     pub fn id(&self) -> u8 {
-        self.attributes()[0]
+        self.as_algorithm().id()
     }
 
     pub fn is_rsa(&self) -> bool {
-        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+        self.as_algorithm().is_rsa()
     }
 
     pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::Ed255 => ED255_ATTRIBUTES,
-            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
-            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
-            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
-            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
-        }
+        self.as_algorithm().attributes()
     }
 
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
+        self.as_algorithm().oid()
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        self.as_algorithm().is_allowed(allowed)
     }
 }
 
@@ -138,27 +341,25 @@ impl TryFrom<&[u8]> for SignatureAlgorithm {
     type Error = AlgorithmFromAttributesError;
 
     fn try_from(v: &[u8]) -> Result<SignatureAlgorithm, AlgorithmFromAttributesError> {
-        match v {
-            ED255_ATTRIBUTES => Ok(Self::Ed255),
-            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
-            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
-            _ => Err(AlgorithmFromAttributesError),
-        }
+        Algorithm::try_from(v)?.try_into()
     }
 }
 
-iterable_enum! {
+iterable_sub_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum DecryptionAlgorithm {
+    pub enum DecryptionAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         X255,
         EcDhP256,
         Rsa2048,
         Rsa3072,
         Rsa4096,
+        EcDhP384,
+        EcDhP521,
+        EcDhBrainpoolP256R1,
+        EcDhBrainpoolP384R1,
+        EcDhBrainpoolP512R1,
     }
 }
 
@@ -169,28 +370,29 @@ impl Default for DecryptionAlgorithm {
 }
 
 impl DecryptionAlgorithm {
+    pub fn as_algorithm(self) -> Algorithm {
+        self.into()
+    }
     #[allow(unused)]
     pub fn id(&self) -> u8 {
-        self.attributes()[0]
+        self.as_algorithm().id()
     }
 
     pub fn is_rsa(&self) -> bool {
-        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+        self.as_algorithm().is_rsa()
     }
 
     pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::X255 => X255_ATTRIBUTES,
-            Self::EcDhP256 => ECDH_P256_ATTRIBUTES,
-            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
-            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
-            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
-        }
+        self.as_algorithm().attributes()
     }
 
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
+        self.as_algorithm().oid()
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        self.as_algorithm().is_allowed(allowed)
     }
 }
 
@@ -198,27 +400,25 @@ impl TryFrom<&[u8]> for DecryptionAlgorithm {
     type Error = AlgorithmFromAttributesError;
 
     fn try_from(v: &[u8]) -> Result<DecryptionAlgorithm, AlgorithmFromAttributesError> {
-        match v {
-            X255_ATTRIBUTES => Ok(Self::X255),
-            ECDH_P256_ATTRIBUTES => Ok(Self::EcDhP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
-            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
-            _ => Err(AlgorithmFromAttributesError),
-        }
+        Algorithm::try_from(v)?.try_into()
     }
 }
 
-iterable_enum! {
+iterable_sub_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
-    pub enum AuthenticationAlgorithm {
+    pub enum AuthenticationAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255,
         EcDsaP256,
         Rsa2048,
         Rsa3072,
         Rsa4096,
+        EcDsaP384,
+        EcDsaP521,
+        EcDsaBrainpoolP256R1,
+        EcDsaBrainpoolP384R1,
+        EcDsaBrainpoolP512R1,
     }
 }
 
@@ -229,28 +429,29 @@ impl Default for AuthenticationAlgorithm {
 }
 
 impl AuthenticationAlgorithm {
+    pub fn as_algorithm(self) -> Algorithm {
+        self.into()
+    }
     #[allow(unused)]
     pub fn id(&self) -> u8 {
-        self.attributes()[0]
+        self.as_algorithm().id()
     }
 
     pub fn is_rsa(&self) -> bool {
-        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+        self.as_algorithm().is_rsa()
     }
 
     pub fn attributes(&self) -> &'static [u8] {
-        match self {
-            Self::Ed255 => ED255_ATTRIBUTES,
-            Self::EcDsaP256 => ECDSA_P256_ATTRIBUTES,
-            Self::Rsa2048 => RSA_2K_ATTRIBUTES,
-            Self::Rsa3072 => RSA_3K_ATTRIBUTES,
-            Self::Rsa4096 => RSA_4K_ATTRIBUTES,
-        }
+        self.as_algorithm().attributes()
     }
 
     #[allow(unused)]
     pub fn oid(&self) -> &'static [u8] {
-        &self.attributes()[1..]
+        self.as_algorithm().oid()
+    }
+
+    pub fn is_allowed(&self, allowed: AllowedAlgorithms) -> bool {
+        self.as_algorithm().is_allowed(allowed)
     }
 }
 
@@ -258,14 +459,7 @@ impl TryFrom<&[u8]> for AuthenticationAlgorithm {
     type Error = AlgorithmFromAttributesError;
 
     fn try_from(v: &[u8]) -> Result<AuthenticationAlgorithm, AlgorithmFromAttributesError> {
-        match v {
-            ED255_ATTRIBUTES => Ok(Self::Ed255),
-            ECDSA_P256_ATTRIBUTES => Ok(Self::EcDsaP256),
-            RSA_2K_ATTRIBUTES | RSA_2K_ATTRIBUTES_CRT => Ok(Self::Rsa2048),
-            RSA_3K_ATTRIBUTES | RSA_3K_ATTRIBUTES_CRT => Ok(Self::Rsa3072),
-            RSA_4K_ATTRIBUTES | RSA_4K_ATTRIBUTES_CRT => Ok(Self::Rsa4096),
-            _ => Err(AlgorithmFromAttributesError),
-        }
+        Algorithm::try_from(v)?.try_into()
     }
 }
 
@@ -390,6 +584,16 @@ impl<const C: usize> From<&iso7816::Command<C>> for Tag {
 pub enum CurveAlgo {
     EcDhP256,
     EcDsaP256,
+    EcDhP384,
+    EcDsaP384,
+    EcDhP521,
+    EcDsaP521,
+    EcDhBrainpoolP256R1,
+    EcDsaBrainpoolP256R1,
+    EcDhBrainpoolP384R1,
+    EcDsaBrainpoolP384R1,
+    EcDhBrainpoolP512R1,
+    EcDsaBrainpoolP512R1,
     X255,
     Ed255,
 }
@@ -398,8 +602,25 @@ impl CurveAlgo {
     pub fn mechanism(self) -> Mechanism {
         match self {
             Self::EcDsaP256 | Self::EcDhP256 => Mechanism::P256,
+            Self::EcDsaP384 | Self::EcDhP384 => Mechanism::P384,
+            Self::EcDsaP521 | Self::EcDhP521 => Mechanism::P521,
+            Self::EcDsaBrainpoolP256R1 | Self::EcDhBrainpoolP256R1 => Mechanism::BrainpoolP256R1,
+            Self::EcDsaBrainpoolP384R1 | Self::EcDhBrainpoolP384R1 => Mechanism::BrainpoolP384R1,
+            Self::EcDsaBrainpoolP512R1 | Self::EcDhBrainpoolP512R1 => Mechanism::BrainpoolP512R1,
             Self::X255 => Mechanism::X255,
             Self::Ed255 => Mechanism::Ed255,
+        }
+    }
+
+    pub fn public_key_header(self) -> u8 {
+        match self {
+            Self::EcDsaP256 | Self::EcDhP256 => 0x04,
+            Self::EcDsaP384 | Self::EcDhP384 => 0x04,
+            Self::EcDsaP521 | Self::EcDhP521 => 0x04,
+            Self::EcDsaBrainpoolP256R1 | Self::EcDhBrainpoolP256R1 => 0x04,
+            Self::EcDsaBrainpoolP384R1 | Self::EcDhBrainpoolP384R1 => 0x04,
+            Self::EcDsaBrainpoolP512R1 | Self::EcDhBrainpoolP512R1 => 0x04,
+            Self::X255 | Self::Ed255 => 0x40,
         }
     }
 }

@@ -42,9 +42,10 @@ admin-app = { version = "0.1.0", optional = true }
 # optional dependencies
 apdu-dispatch = { version = "0.1", optional = true }
 delog = { version = "0.1.7", optional = true }
-trussed-staging = { version = "0.2.0", features = ["chunked", "wrap-key-to-file"], optional = true }
+trussed-staging = { version = "0.3.0", features = ["chunked", "wrap-key-to-file"], optional = true }
 vpicc = { version = "0.1.0", optional = true }
 cfg-if = "1.0.0"
+bitflags = "2.5.0"
 
 [dev-dependencies]
 env_logger = "0.9"
@@ -55,7 +56,7 @@ openpgp-card-pcsc = "0.3"
 regex = "1.6.0"
 stoppable_thread = "0.2.1"
 test-log = "0.2.10"
-trussed = { version = "0.1.0", features = ["virt"] }
+trussed = { version = "0.1.0", features = ["virt", "p384", "p521"] }
 trussed-rsa-alloc = { version = "0.2.0", features = ["virt"] }
 rand = "0.8.5"
 ron = "0.8"
@@ -92,14 +93,14 @@ log-error = []
 
 [patch.crates-io]
 iso7816 = { git = "https://github.com/Nitrokey/iso7816.git", tag = "v0.1.1-nitrokey.1" }
-littlefs2 = { git = "https://github.com/trussed-dev/littlefs2.git", rev = "ebd27e49ca321089d01d8c9b169c4aeb58ceeeca" }
+littlefs2 = { git = "https://github.com/trussed-dev/littlefs2.git", rev = "960e57d9fc0d209308c8e15dc26252bbe1ff6ba8" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/Nitrokey/trussed" , tag = "v0.1.0-nitrokey.18" }
+trussed = { git = "https://github.com/nitrokey/trussed.git", rev = "540ad725ef44f0d6d3d2da7dd6ec0bacffaeb5bf" }
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.3.0"}
 trussed-chunked = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "chunked-v0.1.0" }
 trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "manage-v0.1.0" }
 trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", tag = "v0.2.0" }
-trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "v0.2.0" }
+trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "v0.3.0" }
 trussed-wrap-key-to-file = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "wrap-key-to-file-v0.1.0" }
 apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1.2-nitrokey.2" }
 trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", tag = "v0.0.1-nitrokey.1" }

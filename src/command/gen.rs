@@ -6,7 +6,7 @@ use iso7816::Status;
 use trussed::try_syscall;
 use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
 
-use crate::card::{LoadedContext, RsaKeySizes};
+use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
 use crate::types::*;
 
@@ -21,7 +21,18 @@ fn serialize_pub<const R: usize, T: crate::card::Client>(
     public_key: &[u8],
 ) -> Result<(), Status> {
     match algo {
-        CurveAlgo::EcDsaP256 | CurveAlgo::EcDhP256 => serialize_p256(ctx, public_key),
+        CurveAlgo::EcDsaP256
+        | CurveAlgo::EcDhP256
+        | CurveAlgo::EcDsaP384
+        | CurveAlgo::EcDhP384
+        | CurveAlgo::EcDsaP521
+        | CurveAlgo::EcDhP521
+        | CurveAlgo::EcDsaBrainpoolP256R1
+        | CurveAlgo::EcDhBrainpoolP256R1
+        | CurveAlgo::EcDsaBrainpoolP384R1
+        | CurveAlgo::EcDhBrainpoolP384R1
+        | CurveAlgo::EcDsaBrainpoolP512R1
+        | CurveAlgo::EcDhBrainpoolP512R1 => serialize_nist_curve(ctx, public_key),
         CurveAlgo::X255 | CurveAlgo::Ed255 => serialize_25519(ctx, public_key),
     }
 }
@@ -30,35 +41,39 @@ pub fn sign<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.sign_alg();
+    if !algo.is_allowed(ctx.options.allowed_generation) {
+        warn!("Attempt to generate key disabled {:?}", algo);
+        return Err(Status::FunctionNotSupported);
+    }
     info!("Generating sign key with algorithm: {algo:?}");
     match algo {
         SignatureAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => {
             gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP256)
         }
+        SignatureAlgorithm::EcDsaP384 => {
+            gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP384)
+        }
+        SignatureAlgorithm::EcDsaP521 => {
+            gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaP521)
+        }
+        SignatureAlgorithm::EcDsaBrainpoolP256R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaBrainpoolP256R1)
+        }
+        SignatureAlgorithm::EcDsaBrainpoolP384R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaBrainpoolP384R1)
+        }
+        SignatureAlgorithm::EcDsaBrainpoolP512R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaBrainpoolP512R1)
+        }
         SignatureAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
-                gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
         }
         SignatureAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
-                gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa3072Pkcs1v15)
         }
         SignatureAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
-                gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa4096Pkcs1v15)
         }
     }
 }
@@ -67,33 +82,33 @@ pub fn dec<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.dec_alg();
+    if !algo.is_allowed(ctx.options.allowed_generation) {
+        warn!("Attempt to generate key disabled {:?}", algo);
+        return Err(Status::FunctionNotSupported);
+    }
     info!("Generating dec key with algorithm: {algo:?}");
     match algo {
         DecryptionAlgorithm::X255 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP256),
+        DecryptionAlgorithm::EcDhP384 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP384),
+        DecryptionAlgorithm::EcDhP521 => gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhP521),
+        DecryptionAlgorithm::EcDhBrainpoolP256R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhBrainpoolP256R1)
+        }
+        DecryptionAlgorithm::EcDhBrainpoolP384R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhBrainpoolP384R1)
+        }
+        DecryptionAlgorithm::EcDhBrainpoolP512R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhBrainpoolP512R1)
+        }
         DecryptionAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
-                gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
         }
         DecryptionAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
-                gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa3072Pkcs1v15)
         }
         DecryptionAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
-                gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa4096Pkcs1v15)
         }
     }
 }
@@ -102,35 +117,39 @@ pub fn aut<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
 ) -> Result<(), Status> {
     let algo = ctx.state.persistent.aut_alg();
+    if !algo.is_allowed(ctx.options.allowed_generation) {
+        warn!("Attempt to generate key disabled {:?}", algo);
+        return Err(Status::FunctionNotSupported);
+    }
     info!("Generating aut key with algorithm: {algo:?}");
     match algo {
         AuthenticationAlgorithm::Ed255 => gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::Ed255),
         AuthenticationAlgorithm::EcDsaP256 => {
             gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP256)
         }
+        AuthenticationAlgorithm::EcDsaP384 => {
+            gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP384)
+        }
+        AuthenticationAlgorithm::EcDsaP521 => {
+            gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaP521)
+        }
+        AuthenticationAlgorithm::EcDsaBrainpoolP256R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaBrainpoolP256R1)
+        }
+        AuthenticationAlgorithm::EcDsaBrainpoolP384R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaBrainpoolP384R1)
+        }
+        AuthenticationAlgorithm::EcDsaBrainpoolP512R1 => {
+            gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaBrainpoolP512R1)
+        }
         AuthenticationAlgorithm::Rsa2048 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa2048 {
-                gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa3072 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa3072 {
-                gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa3072Pkcs1v15)
         }
         AuthenticationAlgorithm::Rsa4096 => {
-            if ctx.options.rsa_max_gen >= RsaKeySizes::Rsa4096 {
-                gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs1v15)
-            } else {
-                warn!("Attempt to generate key disabled {:?}", algo);
-                Err(Status::FunctionNotSupported)
-            }
+            gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa4096Pkcs1v15)
         }
     }
 }
@@ -233,6 +252,17 @@ pub fn read_sign<const R: usize, T: crate::card::Client>(
     match algo {
         SignatureAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         SignatureAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
+        SignatureAlgorithm::EcDsaP384 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP384),
+        SignatureAlgorithm::EcDsaP521 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP521),
+        SignatureAlgorithm::EcDsaBrainpoolP256R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP256R1)
+        }
+        SignatureAlgorithm::EcDsaBrainpoolP384R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP384R1)
+        }
+        SignatureAlgorithm::EcDsaBrainpoolP512R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP512R1)
+        }
         SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
         SignatureAlgorithm::Rsa3072 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15),
         SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
@@ -252,6 +282,17 @@ pub fn read_dec<const R: usize, T: crate::card::Client>(
     match algo {
         DecryptionAlgorithm::X255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::X255),
         DecryptionAlgorithm::EcDhP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP256),
+        DecryptionAlgorithm::EcDhP384 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP384),
+        DecryptionAlgorithm::EcDhP521 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhP521),
+        DecryptionAlgorithm::EcDhBrainpoolP256R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhBrainpoolP256R1)
+        }
+        DecryptionAlgorithm::EcDhBrainpoolP384R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhBrainpoolP384R1)
+        }
+        DecryptionAlgorithm::EcDhBrainpoolP512R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhBrainpoolP512R1)
+        }
         DecryptionAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
         }
@@ -277,6 +318,17 @@ pub fn read_aut<const R: usize, T: crate::card::Client>(
     match algo {
         AuthenticationAlgorithm::Ed255 => read_ec_key(ctx.lend(), key_id, CurveAlgo::Ed255),
         AuthenticationAlgorithm::EcDsaP256 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP256),
+        AuthenticationAlgorithm::EcDsaP384 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP384),
+        AuthenticationAlgorithm::EcDsaP521 => read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaP521),
+        AuthenticationAlgorithm::EcDsaBrainpoolP256R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP256R1)
+        }
+        AuthenticationAlgorithm::EcDsaBrainpoolP384R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP384R1)
+        }
+        AuthenticationAlgorithm::EcDsaBrainpoolP512R1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP512R1)
+        }
         AuthenticationAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
         }
@@ -289,7 +341,7 @@ pub fn read_aut<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn serialize_p256<const R: usize, T: crate::card::Client>(
+fn serialize_nist_curve<const R: usize, T: crate::card::Client>(
     mut ctx: LoadedContext<'_, R, T>,
     serialized: &[u8],
 ) -> Result<(), Status> {

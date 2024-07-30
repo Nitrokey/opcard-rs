@@ -34,16 +34,15 @@ fix:
 
 .PHONY: test
 test:
-	cargo test --features vpicc,rsa4096-gen gpg_crypto,sequoia_gen_key
-	cargo test --features vpicc,rsa4096
+	cargo test --features vpicc,rsa4096-gen 
 	
 
 .PHONY: test
 dangerous-real-card-test:
 	ps aux | grep pcscd | grep -v grep || sudo pcscd
-	cargo test --features rsa2048-gen,rsa4096,dangerous-test-real-card sequoia
+	cargo test --features rsa2048-gen,rsa4096,dangerous-test-real-card sequoia_hardware
 	sudo pkill pcscd
-	cargo test --features rsa2048-gen,rsa4096,dangerous-test-real-card gpg
+	cargo test --features rsa2048-gen,rsa4096-gen,dangerous-test-real-card gpg_hardware
 
 .PHONY: fuzz
 fuzz: fuzz-corpus

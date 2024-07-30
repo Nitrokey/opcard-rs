@@ -13,6 +13,8 @@ use trussed::{
 };
 use trussed_auth::AuthClient;
 
+use test_log::test;
+
 #[test]
 // Fails because of https://gitlab.com/openpgp-card/openpgp-card/-/issues/70
 // Tested with the VPICC example that it works with gpg

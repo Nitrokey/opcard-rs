@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-#![cfg(feature = "vpicc")]
+#![cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
 
 mod virt;
 
@@ -31,6 +31,7 @@ fn gpg_card_status() {
             PIN retry counter : 3 0 3\n\
             Signature counter : 0\n\
             KDF setting ......: off\n\
+            UIF setting ......: Sign=off Decrypt=off Auth=off\n\
             Signature key ....: \\[none\\]\n\
             Encryption key....: \\[none\\]\n\
             Authentication key: \\[none\\]\n\
@@ -46,18 +47,15 @@ fn gpg_card_status() {
             .expect("failed to run gpg --card-status");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        println!("=== stdout ===");
-        println!("{stdout}");
-        println!("=== end stdout ===");
-
-        println!();
-
         println!("=== stderr ===");
         println!("{}", String::from_utf8_lossy(&output.stderr));
         println!("=== end stderr ===");
 
         assert!(output.status.success(), "{}", output.status);
 
-        assert!(status_regex.is_match(&stdout), "{}", stdout);
+        assert!(
+            status_regex.is_match(&stdout),
+            "=== GOT ===\n{stdout}\n=== EXPECTED ===\n{status_regex}"
+        );
     });
 }
