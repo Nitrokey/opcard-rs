@@ -4,7 +4,7 @@
 use hex_literal::hex;
 use iso7816::Status;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use trussed::types::Mechanism;
+use trussed::types::{Mechanism, Path};
 
 use crate::card::AllowedAlgorithms;
 use crate::error::Error;
@@ -498,7 +498,7 @@ impl KeyType {
         }
     }
 
-    pub fn path(&self) -> &'static str {
+    pub fn path(&self) -> &'static Path {
         match self {
             KeyType::Sign => crate::state::SIGNING_KEY_PATH,
             KeyType::Aut => crate::state::AUTH_KEY_PATH,

@@ -6,12 +6,13 @@ use core::mem::take;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
+use littlefs2::path;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use trussed::api::reply::Metadata;
 use trussed::config::MAX_MESSAGE_LENGTH;
-use trussed::types::{KeyId, Location, Mechanism, PathBuf, StorageAttributes};
+use trussed::types::{KeyId, Location, Mechanism, Path, PathBuf, StorageAttributes};
 use trussed::{syscall, try_syscall};
 use trussed_chunked::utils::{write_all, EncryptionData};
 
@@ -36,10 +37,10 @@ pub const MAX_GENERIC_LENGTH: usize = 4096;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
 pub const MAX_GENERIC_LENGTH_BE: [u8; 2] = (MAX_GENERIC_LENGTH as u16).to_be_bytes();
 
-pub const SIGNING_KEY_PATH: &str = "signing_key.bin";
-pub const DEC_KEY_PATH: &str = "conf_key.bin";
-pub const AUTH_KEY_PATH: &str = "auth_key.bin";
-pub const AES_KEY_PATH: &str = "aes_key.bin";
+pub const SIGNING_KEY_PATH: &Path = path!("signing_key.bin");
+pub const DEC_KEY_PATH: &Path = path!("conf_key.bin");
+pub const AUTH_KEY_PATH: &Path = path!("auth_key.bin");
+pub const AES_KEY_PATH: &Path = path!("aes_key.bin");
 
 macro_rules! enum_u8 {
     (
@@ -200,7 +201,7 @@ impl State {
         })
     }
 
-    const LIFECYCLE_PATH: &'static str = "lifecycle.empty";
+    const LIFECYCLE_PATH: &'static Path = path!("lifecycle.empty");
     fn lifecycle_path() -> PathBuf {
         PathBuf::from(Self::LIFECYCLE_PATH)
     }
@@ -330,7 +331,7 @@ impl<'a> LoadedState<'a> {
             Mechanism::Chacha8Poly1305,
             admin_key,
             user_wrapped,
-            ADMIN_USER_KEY_BACKUP.as_bytes(),
+            ADMIN_USER_KEY_BACKUP.as_str().as_bytes(),
             &[],
             StorageAttributes::new().set_persistence(Location::Volatile)
         ))
@@ -358,7 +359,7 @@ impl<'a> LoadedState<'a> {
             Mechanism::Chacha8Poly1305,
             rc_key,
             user_wrapped,
-            RC_USER_KEY_BACKUP.as_bytes(),
+            RC_USER_KEY_BACKUP.as_str().as_bytes(),
             &[],
             StorageAttributes::new().set_persistence(Location::Volatile)
         ))
@@ -425,7 +426,7 @@ impl<'a> LoadedState<'a> {
             Mechanism::Chacha8Poly1305,
             rc_key,
             user_key,
-            RC_USER_KEY_BACKUP.as_bytes(),
+            RC_USER_KEY_BACKUP.as_str().as_bytes(),
             None,
         ))
         .wrapped_key;
@@ -455,7 +456,7 @@ impl<'a> LoadedState<'a> {
             new,
             PathBuf::from(AES_KEY_PATH),
             storage,
-            AES_KEY_PATH.as_bytes()
+            AES_KEY_PATH.as_str().as_bytes()
         ));
         syscall!(client.delete(new));
         Ok(())
@@ -513,7 +514,7 @@ impl<'a> LoadedState<'a> {
             new_id,
             path,
             storage,
-            path_str.as_bytes()
+            path_str.as_str().as_bytes()
         ));
 
         let private_to_change = match ty {
@@ -668,12 +669,12 @@ pub struct Persistent {
 }
 
 /// User pin key wrapped by the resetting code key
-const RC_USER_KEY_BACKUP: &str = "rc-user-pin-key.bin";
+const RC_USER_KEY_BACKUP: &Path = path!("rc-user-pin-key.bin");
 /// User pin key wrapped by the admin key
-const ADMIN_USER_KEY_BACKUP: &str = "admin-user-pin-key.bin";
+const ADMIN_USER_KEY_BACKUP: &Path = path!("admin-user-pin-key.bin");
 
 impl Persistent {
-    const FILENAME: &'static str = "persistent-state.cbor";
+    const FILENAME: &'static Path = path!("persistent-state.cbor");
 
     // § 4.3
     const MAX_RETRIES: u8 = 3;
@@ -768,7 +769,7 @@ impl Persistent {
             Mechanism::Chacha8Poly1305,
             admin_key,
             user_key,
-            ADMIN_USER_KEY_BACKUP.as_bytes(),
+            ADMIN_USER_KEY_BACKUP.as_str().as_bytes(),
             None,
         ))
         .wrapped_key;
@@ -1392,7 +1393,7 @@ impl Volatile {
         client: &mut impl crate::card::Client,
         user_kek: KeyId,
         opt_key: &mut Option<KeyId>,
-        path: &'static str,
+        path: &'static Path,
         storage: Location,
     ) -> Result<KeyId, Status> {
         if let Some(k) = opt_key {
@@ -1405,7 +1406,7 @@ impl Volatile {
             PathBuf::from(path),
             storage,
             Location::Volatile,
-            path.as_bytes()
+            path.as_str().as_bytes()
         ))
         .map_err(|_err| {
             error!("Failed to load key: {:?}", _err);
@@ -1491,16 +1492,16 @@ pub enum PermissionRequirement {
 impl ArbitraryDO {
     fn path(self) -> PathBuf {
         PathBuf::from(match self {
-            Self::Url => "url",
-            Self::KdfDo => "kdf_do",
-            Self::PrivateUse1 => "private_use_1",
-            Self::PrivateUse2 => "private_use_2",
-            Self::PrivateUse3 => "private_use_3",
-            Self::PrivateUse4 => "private_use_4",
-            Self::LoginData => "login_data",
-            Self::CardHolderCertAut => "cardholder_cert_aut",
-            Self::CardHolderCertDec => "cardholder_cert_dec",
-            Self::CardHolderCertSig => "cardholder_cert_sig",
+            Self::Url => path!("url"),
+            Self::KdfDo => path!("kdf_do"),
+            Self::PrivateUse1 => path!("private_use_1"),
+            Self::PrivateUse2 => path!("private_use_2"),
+            Self::PrivateUse3 => path!("private_use_3"),
+            Self::PrivateUse4 => path!("private_use_4"),
+            Self::LoginData => path!("login_data"),
+            Self::CardHolderCertAut => path!("cardholder_cert_aut"),
+            Self::CardHolderCertDec => path!("cardholder_cert_dec"),
+            Self::CardHolderCertSig => path!("cardholder_cert_sig"),
         })
     }
 

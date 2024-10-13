@@ -27,6 +27,7 @@ required-features = ["apdu-dispatch"]
 heapless = "0.7"
 heapless-bytes = "0.3"
 iso7816 = "0.1.3"
+littlefs2 = "0.4"
 log = "0.4"
 serde = { version = "1.0", default-features = false }
 subtle = { version = "2.4.1", default-features = false }
