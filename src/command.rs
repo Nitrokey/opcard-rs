@@ -95,10 +95,10 @@ impl Command {
     }
 }
 
-impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
+impl TryFrom<iso7816::command::CommandView<'_>> for Command {
     type Error = Status;
 
-    fn try_from(command: &iso7816::Command<C>) -> Result<Self, Self::Error> {
+    fn try_from(command: iso7816::command::CommandView<'_>) -> Result<Self, Self::Error> {
         fn require(left: u8, right: u8) -> Result<(), Status> {
             if left == right {
                 Ok(())
@@ -107,8 +107,8 @@ impl<const C: usize> TryFrom<&iso7816::Command<C>> for Command {
             }
         }
 
-        fn require_p1_p2<const D: usize>(
-            command: &iso7816::Command<D>,
+        fn require_p1_p2(
+            command: iso7816::command::CommandView<'_>,
             p1: u8,
             p2: u8,
         ) -> Result<(), Status> {

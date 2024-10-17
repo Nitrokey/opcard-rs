@@ -4,7 +4,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use iso7816::{command::FromSliceError, Command, Status};
+use iso7816::{
+    command::{CommandView, FromSliceError},
+    Command, Status,
+};
 #[cfg(not(feature = "dangerous-test-real-card"))]
 use opcard::virt::VirtClient;
 use opcard::Options;
@@ -83,7 +86,7 @@ pub struct Transaction<T: opcard::Client + Send + Sync + 'static> {
 impl<T: opcard::Client + Send + Sync + 'static> Transaction<T> {
     fn handle(&mut self, command: &[u8]) -> Result<(), Status> {
         self.buffer.clear();
-        let command = Command::<REQUEST_LEN>::try_from(command).map_err(|err| match err {
+        let command = CommandView::try_from(command).map_err(|err| match err {
             FromSliceError::InvalidSliceLength
             | FromSliceError::TooShort
             | FromSliceError::TooLong => Status::WrongLength,
@@ -91,7 +94,7 @@ impl<T: opcard::Client + Send + Sync + 'static> Transaction<T> {
             FromSliceError::InvalidFirstBodyByteForExtended => Status::UnspecifiedCheckingError,
         })?;
         let mut card = self.card.lock().expect("failed to lock card");
-        card.handle(&command, &mut self.buffer)
+        card.handle(command, &mut self.buffer)
     }
 }
 

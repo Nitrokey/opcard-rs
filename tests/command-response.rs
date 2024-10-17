@@ -628,11 +628,11 @@ impl IoCmd {
     ) {
         println!("Command: {input:x?}");
         let mut rep: heapless::Vec<u8, 7096> = heapless::Vec::new();
-        let cmd: iso7816::Command<7096> = iso7816::Command::try_from(input).unwrap_or_else(|err| {
+        let cmd = iso7816::command::CommandView::try_from(input).unwrap_or_else(|err| {
             panic!("Bad command: {err:?}, for command: {}", hex::encode(input))
         });
         let status: Status = card
-            .handle(&cmd, &mut rep)
+            .handle(cmd, &mut rep)
             .err()
             .map(|s| TryFrom::<u16>::try_from(s.into()).unwrap())
             .unwrap_or_default();

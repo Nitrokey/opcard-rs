@@ -55,9 +55,9 @@ impl<T: Client> Card<T> {
     /// Handles an APDU command and writes the response to the given buffer.
     ///
     /// The APDU command must be complete, i. e. chained commands must be resolved by the caller.
-    pub fn handle<const C: usize, const R: usize>(
+    pub fn handle<const R: usize>(
         &mut self,
-        command: &iso7816::Command<C>,
+        command: iso7816::command::CommandView<'_>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
         #[cfg(feature = "admin-app")]
@@ -84,7 +84,7 @@ impl<T: Client> Card<T> {
             backend: &mut self.backend,
             state: &mut self.state,
             options: &self.options,
-            data: command.data().as_ref(),
+            data: command.data(),
             reply: Reply(reply),
         };
         card_command.exec(context)
@@ -127,15 +127,14 @@ impl<T: Client> iso7816::App for Card<T> {
 }
 
 #[cfg(feature = "apdu-dispatch")]
-impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Card<T> {
+impl<T: Client, const R: usize> apdu_app::App<R> for Card<T> {
     fn select(
         &mut self,
-        interface: apdu_dispatch::dispatch::Interface,
-        command: &iso7816::Command<C>,
+        interface: apdu_app::Interface,
+        command: iso7816::command::CommandView<'_>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
-        use apdu_dispatch::dispatch::Interface;
-        if interface != Interface::Contact {
+        if interface != apdu_app::Interface::Contact {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         self.handle(command, reply)
@@ -143,12 +142,11 @@ impl<T: Client, const C: usize, const R: usize> apdu_dispatch::App<C, R> for Car
 
     fn call(
         &mut self,
-        interface: apdu_dispatch::dispatch::Interface,
-        command: &iso7816::Command<C>,
+        interface: apdu_app::Interface,
+        command: iso7816::command::CommandView<'_>,
         reply: &mut heapless::Vec<u8, R>,
     ) -> Result<(), Status> {
-        use apdu_dispatch::dispatch::Interface;
-        if interface != Interface::Contact {
+        if interface != apdu_app::Interface::Contact {
             return Err(Status::ConditionsOfUseNotSatisfied);
         }
         self.handle(command, reply)

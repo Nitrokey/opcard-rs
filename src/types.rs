@@ -574,8 +574,8 @@ impl From<u8> for Tag {
     }
 }
 
-impl<const C: usize> From<&iso7816::Command<C>> for Tag {
-    fn from(command: &iso7816::Command<C>) -> Self {
+impl From<iso7816::command::CommandView<'_>> for Tag {
+    fn from(command: iso7816::command::CommandView<'_>) -> Self {
         Self::from((command.p1, command.p2))
     }
 }

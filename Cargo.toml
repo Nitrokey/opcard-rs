@@ -26,7 +26,7 @@ required-features = ["apdu-dispatch"]
 [dependencies]
 heapless = "0.7"
 heapless-bytes = "0.3"
-iso7816 = "0.1.1"
+iso7816 = "0.1.3"
 log = "0.4"
 serde = { version = "1.0", default-features = false }
 subtle = { version = "2.4.1", default-features = false }
@@ -40,7 +40,7 @@ trussed-auth = "0.3.0"
 admin-app = { version = "0.1.0", optional = true }
 
 # optional dependencies
-apdu-dispatch = { version = "0.1", optional = true }
+apdu-app = { version = "0.1", optional = true }
 delog = { version = "0.1.7", optional = true }
 trussed-staging = { version = "0.3.0", features = ["chunked", "wrap-key-to-file"], optional = true }
 vpicc = { version = "0.1.0", optional = true }
@@ -48,6 +48,7 @@ cfg-if = "1.0.0"
 bitflags = "2.5.0"
 
 [dev-dependencies]
+apdu-dispatch = "0.3"
 env_logger = "0.9"
 openpgp-card = "0.3"
 openpgp-card-sequoia = "0.1.2"
@@ -70,6 +71,7 @@ trussed-usbip = { version = "0.0.1", default-features = false, features = ["ccid
 [features]
 default = []
 std = []
+apdu-dispatch = ["dep:apdu-app"]
 vpicc = ["std", "dep:vpicc", "virt"]
 virt = ["std", "trussed/virt", "trussed-staging"]
 
@@ -92,7 +94,6 @@ log-warn = []
 log-error = []
 
 [patch.crates-io]
-iso7816 = { git = "https://github.com/Nitrokey/iso7816.git", tag = "v0.1.1-nitrokey.1" }
 littlefs2 = { git = "https://github.com/trussed-dev/littlefs2.git", rev = "960e57d9fc0d209308c8e15dc26252bbe1ff6ba8" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
 trussed = { git = "https://github.com/nitrokey/trussed.git", rev = "540ad725ef44f0d6d3d2da7dd6ec0bacffaeb5bf" }
@@ -102,11 +103,10 @@ trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", t
 trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", tag = "v0.2.0" }
 trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "v0.3.0" }
 trussed-wrap-key-to-file = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "wrap-key-to-file-v0.1.0" }
-apdu-dispatch = { git = "https://github.com/Nitrokey/apdu-dispatch", tag = "v0.1.2-nitrokey.2" }
-trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", tag = "v0.0.1-nitrokey.1" }
-usbd-ccid = { git = "https://github.com/Nitrokey/usbd-ccid", tag = "v0.2.0-nitrokey.1" }
-admin-app = { git = "https://github.com/Nitrokey/admin-app.git", tag = "v0.1.0-nitrokey.11" }
+trussed-usbip = { git = "https://github.com/Nitrokey/pc-usbip-runner.git", tag = "v0.0.1-nitrokey.5" }
+admin-app = { git = "https://github.com/Nitrokey/admin-app.git", tag = "v0.1.0-nitrokey.16" }
 ctaphid-dispatch = { git = "https://github.com/trussed-dev/ctaphid-dispatch.git", rev = "57cb3317878a8593847595319aa03ef17c29ec5b" }
+cbor-smol = { git = "https://github.com/trussed-dev/cbor-smol.git", rev = "d499e527f1214b2998b844720f0d41a9d05be7e1" }
 
 [package.metadata.docs.rs]
 all-features = true

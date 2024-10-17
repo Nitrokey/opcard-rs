@@ -6,7 +6,7 @@ name = "opcard-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
-edition = "2018"
+edition = "2021"
 
 [package.metadata]
 cargo-fuzz = true
@@ -14,7 +14,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 heapless = "0.7"
-iso7816 = "0.1"
+iso7816 = "0.1.3"
 trussed = { version = "0.1.0", features = ["virt", "verbose-tests"] }
 arbitrary = { version = "1", features = ["derive"] }
 hex-literal = "0.4"

@@ -1,7 +1,10 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use iso7816::{command::FromSliceError, Command, Status};
+use iso7816::{
+    command::{CommandView, FromSliceError},
+    Command, Status,
+};
 
 use crate::card::Card;
 
@@ -121,7 +124,7 @@ struct ResponseBuffer<const N: usize> {
 impl<const N: usize> ResponseBuffer<N> {
     pub fn handle<
         const C: usize,
-        F: FnOnce(&Command<C>, &mut heapless::Vec<u8, N>) -> Result<(), Status>,
+        F: FnOnce(CommandView<'_>, &mut heapless::Vec<u8, N>) -> Result<(), Status>,
     >(
         &mut self,
         command: &Command<C>,
@@ -130,7 +133,7 @@ impl<const N: usize> ResponseBuffer<N> {
         if command.instruction() != iso7816::Instruction::GetResponse {
             self.buffer.clear();
             self.offset = 0;
-            if let Err(status) = exec(command, &mut self.buffer) {
+            if let Err(status) = exec(command.as_view(), &mut self.buffer) {
                 return (&[], status);
             }
         }

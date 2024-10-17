@@ -4,14 +4,13 @@
 //! USB/IP runner for opcard.
 //! Run with cargo run --example --features apdu-dispatch (and optionally rsa4096-gen)
 
-use trussed::virt::{self, Ram, UserInterface};
-use trussed::{ClientImplementation, Platform};
-use trussed_usbip::ClientBuilder;
+use trussed::virt::{self, Platform, StoreProvider, UserInterface};
+use trussed::{client::ClientBuilder, ClientImplementation, Platform as _, Service};
+use trussed_usbip::Syscall;
 
 use opcard::virt::dispatch::{self, Dispatch};
 
-type VirtClient =
-    ClientImplementation<trussed_usbip::Service<Ram, dispatch::Dispatch>, dispatch::Dispatch>;
+type VirtClient = ClientImplementation<Syscall, dispatch::Dispatch>;
 
 const MANUFACTURER: &str = "Nitrokey";
 const PRODUCT: &str = "Nitrokey 3";
@@ -22,20 +21,22 @@ struct OpcardApp {
     opcard: opcard::Card<VirtClient>,
 }
 
-impl trussed_usbip::Apps<'_, VirtClient, Dispatch> for OpcardApp {
+impl<S: StoreProvider> trussed_usbip::Apps<'_, S, Dispatch> for OpcardApp {
     type Data = ();
-    fn new<B: ClientBuilder<VirtClient, Dispatch>>(builder: &B, _data: ()) -> Self {
+    fn new(service: &mut Service<Platform<S>, Dispatch>, syscall: Syscall, _data: ()) -> Self {
+        let client = ClientBuilder::new("opcard")
+            .backends(dispatch::BACKENDS)
+            .prepare(service)
+            .expect("failed to create client")
+            .build(syscall);
         OpcardApp {
-            opcard: opcard::Card::new(
-                builder.build("opcard", dispatch::BACKENDS),
-                opcard::Options::default(),
-            ),
+            opcard: opcard::Card::new(client, opcard::Options::default()),
         }
     }
 
     fn with_ccid_apps<T>(
         &mut self,
-        f: impl FnOnce(&mut [&mut dyn apdu_dispatch::App<7609, 7609>]) -> T,
+        f: impl FnOnce(&mut [&mut dyn apdu_dispatch::App<7609>]) -> T,
     ) -> T {
         f(&mut [&mut self.opcard])
     }

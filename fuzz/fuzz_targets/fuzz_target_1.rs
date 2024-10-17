@@ -31,9 +31,9 @@ fuzz_target!(|input: Input| {
         let mut reply = heapless::Vec::<u8, { 3 * 1024 }>::new();
 
         for data in commands {
-            if let Ok(command) = iso7816::Command::<{ 10 * 1024 }>::try_from(&data) {
+            if let Ok(command) = iso7816::command::CommandView::try_from(data.as_slice()) {
                 reply.clear();
-                card.handle(&command, &mut reply).ok();
+                card.handle(command, &mut reply).ok();
             }
         }
     })
