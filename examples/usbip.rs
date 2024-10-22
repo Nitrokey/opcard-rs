@@ -4,6 +4,7 @@
 //! USB/IP runner for opcard.
 //! Run with cargo run --example --features apdu-dispatch (and optionally rsa4096-gen)
 
+use littlefs2_core::path;
 use trussed::virt::{self, Platform, StoreProvider, UserInterface};
 use trussed::{client::ClientBuilder, ClientImplementation, Platform as _, Service};
 use trussed_usbip::Syscall;
@@ -24,7 +25,7 @@ struct OpcardApp {
 impl<S: StoreProvider> trussed_usbip::Apps<'_, S, Dispatch> for OpcardApp {
     type Data = ();
     fn new(service: &mut Service<Platform<S>, Dispatch>, syscall: Syscall, _data: ()) -> Self {
-        let client = ClientBuilder::new("opcard")
+        let client = ClientBuilder::new(path!("opcard"))
             .backends(dispatch::BACKENDS)
             .prepare(service)
             .expect("failed to create client")

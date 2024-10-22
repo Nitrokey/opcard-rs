@@ -15,7 +15,7 @@ pub mod dispatch {
         service::ServiceResources,
         types::{Bytes, Context, Location},
     };
-    use trussed_auth::{AuthBackend, AuthContext, AuthExtension, MAX_HW_KEY_LEN};
+    use trussed_auth::{AuthBackend, AuthContext, AuthExtension, FilesystemLayout, MAX_HW_KEY_LEN};
     use trussed_chunked::ChunkedExtension;
     use trussed_staging::{StagingBackend, StagingContext};
     use trussed_wrap_key_to_file::WrapKeyToFileExtension;
@@ -98,7 +98,7 @@ pub mod dispatch {
         /// Create a new dispatch using the internal filesystem
         pub fn new() -> Self {
             Self {
-                auth: AuthBackend::new(Location::Internal),
+                auth: AuthBackend::new(Location::Internal, FilesystemLayout::V0),
                 staging: StagingBackend::new(),
             }
         }
@@ -106,7 +106,7 @@ pub mod dispatch {
         /// Create a new dispatch using the internal filesystem and a key derived from hardware parameters
         pub fn with_hw_key(hw_key: Bytes<MAX_HW_KEY_LEN>) -> Self {
             Self {
-                auth: AuthBackend::with_hw_key(Location::Internal, hw_key),
+                auth: AuthBackend::with_hw_key(Location::Internal, hw_key, FilesystemLayout::V0),
                 staging: StagingBackend::new(),
             }
         }

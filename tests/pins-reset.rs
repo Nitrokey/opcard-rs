@@ -6,6 +6,7 @@ mod card;
 use card::Card;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
+use littlefs2_core::path;
 use trussed::{
     client::*,
     syscall,
@@ -59,7 +60,7 @@ fn factory_reset_pins_bad_data() {
         syscall!(client.set_pin(1, default_admin_pin, Some(3), true,));
         syscall!(client.write_file(
             options.storage,
-            PathBuf::from("persistent-state.cbor"),
+            PathBuf::from(path!("persistent-state.cbor")),
             Message::from_slice(&hex!("AAAAAAAAAAAAAAAAAA")).unwrap(),
             None
         ));
