@@ -6,7 +6,7 @@ use core::mem::take;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
-use littlefs2::path;
+use littlefs2_core::path;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
