@@ -32,7 +32,9 @@ fn serialize_pub<const R: usize, T: crate::card::Client>(
         | CurveAlgo::EcDsaBrainpoolP384R1
         | CurveAlgo::EcDhBrainpoolP384R1
         | CurveAlgo::EcDsaBrainpoolP512R1
-        | CurveAlgo::EcDhBrainpoolP512R1 => serialize_nist_curve(ctx, public_key),
+        | CurveAlgo::EcDhBrainpoolP512R1
+        | CurveAlgo::EcDhSecp256k1
+        | CurveAlgo::EcDsaSecp256k1 => serialize_nist_curve(ctx, public_key),
         CurveAlgo::X255 | CurveAlgo::Ed255 => serialize_25519(ctx, public_key),
     }
 }
@@ -65,6 +67,9 @@ pub fn sign<const R: usize, T: crate::card::Client>(
         }
         SignatureAlgorithm::EcDsaBrainpoolP512R1 => {
             gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaBrainpoolP512R1)
+        }
+        SignatureAlgorithm::EcDsaSecp256k1 => {
+            gen_ec_key(ctx.lend(), KeyType::Sign, CurveAlgo::EcDsaSecp256k1)
         }
         SignatureAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Sign, Mechanism::Rsa2048Pkcs1v15)
@@ -100,6 +105,9 @@ pub fn dec<const R: usize, T: crate::card::Client>(
         }
         DecryptionAlgorithm::EcDhBrainpoolP512R1 => {
             gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhBrainpoolP512R1)
+        }
+        DecryptionAlgorithm::EcDhSecp256k1 => {
+            gen_ec_key(ctx.lend(), KeyType::Dec, CurveAlgo::EcDhSecp256k1)
         }
         DecryptionAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Dec, Mechanism::Rsa2048Pkcs1v15)
@@ -141,6 +149,9 @@ pub fn aut<const R: usize, T: crate::card::Client>(
         }
         AuthenticationAlgorithm::EcDsaBrainpoolP512R1 => {
             gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaBrainpoolP512R1)
+        }
+        AuthenticationAlgorithm::EcDsaSecp256k1 => {
+            gen_ec_key(ctx.lend(), KeyType::Aut, CurveAlgo::EcDsaSecp256k1)
         }
         AuthenticationAlgorithm::Rsa2048 => {
             gen_rsa_key(ctx.lend(), KeyType::Aut, Mechanism::Rsa2048Pkcs1v15)
@@ -263,6 +274,9 @@ pub fn read_sign<const R: usize, T: crate::card::Client>(
         SignatureAlgorithm::EcDsaBrainpoolP512R1 => {
             read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP512R1)
         }
+        SignatureAlgorithm::EcDsaSecp256k1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaSecp256k1)
+        }
         SignatureAlgorithm::Rsa2048 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
         SignatureAlgorithm::Rsa3072 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15),
         SignatureAlgorithm::Rsa4096 => read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
@@ -292,6 +306,9 @@ pub fn read_dec<const R: usize, T: crate::card::Client>(
         }
         DecryptionAlgorithm::EcDhBrainpoolP512R1 => {
             read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhBrainpoolP512R1)
+        }
+        DecryptionAlgorithm::EcDhSecp256k1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDhSecp256k1)
         }
         DecryptionAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
@@ -328,6 +345,9 @@ pub fn read_aut<const R: usize, T: crate::card::Client>(
         }
         AuthenticationAlgorithm::EcDsaBrainpoolP512R1 => {
             read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaBrainpoolP512R1)
+        }
+        AuthenticationAlgorithm::EcDsaSecp256k1 => {
+            read_ec_key(ctx.lend(), key_id, CurveAlgo::EcDsaSecp256k1)
         }
         AuthenticationAlgorithm::Rsa2048 => {
             read_rsa_key(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15)
