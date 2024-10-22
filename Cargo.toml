@@ -96,7 +96,7 @@ log-error = []
 
 [patch.crates-io]
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/trussed-dev/trussed.git", rev = "046478b7a4f6e2315acf9112d98308379c2e3eee" }
+trussed = { git = "https://github.com/trussed-dev/trussed.git", rev = "316a96f66335eab8b4195e900cda1a768ed1b99e" }
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", rev = "c030b82ad3441f337af09afe3a69e8a6da5785ea"}
 trussed-chunked = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "chunked-v0.1.0" }
 trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", tag = "manage-v0.1.0" }

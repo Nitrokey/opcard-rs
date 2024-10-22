@@ -185,6 +185,8 @@ bitflags! {
         const BRAINPOOL_P384R1 = 1 << 9;
         /// BRAINPOOL_P521R1 Brainpool curve
         const BRAINPOOL_P512R1 = 1 << 10;
+        /// SECP256k1 (bitcoin curve)
+        const SECP256K1 = 1 << 11;
     }
 }
 
@@ -202,6 +204,7 @@ impl AllowedAlgorithms {
             Self::RSA_4096,
             Self::X_25519,
             Self::ED_25519,
+            Self::SECP256K1,
         ]
         .into_iter()
         .fold(Self::empty(), |acc, value| acc | value)
@@ -219,6 +222,7 @@ impl AllowedAlgorithms {
             Self::RSA_4096,
             Self::X_25519,
             Self::ED_25519,
+            Self::SECP256K1,
         ]
         .into_iter()
         .fold(Self::empty(), |acc, value| acc | value)
