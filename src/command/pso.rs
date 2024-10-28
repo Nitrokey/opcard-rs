@@ -94,6 +94,12 @@ pub fn sign<const R: usize, T: crate::card::Client>(
                 }
                 sign_ec(ctx.lend(), key_id, Mechanism::BrainpoolP512R1Prehashed)
             }
+            SignatureAlgorithm::EcDsaSecp256k1 => {
+                if ctx.data.len() != 32 {
+                    return Err(Status::ConditionsOfUseNotSatisfied);
+                }
+                sign_ec(ctx.lend(), key_id, Mechanism::Secp256k1Prehashed)
+            }
             SignatureAlgorithm::Rsa2048 => sign_rsa(ctx.lend(), key_id, Mechanism::Rsa2048Pkcs1v15),
             SignatureAlgorithm::Rsa3072 => sign_rsa(ctx.lend(), key_id, Mechanism::Rsa3072Pkcs1v15),
             SignatureAlgorithm::Rsa4096 => sign_rsa(ctx.lend(), key_id, Mechanism::Rsa4096Pkcs1v15),
@@ -172,6 +178,9 @@ fn int_aut_key_mecha_uif<const R: usize, T: crate::card::Client>(
                 AuthenticationAlgorithm::EcDsaBrainpoolP512R1 => {
                     (Mechanism::BrainpoolP512R1Prehashed, RsaOrEcc::Ecc)
                 }
+                AuthenticationAlgorithm::EcDsaSecp256k1 => {
+                    (Mechanism::Secp256k1Prehashed, RsaOrEcc::Ecc)
+                }
                 AuthenticationAlgorithm::Ed255 => (Mechanism::Ed255, RsaOrEcc::Ecc),
 
                 AuthenticationAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs1v15, RsaOrEcc::Rsa),
@@ -197,6 +206,9 @@ fn int_aut_key_mecha_uif<const R: usize, T: crate::card::Client>(
                 }
                 DecryptionAlgorithm::EcDhBrainpoolP512R1 => {
                     (Mechanism::BrainpoolP512R1Prehashed, RsaOrEcc::Ecc)
+                }
+                DecryptionAlgorithm::EcDhSecp256k1 => {
+                    (Mechanism::Secp256k1Prehashed, RsaOrEcc::Ecc)
                 }
                 DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs1v15, RsaOrEcc::Rsa),
                 DecryptionAlgorithm::Rsa3072 => (Mechanism::Rsa3072Pkcs1v15, RsaOrEcc::Rsa),
@@ -271,6 +283,7 @@ fn decipher_key_mecha_uif<const R: usize, T: crate::card::Client>(
                 DecryptionAlgorithm::EcDhBrainpoolP512R1 => {
                     (Mechanism::BrainpoolP512R1, RsaOrEcc::Ecc)
                 }
+                DecryptionAlgorithm::EcDhSecp256k1 => (Mechanism::Secp256k1, RsaOrEcc::Ecc),
                 DecryptionAlgorithm::Rsa2048 => (Mechanism::Rsa2048Pkcs1v15, RsaOrEcc::Rsa),
                 DecryptionAlgorithm::Rsa3072 => (Mechanism::Rsa3072Pkcs1v15, RsaOrEcc::Rsa),
                 DecryptionAlgorithm::Rsa4096 => (Mechanism::Rsa4096Pkcs1v15, RsaOrEcc::Rsa),
@@ -291,6 +304,7 @@ fn decipher_key_mecha_uif<const R: usize, T: crate::card::Client>(
                 AuthenticationAlgorithm::EcDsaBrainpoolP512R1 => {
                     (Mechanism::BrainpoolP512R1, RsaOrEcc::Ecc)
                 }
+                AuthenticationAlgorithm::EcDsaSecp256k1 => (Mechanism::Secp256k1, RsaOrEcc::Ecc),
                 AuthenticationAlgorithm::Ed255 => {
                     warn!("Attempt to decipher with Ed255 key");
                     return Err(Status::ConditionsOfUseNotSatisfied);

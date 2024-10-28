@@ -122,6 +122,8 @@ pub enum KeyType {
     BrainpoolP384R1NoAut,
     BrainpoolP512R1,
     BrainpoolP512R1NoAut,
+    Secp256k1,
+    Secp256k1NoAut,
 }
 
 #[allow(unused)]
@@ -221,6 +223,20 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
         KeyType::BrainpoolP512R1NoAut => (
             r"keyattr:1:19:brainpoolP512r1:",
             r"keyattr:2:18:brainpoolP512r1:",
+            r"keyattr:3:1:2048:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
+        ),
+        KeyType::Secp256k1 => (
+            r"keyattr:1:19:secp256k1:",
+            r"keyattr:2:18:secp256k1:",
+            r"keyattr:3:19:secp256k1:",
+            "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+            "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:",
+        ),
+        KeyType::Secp256k1NoAut => (
+            r"keyattr:1:19:secp256k1:",
+            r"keyattr:2:18:secp256k1:",
             r"keyattr:3:1:2048:",
             "fpr:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}::",
             "grp:[0-9a-zA-Z]{40}:[0-9a-zA-Z]{40}:[0]{40}:",
@@ -554,6 +570,7 @@ pub enum KeyAlgo {
     BrainpoolP256R1,
     BrainpoolP384R1,
     BrainpoolP512R1,
+    Secp256k1,
 }
 
 impl KeyAlgo {
@@ -612,6 +629,7 @@ impl KeyAlgo {
             Self::BrainpoolP256R1 => Self::_generate_for_key("2", "6", temp_name, temp_email),
             Self::BrainpoolP384R1 => Self::_generate_for_key("2", "7", temp_name, temp_email),
             Self::BrainpoolP512R1 => Self::_generate_for_key("2", "8", temp_name, temp_email),
+            Self::Secp256k1 => Self::_generate_for_key("2", "9", temp_name, temp_email),
         }
     }
 
@@ -663,6 +681,9 @@ impl KeyAlgo {
             Self::BrainpoolP512R1 => {
                 vec!["9", "8", "0", temp_name, temp_email, "no comment", "", ""]
             }
+            Self::Secp256k1 => {
+                vec!["9", "9", "0", temp_name, temp_email, "no comment", "", ""]
+            }
         }
     }
 
@@ -698,7 +719,8 @@ impl KeyAlgo {
             | Self::P521
             | Self::BrainpoolP256R1
             | Self::BrainpoolP384R1
-            | Self::BrainpoolP512R1 => true,
+            | Self::BrainpoolP512R1
+            | Self::Secp256k1 => true,
             Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096 => false,
         }
     }
@@ -711,6 +733,7 @@ impl KeyAlgo {
             Self::BrainpoolP256R1 => "brainpoolP256r1:23",
             Self::BrainpoolP384R1 => "brainpoolP384r1:23",
             Self::BrainpoolP512R1 => "brainpoolP512r1:23",
+            Self::Secp256k1 => "secp256k1:",
             Self::Cv25519 => "ed25519:",
             Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096 => ":23",
         }
@@ -724,6 +747,7 @@ impl KeyAlgo {
             Self::BrainpoolP256R1 => "brainpoolP256r1",
             Self::BrainpoolP384R1 => "brainpoolP384r1",
             Self::BrainpoolP512R1 => "brainpoolP512r1",
+            Self::Secp256k1 => "secp256k1",
             Self::Cv25519 => "cv25519",
             Self::Rsa2048 => "rsa2048",
             Self::Rsa3072 => "rsa3072",
@@ -739,6 +763,7 @@ impl KeyAlgo {
             Self::BrainpoolP256R1 => "brainpoolP256r1",
             Self::BrainpoolP384R1 => "brainpoolP384r1",
             Self::BrainpoolP512R1 => "brainpoolP512r1",
+            Self::Secp256k1 => "secp256k1",
             Self::Cv25519 => "cv25519",
             Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096 => ":23",
         }
@@ -751,7 +776,8 @@ impl KeyAlgo {
             | Self::P521
             | Self::BrainpoolP256R1
             | Self::BrainpoolP384R1
-            | Self::BrainpoolP512R1 => "19",
+            | Self::BrainpoolP512R1
+            | Self::Secp256k1 => "19",
             Self::Cv25519 => "22",
             Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096 => "1",
         }
@@ -764,7 +790,8 @@ impl KeyAlgo {
             | Self::P521
             | Self::BrainpoolP256R1
             | Self::BrainpoolP384R1
-            | Self::BrainpoolP512R1 => "ECDSA",
+            | Self::BrainpoolP512R1
+            | Self::Secp256k1 => "ECDSA",
             Self::Cv25519 => "EDDSA",
             Self::Rsa2048 => "RSA key [0-9A-F]{40}",
             Self::Rsa3072 => "RSA key [0-9A-F]{40}",
@@ -779,7 +806,8 @@ impl KeyAlgo {
             | Self::P521
             | Self::BrainpoolP256R1
             | Self::BrainpoolP384R1
-            | Self::BrainpoolP512R1 => "18",
+            | Self::BrainpoolP512R1
+            | Self::Secp256k1 => "18",
             Self::Cv25519 => "18",
             Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096 => "1",
         }
@@ -799,7 +827,8 @@ impl KeyAlgo {
             | Self::P521
             | Self::BrainpoolP256R1
             | Self::BrainpoolP384R1
-            | Self::BrainpoolP512R1 => {
+            | Self::BrainpoolP512R1
+            | Self::Secp256k1 => {
                 let mut ask = attr_ec_ask();
                 ask.push(r"\[GNUPG:\] GET_LINE cardedit.prompt");
                 ask
@@ -819,6 +848,7 @@ impl KeyAlgo {
             Self::BrainpoolP256R1 => KeyType::BrainpoolP256R1,
             Self::BrainpoolP384R1 => KeyType::BrainpoolP384R1,
             Self::BrainpoolP512R1 => KeyType::BrainpoolP512R1,
+            Self::Secp256k1 => KeyType::Secp256k1,
         }
     }
 
@@ -835,6 +865,7 @@ impl KeyAlgo {
             Self::BrainpoolP256R1 => KeyType::BrainpoolP256R1NoAut,
             Self::BrainpoolP384R1 => KeyType::BrainpoolP384R1NoAut,
             Self::BrainpoolP512R1 => KeyType::BrainpoolP512R1NoAut,
+            Self::Secp256k1 => KeyType::Secp256k1NoAut,
         }
     }
 }
