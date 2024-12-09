@@ -7,6 +7,19 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+## [v1.5.0][] (2024-07-31)
+
+[v1.5.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.5.0
+
+- Add support for more curves ([#207][]):
+  - secp384r1 (NIST P-384)
+  - secp521r1 (NIST P-521)
+  - brainpoolp256r1
+  - brainpoolp384r1
+  - brainpoolp512r1
+
+[#207]: https://github.com/Nitrokey/opcard-rs/pull/207
+
 ## [v1.4.1][] (2024-03-22)
 
 [v1.4.1]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.4.1
