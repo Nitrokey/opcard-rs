@@ -90,26 +90,30 @@ macro_rules! iterable_sub_enum {
     }
 }
 
-const ED255_ATTRIBUTES: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01").as_slice();
-const ED255_ATTRIBUTES_PK: &[u8] = hex!("16 2B 06 01 04 01 DA 47 0F 01 FF").as_slice();
-const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07").as_slice();
+const ED255_ATTRIBUTES: &[u8] = hex!("162B06010401DA470F01").as_slice();
+const ED255_ATTRIBUTES_PK: &[u8] = hex!("162B06010401DA470F01 FF").as_slice();
+const ECDSA_P256_ATTRIBUTES: &[u8] = hex!("132A8648CE3D030107").as_slice();
 const ECDSA_P384_ATTRIBUTES: &[u8] = hex!("132b81040022").as_slice();
 const ECDSA_P521_ATTRIBUTES: &[u8] = hex!("132b81040023").as_slice();
-const ECDSA_P256_ATTRIBUTES_PK: &[u8] = hex!("13 2A 86 48 CE 3D 03 01 07 FF").as_slice();
+const ECDSA_P256_ATTRIBUTES_PK: &[u8] = hex!("132A8648CE3D030107 FF").as_slice();
 const ECDSA_P384_ATTRIBUTES_PK: &[u8] = hex!("132b81040022 FF").as_slice();
 const ECDSA_P521_ATTRIBUTES_PK: &[u8] = hex!("132b81040023 FF").as_slice();
+const ECDSA_SECP256K1_ATTRIBUTES: &[u8] = hex!("132B8104000A").as_slice();
+const ECDSA_SECP256K1_ATTRIBUTES_PK: &[u8] = hex!("132B8104000A FF").as_slice();
 const ECDSA_BRAINPOOL_P256R1_ATTRIBUTES: &[u8] = hex!("132b2403030208010107").as_slice();
 const ECDSA_BRAINPOOL_P384R1_ATTRIBUTES: &[u8] = hex!("132b240303020801010b").as_slice();
 const ECDSA_BRAINPOOL_P512R1_ATTRIBUTES: &[u8] = hex!("132b240303020801010d").as_slice();
 const ECDSA_BRAINPOOL_P256R1_ATTRIBUTES_PK: &[u8] = hex!("132b2403030208010107 FF").as_slice();
 const ECDSA_BRAINPOOL_P384R1_ATTRIBUTES_PK: &[u8] = hex!("132b240303020801010b FF").as_slice();
 const ECDSA_BRAINPOOL_P512R1_ATTRIBUTES_PK: &[u8] = hex!("132b240303020801010d FF").as_slice();
-const ECDH_P256_ATTRIBUTES: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07").as_slice();
+const ECDH_P256_ATTRIBUTES: &[u8] = hex!("122A8648CE3D030107").as_slice();
 const ECDH_P384_ATTRIBUTES: &[u8] = hex!("122b81040022").as_slice();
 const ECDH_P521_ATTRIBUTES: &[u8] = hex!("122b81040023").as_slice();
-const ECDH_P256_ATTRIBUTES_PK: &[u8] = hex!("12 2A 86 48 CE 3D 03 01 07 FF").as_slice();
+const ECDH_P256_ATTRIBUTES_PK: &[u8] = hex!("122A8648CE3D030107 FF").as_slice();
 const ECDH_P384_ATTRIBUTES_PK: &[u8] = hex!("122b81040022 FF").as_slice();
 const ECDH_P521_ATTRIBUTES_PK: &[u8] = hex!("122b81040023 FF").as_slice();
+const ECDH_SECP256K1_ATTRIBUTES: &[u8] = hex!("122B8104000A").as_slice();
+const ECDH_SECP256K1_ATTRIBUTES_PK: &[u8] = hex!("122B8104000A FF").as_slice();
 const ECDH_BRAINPOOL_P256R1_ATTRIBUTES: &[u8] = hex!("122b2403030208010107").as_slice();
 const ECDH_BRAINPOOL_P384R1_ATTRIBUTES: &[u8] = hex!("122b240303020801010b").as_slice();
 const ECDH_BRAINPOOL_P512R1_ATTRIBUTES: &[u8] = hex!("122b240303020801010d").as_slice();
@@ -180,6 +184,8 @@ iterable_enum! {
         EcDsaP384,
         EcDhP521,
         EcDsaP521,
+        EcDhSecp256k1,
+        EcDsaSecp256k1,
         EcDhBrainpoolP256R1,
         EcDsaBrainpoolP256R1,
         EcDhBrainpoolP384R1,
@@ -202,6 +208,8 @@ impl TryFrom<&[u8]> for Algorithm {
             ECDSA_P384_ATTRIBUTES | ECDSA_P384_ATTRIBUTES_PK => Ok(Self::EcDsaP384),
             ECDH_P521_ATTRIBUTES | ECDH_P521_ATTRIBUTES_PK => Ok(Self::EcDhP521),
             ECDSA_P521_ATTRIBUTES | ECDSA_P521_ATTRIBUTES_PK => Ok(Self::EcDsaP521),
+            ECDSA_SECP256K1_ATTRIBUTES | ECDSA_SECP256K1_ATTRIBUTES_PK => Ok(Self::EcDsaSecp256k1),
+            ECDH_SECP256K1_ATTRIBUTES | ECDH_SECP256K1_ATTRIBUTES_PK => Ok(Self::EcDhSecp256k1),
             ECDH_BRAINPOOL_P256R1_ATTRIBUTES | ECDH_BRAINPOOL_P256R1_ATTRIBUTES_PK => {
                 Ok(Self::EcDhBrainpoolP256R1)
             }
@@ -247,6 +255,8 @@ impl Algorithm {
             Self::EcDsaP384 => ECDSA_P384_ATTRIBUTES_PK,
             Self::EcDhP521 => ECDH_P521_ATTRIBUTES_PK,
             Self::EcDsaP521 => ECDSA_P521_ATTRIBUTES_PK,
+            Self::EcDhSecp256k1 => ECDH_SECP256K1_ATTRIBUTES_PK,
+            Self::EcDsaSecp256k1 => ECDSA_SECP256K1_ATTRIBUTES_PK,
             Self::EcDhBrainpoolP256R1 => ECDH_BRAINPOOL_P256R1_ATTRIBUTES_PK,
             Self::EcDsaBrainpoolP256R1 => ECDSA_BRAINPOOL_P256R1_ATTRIBUTES_PK,
             Self::EcDhBrainpoolP384R1 => ECDH_BRAINPOOL_P384R1_ATTRIBUTES_PK,
@@ -273,6 +283,8 @@ impl Algorithm {
             Self::EcDsaP384 => allowed.contains(AllowedAlgorithms::P_384),
             Self::EcDhP521 => allowed.contains(AllowedAlgorithms::P_521),
             Self::EcDsaP521 => allowed.contains(AllowedAlgorithms::P_521),
+            Self::EcDsaSecp256k1 => allowed.contains(AllowedAlgorithms::SECP256K1),
+            Self::EcDhSecp256k1 => allowed.contains(AllowedAlgorithms::SECP256K1),
             Self::EcDhBrainpoolP256R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P256R1),
             Self::EcDsaBrainpoolP256R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P256R1),
             Self::EcDhBrainpoolP384R1 => allowed.contains(AllowedAlgorithms::BRAINPOOL_P384R1),
@@ -301,6 +313,7 @@ iterable_sub_enum! {
         EcDsaBrainpoolP256R1,
         EcDsaBrainpoolP384R1,
         EcDsaBrainpoolP512R1,
+        EcDsaSecp256k1,
     }
 }
 
@@ -360,6 +373,7 @@ iterable_sub_enum! {
         EcDhBrainpoolP256R1,
         EcDhBrainpoolP384R1,
         EcDhBrainpoolP512R1,
+        EcDhSecp256k1,
     }
 }
 
@@ -419,6 +433,7 @@ iterable_sub_enum! {
         EcDsaBrainpoolP256R1,
         EcDsaBrainpoolP384R1,
         EcDsaBrainpoolP512R1,
+        EcDsaSecp256k1,
     }
 }
 
@@ -594,6 +609,8 @@ pub enum CurveAlgo {
     EcDsaBrainpoolP384R1,
     EcDhBrainpoolP512R1,
     EcDsaBrainpoolP512R1,
+    EcDsaSecp256k1,
+    EcDhSecp256k1,
     X255,
     Ed255,
 }
@@ -609,6 +626,7 @@ impl CurveAlgo {
             Self::EcDsaBrainpoolP512R1 | Self::EcDhBrainpoolP512R1 => Mechanism::BrainpoolP512R1,
             Self::X255 => Mechanism::X255,
             Self::Ed255 => Mechanism::Ed255,
+            Self::EcDsaSecp256k1 | Self::EcDhSecp256k1 => Mechanism::Secp256k1,
         }
     }
 
@@ -620,6 +638,7 @@ impl CurveAlgo {
             Self::EcDsaBrainpoolP256R1 | Self::EcDhBrainpoolP256R1 => 0x04,
             Self::EcDsaBrainpoolP384R1 | Self::EcDhBrainpoolP384R1 => 0x04,
             Self::EcDsaBrainpoolP512R1 | Self::EcDhBrainpoolP512R1 => 0x04,
+            Self::EcDsaSecp256k1 | Self::EcDhSecp256k1 => 0x04,
             Self::X255 | Self::Ed255 => 0x40,
         }
     }

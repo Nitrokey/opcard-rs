@@ -58,6 +58,7 @@ pub fn put_sign<const R: usize, T: crate::card::Client>(
         SignatureAlgorithm::EcDsaBrainpoolP512R1 => {
             put_ec(ctx.lend(), CurveAlgo::EcDsaBrainpoolP512R1)?
         }
+        SignatureAlgorithm::EcDsaSecp256k1 => put_ec(ctx.lend(), CurveAlgo::EcDsaSecp256k1)?,
         SignatureAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         SignatureAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
         SignatureAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
@@ -99,6 +100,7 @@ pub fn put_dec<const R: usize, T: crate::card::Client>(
         DecryptionAlgorithm::EcDhBrainpoolP512R1 => {
             put_ec(ctx.lend(), CurveAlgo::EcDhBrainpoolP512R1)?
         }
+        DecryptionAlgorithm::EcDhSecp256k1 => put_ec(ctx.lend(), CurveAlgo::EcDhSecp256k1)?,
         DecryptionAlgorithm::X255 => put_ec(ctx.lend(), CurveAlgo::X255)?,
         DecryptionAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
         DecryptionAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
@@ -140,6 +142,7 @@ pub fn put_aut<const R: usize, T: crate::card::Client>(
         AuthenticationAlgorithm::EcDsaBrainpoolP512R1 => {
             put_ec(ctx.lend(), CurveAlgo::EcDsaBrainpoolP512R1)?
         }
+        AuthenticationAlgorithm::EcDsaSecp256k1 => put_ec(ctx.lend(), CurveAlgo::EcDsaSecp256k1)?,
         AuthenticationAlgorithm::Ed255 => put_ec(ctx.lend(), CurveAlgo::Ed255)?,
         AuthenticationAlgorithm::Rsa2048 => put_rsa(ctx.lend(), Mechanism::Rsa2048Pkcs1v15)?,
         AuthenticationAlgorithm::Rsa3072 => put_rsa(ctx.lend(), Mechanism::Rsa3072Pkcs1v15)?,
