@@ -3,8 +3,9 @@
 
 use hex_literal::hex;
 use iso7816::Status;
+use littlefs2_core::Path;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use trussed::types::{Mechanism, Path};
+use trussed_core::types::Mechanism;
 
 use crate::card::AllowedAlgorithms;
 use crate::error::Error;

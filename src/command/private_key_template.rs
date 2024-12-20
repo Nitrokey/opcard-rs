@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::Status;
-use trussed::try_syscall;
-use trussed::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
+use trussed_core::try_syscall;
+use trussed_core::types::{KeyId, KeySerialization, Location, Mechanism, StorageAttributes};
 
 use crate::card::LoadedContext;
 use crate::state::KeyOrigin;

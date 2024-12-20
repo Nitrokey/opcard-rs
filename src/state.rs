@@ -6,15 +6,15 @@ use core::mem::take;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
-use littlefs2_core::path;
+use littlefs2_core::{path, Path, PathBuf};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use trussed::api::reply::Metadata;
-use trussed::config::MAX_MESSAGE_LENGTH;
-use trussed::types::{KeyId, Location, Mechanism, Path, PathBuf, StorageAttributes};
-use trussed::{syscall, try_syscall};
 use trussed_chunked::utils::{write_all, EncryptionData};
+use trussed_core::api::reply::Metadata;
+use trussed_core::config::MAX_MESSAGE_LENGTH;
+use trussed_core::types::{KeyId, Location, Mechanism, Message, StorageAttributes};
+use trussed_core::{syscall, try_syscall};
 
 use crate::card::reply::Reply;
 use crate::command::{Password, PasswordMode};
@@ -782,7 +782,7 @@ impl Persistent {
     }
     pub fn load<T: crate::card::Client>(client: &mut T, storage: Location) -> Result<Self, Error> {
         if let Some(data) = load_if_exists(client, storage, &Self::path())? {
-            trussed::cbor_deserialize(&data).map_err(|_err| {
+            cbor_smol::cbor_deserialize(&data).map_err(|_err| {
                 error!("failed to deserialize persistent state: {_err}");
                 Error::Loading
             })
@@ -799,7 +799,8 @@ impl Persistent {
         client: &mut T,
         storage: Location,
     ) -> Result<(), Error> {
-        let msg = trussed::cbor_serialize_bytes(&self).map_err(|_err| {
+        let mut msg = Message::new();
+        cbor_smol::cbor_serialize_to(&self, &mut msg).map_err(|_err| {
             error!("Failed to serialize: {_err}");
             Error::Saving
         })?;
