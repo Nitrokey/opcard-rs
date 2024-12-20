@@ -3,9 +3,9 @@
 
 use iso7816::Status;
 
-use trussed::config::MAX_MESSAGE_LENGTH;
-use trussed::types::*;
-use trussed::{syscall, try_syscall};
+use trussed_core::config::MAX_MESSAGE_LENGTH;
+use trussed_core::types::*;
+use trussed_core::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
 use crate::state::KeyRef;

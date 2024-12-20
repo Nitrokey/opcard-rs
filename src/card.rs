@@ -6,9 +6,9 @@ use admin_app::{ResetSignal, ResetSignalAllocation};
 use bitflags::bitflags;
 use hex_literal::hex;
 use iso7816::Status;
-use trussed::types::Location;
 use trussed_auth::AuthClient;
 use trussed_chunked::ChunkedClient;
+use trussed_core::{types::Location, CryptoClient, FilesystemClient, UiClient};
 
 pub(crate) mod reply;
 
@@ -371,8 +371,20 @@ impl<'a, const R: usize, T: Client> LoadedContext<'a, R, T> {
 use trussed_wrap_key_to_file::WrapKeyToFileClient;
 
 /// Super trait with all trussed extensions required by opcard
-pub trait Client: trussed::Client + AuthClient + WrapKeyToFileClient + ChunkedClient {}
-impl<C: trussed::Client + WrapKeyToFileClient + AuthClient + ChunkedClient> Client for C {}
+pub trait Client:
+    CryptoClient + FilesystemClient + UiClient + AuthClient + WrapKeyToFileClient + ChunkedClient
+{
+}
+impl<
+        C: CryptoClient
+            + FilesystemClient
+            + UiClient
+            + WrapKeyToFileClient
+            + AuthClient
+            + ChunkedClient,
+    > Client for C
+{
+}
 
 #[cfg(test)]
 mod tests {

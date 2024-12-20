@@ -9,7 +9,7 @@
 
 use core::fmt::Debug;
 
-use trussed::try_syscall;
+use trussed_core::try_syscall;
 
 use crate::error::Error;
 

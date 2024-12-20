@@ -4,7 +4,7 @@
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use iso7816::Status;
-use trussed::{
+use trussed_core::{
     try_syscall,
     types::{KeyId, KeySerialization, Mechanism},
 };
@@ -1331,7 +1331,7 @@ mod tests {
 
     use super::*;
     use hex_literal::hex;
-    use trussed::types::Location;
+    use trussed_core::types::Location;
 
     #[test]
     fn tags() {

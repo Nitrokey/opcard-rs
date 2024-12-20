@@ -18,9 +18,9 @@ use crate::state::{
 };
 use crate::tlv;
 use crate::types::*;
-use trussed::config::MAX_MESSAGE_LENGTH;
-use trussed::types::{Location, PathBuf};
-use trussed::{syscall, try_syscall};
+use trussed_core::config::MAX_MESSAGE_LENGTH;
+use trussed_core::types::{Location, PathBuf};
+use trussed_core::{syscall, try_syscall};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
