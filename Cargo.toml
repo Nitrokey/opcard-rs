@@ -32,11 +32,11 @@ littlefs2-core = "0.1"
 log = "0.4"
 serde = { version = "1.0", default-features = false }
 subtle = { version = "2.4.1", default-features = false }
-trussed-chunked = "0.1.0"
+trussed-chunked = "0.2.0"
 # TODO: only set RSA features if RSA is enabled?
 trussed-core = { version = "0.1.0-rc.1", features = ["aes256-cbc", "brainpoolp256r1", "brainpoolp384r1", "brainpoolp512r1", "chacha8-poly1305", "crypto-client", "ed255", "filesystem-client", "p256", "p384", "p521", "rsa2048", "rsa3072", "rsa4096", "secp256k1", "shared-secret", "ui-client", "x255"] }
 trussed-rsa-alloc = { version = "0.2.0", optional = true }
-trussed-wrap-key-to-file = "0.1.0"
+trussed-wrap-key-to-file = "0.2.0"
 serde_repr = "0.1"
 hex-literal = "0.4.1"
 trussed-auth = "0.3.0"
@@ -101,13 +101,10 @@ log-error = []
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
 trussed = { git = "https://github.com/trussed-dev/trussed.git", rev = "6bba8fde36d05c0227769eb63345744e87d84b2b" }
 trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth", rev = "fc53539536d7658c45a492585041742d8cdc45d0" }
-trussed-chunked = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "9355f700831c1a278c334f76382fbf98d82aedcd" }
-trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "9355f700831c1a278c334f76382fbf98d82aedcd" }
 trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", rev = "743d9aaa3d8a17d7dbf492bd54dc18ab8fca3dc0" }
-trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "9355f700831c1a278c334f76382fbf98d82aedcd" }
-trussed-wrap-key-to-file = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "9355f700831c1a278c334f76382fbf98d82aedcd" }
+trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "1e1ca03a3a62ea9b802f4070ea4bce002eeb4bec" }
 trussed-usbip = { git = "https://github.com/trussed-dev/pc-usbip-runner.git", rev = "60c58eb80685f72d80850b850800fc6a660fe50a" }
-admin-app = { git = "https://github.com/Nitrokey/admin-app.git", rev = "541d97a2e6493b6b8a45aeca751c851e3bc723b6" }
+admin-app = { git = "https://github.com/Nitrokey/admin-app.git", rev = "d5f1c6df405e4edeb6524f908c1c713139173e81" }
 
 [package.metadata.docs.rs]
 all-features = true
