@@ -92,6 +92,7 @@ dangerous-test-real-card = []
 # used for delog
 log-all = []
 log-none = []
+log-trace = []
 log-info = []
 log-debug = []
 log-warn = []
