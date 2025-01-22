@@ -24,7 +24,7 @@ name = "usbip"
 required-features = ["apdu-dispatch"]
 
 [dependencies]
-cbor-smol = "0.5"
+cbor-smol = { version = "0.5", features = ["heapless-bytes-v0-3"] }
 heapless = "0.7"
 heapless-bytes = "0.3"
 iso7816 = "0.1.3"
@@ -39,7 +39,7 @@ trussed-rsa-alloc = { version = "0.2.0", optional = true }
 trussed-wrap-key-to-file = "0.2.0"
 serde_repr = "0.1"
 hex-literal = "0.4.1"
-trussed-auth = "0.3.0"
+trussed-auth = "0.4"
 admin-app = { version = "0.1.0", optional = true }
 
 # optional dependencies
@@ -50,6 +50,7 @@ vpicc = { version = "0.1.0", optional = true }
 cfg-if = "1.0.0"
 bitflags = "2.5.0"
 trussed = { version = "0.1.0", default-features = false, optional = true }
+trussed-auth-backend = { version = "0.1", optional = true }
 
 [dev-dependencies]
 apdu-dispatch = "0.3"
@@ -77,7 +78,7 @@ default = []
 std = []
 apdu-dispatch = ["dep:apdu-app"]
 vpicc = ["std", "dep:vpicc", "virt"]
-virt = ["std", "trussed/virt", "trussed-staging"]
+virt = ["std", "trussed/virt", "trussed-auth-backend", "trussed-staging"]
 
 rsa = ["trussed-rsa-alloc"]
 rsa2048 = ["rsa"]
@@ -101,7 +102,7 @@ log-error = []
 [patch.crates-io]
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
 trussed = { git = "https://github.com/trussed-dev/trussed.git", rev = "6bba8fde36d05c0227769eb63345744e87d84b2b" }
-trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth", rev = "fc53539536d7658c45a492585041742d8cdc45d0" }
+trussed-auth-backend = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.4.0" }
 trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", rev = "743d9aaa3d8a17d7dbf492bd54dc18ab8fca3dc0" }
 trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "1e1ca03a3a62ea9b802f4070ea4bce002eeb4bec" }
 trussed-usbip = { git = "https://github.com/trussed-dev/pc-usbip-runner.git", rev = "60c58eb80685f72d80850b850800fc6a660fe50a" }
