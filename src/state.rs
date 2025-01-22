@@ -241,7 +241,7 @@ pub struct LoadedState<'s> {
     pub volatile: &'s mut Volatile,
 }
 
-impl<'a> LoadedState<'a> {
+impl LoadedState<'_> {
     /// Lend the state
     ///
     /// The resulting `LoadedState` has a shorter lifetime than the original one, meaning that it

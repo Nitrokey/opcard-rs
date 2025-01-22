@@ -33,7 +33,7 @@ pub mod serde_bytes {
 
     struct ArrayVisitor<const N: usize>;
 
-    impl<'de, const N: usize> Visitor<'de> for ArrayVisitor<N> {
+    impl<const N: usize> Visitor<'_> for ArrayVisitor<N> {
         type Value = [u8; N];
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             write!(formatter, "An array of bytes")

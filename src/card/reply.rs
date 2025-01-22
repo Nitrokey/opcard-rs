@@ -15,13 +15,13 @@ impl<'v, const R: usize> Deref for Reply<'v, R> {
     }
 }
 
-impl<'v, const R: usize> DerefMut for Reply<'v, R> {
+impl<const R: usize> DerefMut for Reply<'_, R> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'v, const R: usize> Reply<'v, R> {
+impl<const R: usize> Reply<'_, R> {
     /// Extend the reply and return an error otherwise
     /// The MoreAvailable and GET RESPONSE mechanisms are handled by adpu_dispatch
     ///

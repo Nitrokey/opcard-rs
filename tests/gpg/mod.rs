@@ -551,7 +551,7 @@ const DEFAULT_PW1: &str = "123456";
 struct FileDropper<'s> {
     temp_file_name: &'s str,
 }
-impl<'s> Drop for FileDropper<'s> {
+impl Drop for FileDropper<'_> {
     fn drop(&mut self) {
         std::fs::remove_file(self.temp_file_name).ok();
     }

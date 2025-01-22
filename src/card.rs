@@ -313,7 +313,7 @@ pub struct Context<'a, const R: usize, T: Client> {
     pub reply: Reply<'a, R>,
 }
 
-impl<'a, const R: usize, T: Client> Context<'a, R, T> {
+impl<const R: usize, T: Client> Context<'_, R, T> {
     pub fn load_state(&mut self) -> Result<LoadedContext<'_, R, T>, Status> {
         Ok(LoadedContext {
             state: self
@@ -352,7 +352,7 @@ pub struct LoadedContext<'a, const R: usize, T: Client> {
     pub reply: Reply<'a, R>,
 }
 
-impl<'a, const R: usize, T: Client> LoadedContext<'a, R, T> {
+impl<const R: usize, T: Client> LoadedContext<'_, R, T> {
     /// Lend the context
     ///
     /// The resulting `LoadedContext` has a shorter lifetime than the original one, meaning that it
