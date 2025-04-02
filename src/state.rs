@@ -1639,3 +1639,129 @@ fn load_if_exists(
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{env, fs, path::PathBuf};
+
+    use super::*;
+
+    const VERSIONS: &[&str] = &[
+        "1.0.0", "1.1.0", "1.1.1", "1.2.0", "1.3.0", "1.4.0", "1.4.1", "1.5.0", "1.5.1",
+    ];
+
+    #[test]
+    fn versions_include_current() {
+        assert!(VERSIONS.contains(&env!("CARGO_PKG_VERSION")));
+    }
+
+    fn test_one_state(name: &str, state: &Persistent) {
+        let prefix = "tests/state_test_data/";
+        for v in VERSIONS {
+            let path = PathBuf::from(prefix).join(v).join(format!("{name}.cbor"));
+            println!("Checking {} for version {v}", path.display());
+            if *v == env!("CARGO_PKG_VERSION") {
+                let serialized = trussed::cbor_serialize_bytes::<_, 1024>(state).unwrap();
+                // If test reference does not exist, create it
+                if path.exists() {
+                    let file = fs::read(&path).unwrap();
+                    assert_eq!(serialized, file,);
+                } else if env::var("TEST_STATE_CAN_CREATE").is_ok() {
+                    fs::create_dir_all(PathBuf::from(prefix).join(v)).unwrap();
+                    fs::write(&path, serialized).unwrap();
+                } else {
+                    panic!("Missing test file");
+                }
+            }
+
+            // If file does not exists, the old state does not exist
+            if path.exists() {
+                let file = fs::read(&path).unwrap();
+                assert_eq!(
+                    &trussed::cbor_deserialize::<Persistent>(&file).unwrap(),
+                    state,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_deserialization() {
+        test_one_state("default", &Persistent::default());
+        test_one_state(
+            "all_non_default",
+            &Persistent {
+                reset_code_pin_len: Some(10),
+                pw1_valid_multiple: true,
+                user_pin_len: 127,
+                admin_pin_len: 127,
+                cardholder_name: Bytes::from_slice(b"some name").unwrap(),
+                cardholder_sex: Sex::NotApplicable,
+                language_preferences: Bytes::from_slice(b"so").unwrap(),
+                signing_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
+                confidentiality_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
+                aut_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
+                sign_alg: SignatureAlgorithm::Ed255,
+                aut_alg: AuthenticationAlgorithm::Ed255,
+                dec_alg: DecryptionAlgorithm::X255,
+                ca_fingerprints: CaFingerprints([10; 60]),
+                fingerprints: Fingerprints([10; 60]),
+                keygen_dates: KeyGenDates([3; 12]),
+                sign_count: 3,
+                uif_sign: Uif::Enabled,
+                uif_dec: Uif::PermanentlyEnabled,
+                uif_aut: Uif::Enabled,
+                aut_private_to_delete: None,
+                confidentiality_private_to_delete: None,
+                signing_private_to_delete: None,
+            },
+        );
+
+        // Private keys to delete were added in 1.3.0
+        // So tests prior to that must check equality with the default values
+        test_one_state(
+            "all_non_default_with_private",
+            &Persistent {
+                reset_code_pin_len: Some(10),
+                pw1_valid_multiple: true,
+                user_pin_len: 127,
+                admin_pin_len: 127,
+                cardholder_name: Bytes::from_slice(b"some name").unwrap(),
+                cardholder_sex: Sex::NotApplicable,
+                language_preferences: Bytes::from_slice(b"so").unwrap(),
+                signing_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
+                confidentiality_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
+                aut_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
+                sign_alg: SignatureAlgorithm::Ed255,
+                aut_alg: AuthenticationAlgorithm::Ed255,
+                dec_alg: DecryptionAlgorithm::X255,
+                ca_fingerprints: CaFingerprints([10; 60]),
+                fingerprints: Fingerprints([10; 60]),
+                keygen_dates: KeyGenDates([3; 12]),
+                sign_count: 3,
+                uif_sign: Uif::Enabled,
+                uif_dec: Uif::PermanentlyEnabled,
+                uif_aut: Uif::Enabled,
+                aut_private_to_delete: Some(KeyId::from_special(20)),
+                confidentiality_private_to_delete: Some(KeyId::from_special(20)),
+                signing_private_to_delete: Some(KeyId::from_special(20)),
+            },
+        );
+
+        for ((sign_alg, dec_alg), aut_alg) in SignatureAlgorithm::iter_all()
+            .zip(DecryptionAlgorithm::iter_all())
+            .zip(AuthenticationAlgorithm::iter_all())
+        {
+            let name = format!("ALGOS-{sign_alg:?}-{dec_alg:?}-{aut_alg:?}");
+            test_one_state(
+                &name,
+                &Persistent {
+                    sign_alg,
+                    dec_alg,
+                    aut_alg,
+                    ..Persistent::default()
+                },
+            );
+        }
+    }
+}
