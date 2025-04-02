@@ -500,6 +500,11 @@ enum IoCmd {
         #[serde(default)]
         already_failed: u8,
     },
+    GenerateKey {
+        key_type: KeyType,
+        #[serde(default)]
+        expected_status: Status,
+    },
 }
 
 const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
@@ -617,6 +622,10 @@ impl IoCmd {
                 new_value,
                 expected_status,
             } => Self::run_unblock_pin(reset_code, new_value, *expected_status, card),
+            Self::GenerateKey {
+                key_type: key,
+                expected_status,
+            } => Self::run_generate_key(key, *expected_status, card),
         }
     }
 
@@ -849,6 +858,26 @@ impl IoCmd {
                 card,
             ),
         }
+    }
+
+    fn run_generate_key<T: opcard::Client>(
+        key_kind: &KeyType,
+        expected_status: Status,
+        card: &mut opcard::Card<T>,
+    ) {
+        let input = build_command(
+            0x00,
+            0x47,
+            0x80,
+            0x00,
+            match key_kind {
+                KeyType::Sign => &hex!("B6 00"),
+                KeyType::Dec => &hex!("B8 00"),
+                KeyType::Aut => &hex!("A4 00"),
+            },
+            0xFF,
+        );
+        Self::run_bytes(&input, &OutputMatcher::NonZero, expected_status, card);
     }
 
     fn run_read_key<T: opcard::Client>(

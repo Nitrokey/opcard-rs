@@ -212,7 +212,7 @@
         ]
     ),
     IoTest(
-        name: "Key not found"  ,
+        name: "Key not found",
         cmd_resp: [
             Verify(pin: Pw1),
             Sign(
@@ -228,4 +228,25 @@
             ),
         ],
     ),
+    IoTest(
+        name: "Multiple generation",
+        cmd_resp: [
+            Verify(pin: Pw3),
+            GenerateKey(key_type: Aut),
+            GenerateKey(key_type: Aut),
+            SetAttributes(key_type: Aut, key_kind: Ed25519),
+            GenerateKey(key_type: Aut),
+            GenerateKey(key_type: Aut),
+            GenerateKey(key_type: Sign),
+            GenerateKey(key_type: Sign),
+            SetAttributes(key_type: Sign, key_kind: Ed25519),
+            GenerateKey(key_type: Sign),
+            GenerateKey(key_type: Sign),
+            GenerateKey(key_type: Dec),
+            GenerateKey(key_type: Dec),
+            SetAttributes(key_type: Dec, key_kind: X25519),
+            GenerateKey(key_type: Dec),
+            GenerateKey(key_type: Dec),
+        ],
+    )
 ]
