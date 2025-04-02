@@ -72,6 +72,7 @@ hex = { version = "0.4", features = ["serde"] }
 
 # usbip
 trussed-usbip = { version = "0.0.1", default-features = false, features = ["ccid"] }
+serde_test = "1.0.177"
 
 [features]
 default = []
