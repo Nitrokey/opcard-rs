@@ -1655,13 +1655,16 @@ mod tests {
         assert!(VERSIONS.contains(&env!("CARGO_PKG_VERSION")));
     }
 
+    #[allow(clippy::unwrap_used)]
     fn test_one_state(name: &str, state: &Persistent) {
         let prefix = "tests/state_test_data/";
         for v in VERSIONS {
             let path = PathBuf::from(prefix).join(v).join(format!("{name}.cbor"));
             println!("Checking {} for version {v}", path.display());
             if *v == env!("CARGO_PKG_VERSION") {
-                let serialized = trussed::cbor_serialize_bytes::<_, 1024>(state).unwrap();
+                let mut buf = Message::new();
+                cbor_smol::cbor_serialize_to(state, &mut buf).unwrap();
+                let serialized = &**buf;
                 // If test reference does not exist, create it
                 if path.exists() {
                     let file = fs::read(&path).unwrap();
@@ -1678,13 +1681,14 @@ mod tests {
             if path.exists() {
                 let file = fs::read(&path).unwrap();
                 assert_eq!(
-                    &trussed::cbor_deserialize::<Persistent>(&file).unwrap(),
+                    &cbor_smol::cbor_deserialize::<Persistent>(&file).unwrap(),
                     state,
                 );
             }
         }
     }
 
+    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_deserialization() {
         test_one_state("default", &Persistent::default());
