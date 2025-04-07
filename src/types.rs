@@ -16,14 +16,14 @@ macro_rules! iterable_enum {
     (
         $(#[$outer:meta])*
         $vis:vis enum $name:ident {
-            $($var:ident),+
+            $($var:ident $(= $val:literal)?),+
             $(,)*
         }
     ) => {
         $(#[$outer])*
         $vis enum $name {
             $(
-                $var,
+                $var $(= $val)?,
             )*
         }
 
@@ -45,14 +45,14 @@ macro_rules! iterable_sub_enum {
     (
         $(#[$outer:meta])*
         $vis:vis enum $name:ident($parent:ident) {
-            $($var:ident),+
+            $($var:ident $(= $val:literal)?),+
             $(,)*
         }
     ) => {
         $(#[$outer])*
         $vis enum $name {
             $(
-                $var,
+                $var $(= $val)?,
             )*
         }
 
@@ -174,25 +174,25 @@ iterable_enum! {
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
     #[repr(u8)]
     pub enum Algorithm {
-        X255,
-        Ed255,
-        EcDhP256,
-        EcDsaP256,
-        Rsa2048,
-        Rsa3072,
-        Rsa4096,
-        EcDhP384,
-        EcDsaP384,
-        EcDhP521,
-        EcDsaP521,
-        EcDhSecp256k1,
-        EcDsaSecp256k1,
-        EcDhBrainpoolP256R1,
-        EcDsaBrainpoolP256R1,
-        EcDhBrainpoolP384R1,
-        EcDsaBrainpoolP384R1,
-        EcDhBrainpoolP512R1,
-        EcDsaBrainpoolP512R1,
+        X255 = 0,
+        Ed255 = 1,
+        EcDhP256 = 2,
+        EcDsaP256 = 3,
+        Rsa2048 = 4,
+        Rsa3072 = 5,
+        Rsa4096 = 6,
+        EcDhP384 = 7,
+        EcDsaP384 = 8,
+        EcDhP521 = 9,
+        EcDsaP521 = 10,
+        EcDhBrainpoolP256R1 = 11,
+        EcDsaBrainpoolP256R1 = 12,
+        EcDhBrainpoolP384R1 = 13,
+        EcDsaBrainpoolP384R1 = 14,
+        EcDhBrainpoolP512R1 = 15,
+        EcDsaBrainpoolP512R1 = 16,
+        EcDhSecp256k1 = 17,
+        EcDsaSecp256k1 = 18,
     }
 }
 
@@ -304,17 +304,17 @@ iterable_sub_enum! {
     #[repr(u8)]
     pub enum SignatureAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        Ed255,
-        EcDsaP256,
-        Rsa2048,
-        Rsa3072,
-        Rsa4096,
-        EcDsaP384,
-        EcDsaP521,
-        EcDsaBrainpoolP256R1,
-        EcDsaBrainpoolP384R1,
-        EcDsaBrainpoolP512R1,
-        EcDsaSecp256k1,
+        Ed255 = 0,
+        EcDsaP256 = 1,
+        Rsa2048 = 2,
+        Rsa3072 = 3,
+        Rsa4096 = 4,
+        EcDsaP384 = 5,
+        EcDsaP521 = 6,
+        EcDsaBrainpoolP256R1 = 7,
+        EcDsaBrainpoolP384R1 = 8,
+        EcDsaBrainpoolP512R1 = 9,
+        EcDsaSecp256k1 = 10,
     }
 }
 
@@ -364,17 +364,17 @@ iterable_sub_enum! {
     #[repr(u8)]
     pub enum DecryptionAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        X255,
-        EcDhP256,
-        Rsa2048,
-        Rsa3072,
-        Rsa4096,
-        EcDhP384,
-        EcDhP521,
-        EcDhBrainpoolP256R1,
-        EcDhBrainpoolP384R1,
-        EcDhBrainpoolP512R1,
-        EcDhSecp256k1,
+        X255 = 0,
+        EcDhP256 = 1,
+        Rsa2048 = 2,
+        Rsa3072 = 3,
+        Rsa4096 = 4,
+        EcDhP384 = 5,
+        EcDhP521 = 6,
+        EcDhBrainpoolP256R1 = 7,
+        EcDhBrainpoolP384R1 = 8,
+        EcDhBrainpoolP512R1 = 9,
+        EcDhSecp256k1 = 10,
     }
 }
 
@@ -424,16 +424,16 @@ iterable_sub_enum! {
     #[repr(u8)]
     pub enum AuthenticationAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
-        Ed255,
-        EcDsaP256,
-        Rsa2048,
-        Rsa3072,
-        Rsa4096,
-        EcDsaP384,
-        EcDsaP521,
-        EcDsaBrainpoolP256R1,
-        EcDsaBrainpoolP384R1,
-        EcDsaBrainpoolP512R1,
+        Ed255 = 0,
+        EcDsaP256 = 1,
+        Rsa2048 = 2,
+        Rsa3072 = 3,
+        Rsa4096 = 4,
+        EcDsaP384 = 5,
+        EcDsaP521 = 6,
+        EcDsaBrainpoolP256R1 = 7,
+        EcDsaBrainpoolP384R1 = 8,
+        EcDsaBrainpoolP512R1 = 9,
         EcDsaSecp256k1,
     }
 }
@@ -642,5 +642,142 @@ impl CurveAlgo {
             Self::EcDsaSecp256k1 | Self::EcDhSecp256k1 => 0x04,
             Self::X255 | Self::Ed255 => 0x40,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_test::{assert_tokens, Token};
+
+    #[test]
+    fn asssert_alg_values() {
+        assert_eq!(Algorithm::X255 as u8, 0);
+        assert_eq!(Algorithm::Ed255 as u8, 1);
+        assert_eq!(Algorithm::EcDhP256 as u8, 2);
+        assert_eq!(Algorithm::EcDsaP256 as u8, 3);
+        assert_eq!(Algorithm::Rsa2048 as u8, 4);
+        assert_eq!(Algorithm::Rsa3072 as u8, 5);
+        assert_eq!(Algorithm::Rsa4096 as u8, 6);
+        assert_eq!(Algorithm::EcDhP384 as u8, 7);
+        assert_eq!(Algorithm::EcDsaP384 as u8, 8);
+        assert_eq!(Algorithm::EcDhP521 as u8, 9);
+        assert_eq!(Algorithm::EcDsaP521 as u8, 10);
+        assert_eq!(Algorithm::EcDhBrainpoolP256R1 as u8, 11);
+        assert_eq!(Algorithm::EcDsaBrainpoolP256R1 as u8, 12);
+        assert_eq!(Algorithm::EcDhBrainpoolP384R1 as u8, 13);
+        assert_eq!(Algorithm::EcDsaBrainpoolP384R1 as u8, 14);
+        assert_eq!(Algorithm::EcDhBrainpoolP512R1 as u8, 15);
+        assert_eq!(Algorithm::EcDsaBrainpoolP512R1 as u8, 16);
+        assert_eq!(Algorithm::EcDhSecp256k1 as u8, 17);
+        assert_eq!(Algorithm::EcDsaSecp256k1 as u8, 18);
+
+        assert_tokens(&Algorithm::X255, &[Token::U8(0)]);
+        assert_tokens(&Algorithm::Ed255, &[Token::U8(1)]);
+        assert_tokens(&Algorithm::EcDhP256, &[Token::U8(2)]);
+        assert_tokens(&Algorithm::EcDsaP256, &[Token::U8(3)]);
+        assert_tokens(&Algorithm::Rsa2048, &[Token::U8(4)]);
+        assert_tokens(&Algorithm::Rsa3072, &[Token::U8(5)]);
+        assert_tokens(&Algorithm::Rsa4096, &[Token::U8(6)]);
+        assert_tokens(&Algorithm::EcDhP384, &[Token::U8(7)]);
+        assert_tokens(&Algorithm::EcDsaP384, &[Token::U8(8)]);
+        assert_tokens(&Algorithm::EcDhP521, &[Token::U8(9)]);
+        assert_tokens(&Algorithm::EcDsaP521, &[Token::U8(10)]);
+        assert_tokens(&Algorithm::EcDhBrainpoolP256R1, &[Token::U8(11)]);
+        assert_tokens(&Algorithm::EcDsaBrainpoolP256R1, &[Token::U8(12)]);
+        assert_tokens(&Algorithm::EcDhBrainpoolP384R1, &[Token::U8(13)]);
+        assert_tokens(&Algorithm::EcDsaBrainpoolP384R1, &[Token::U8(14)]);
+        assert_tokens(&Algorithm::EcDhBrainpoolP512R1, &[Token::U8(15)]);
+        assert_tokens(&Algorithm::EcDsaBrainpoolP512R1, &[Token::U8(16)]);
+        assert_tokens(&Algorithm::EcDhSecp256k1, &[Token::U8(17)]);
+        assert_tokens(&Algorithm::EcDsaSecp256k1, &[Token::U8(18)]);
+    }
+
+    #[test]
+    fn asssert_sign_values() {
+        assert_eq!(SignatureAlgorithm::Ed255 as u8, 0);
+        assert_eq!(SignatureAlgorithm::EcDsaP256 as u8, 1);
+        assert_eq!(SignatureAlgorithm::Rsa2048 as u8, 2);
+        assert_eq!(SignatureAlgorithm::Rsa3072 as u8, 3);
+        assert_eq!(SignatureAlgorithm::Rsa4096 as u8, 4);
+        assert_eq!(SignatureAlgorithm::EcDsaP384 as u8, 5);
+        assert_eq!(SignatureAlgorithm::EcDsaP521 as u8, 6);
+        assert_eq!(SignatureAlgorithm::EcDsaBrainpoolP256R1 as u8, 7);
+        assert_eq!(SignatureAlgorithm::EcDsaBrainpoolP384R1 as u8, 8);
+        assert_eq!(SignatureAlgorithm::EcDsaBrainpoolP512R1 as u8, 9);
+        assert_eq!(SignatureAlgorithm::EcDsaSecp256k1 as u8, 10);
+
+        assert_tokens(&SignatureAlgorithm::Ed255, &[Token::U8(0)]);
+        assert_tokens(&SignatureAlgorithm::EcDsaP256, &[Token::U8(1)]);
+        assert_tokens(&SignatureAlgorithm::Rsa2048, &[Token::U8(2)]);
+        assert_tokens(&SignatureAlgorithm::Rsa3072, &[Token::U8(3)]);
+        assert_tokens(&SignatureAlgorithm::Rsa4096, &[Token::U8(4)]);
+        assert_tokens(&SignatureAlgorithm::EcDsaP384, &[Token::U8(5)]);
+        assert_tokens(&SignatureAlgorithm::EcDsaP521, &[Token::U8(6)]);
+        assert_tokens(&SignatureAlgorithm::EcDsaBrainpoolP256R1, &[Token::U8(7)]);
+        assert_tokens(&SignatureAlgorithm::EcDsaBrainpoolP384R1, &[Token::U8(8)]);
+        assert_tokens(&SignatureAlgorithm::EcDsaBrainpoolP512R1, &[Token::U8(9)]);
+        assert_tokens(&SignatureAlgorithm::EcDsaSecp256k1, &[Token::U8(10)]);
+    }
+    #[test]
+    fn asssert_dec_values() {
+        assert_eq!(DecryptionAlgorithm::X255 as u8, 0);
+        assert_eq!(DecryptionAlgorithm::EcDhP256 as u8, 1);
+        assert_eq!(DecryptionAlgorithm::Rsa2048 as u8, 2);
+        assert_eq!(DecryptionAlgorithm::Rsa3072 as u8, 3);
+        assert_eq!(DecryptionAlgorithm::Rsa4096 as u8, 4);
+        assert_eq!(DecryptionAlgorithm::EcDhP384 as u8, 5);
+        assert_eq!(DecryptionAlgorithm::EcDhP521 as u8, 6);
+        assert_eq!(DecryptionAlgorithm::EcDhBrainpoolP256R1 as u8, 7);
+        assert_eq!(DecryptionAlgorithm::EcDhBrainpoolP384R1 as u8, 8);
+        assert_eq!(DecryptionAlgorithm::EcDhBrainpoolP512R1 as u8, 9);
+        assert_eq!(DecryptionAlgorithm::EcDhSecp256k1 as u8, 10);
+
+        assert_tokens(&DecryptionAlgorithm::X255, &[Token::U8(0)]);
+        assert_tokens(&DecryptionAlgorithm::EcDhP256, &[Token::U8(1)]);
+        assert_tokens(&DecryptionAlgorithm::Rsa2048, &[Token::U8(2)]);
+        assert_tokens(&DecryptionAlgorithm::Rsa3072, &[Token::U8(3)]);
+        assert_tokens(&DecryptionAlgorithm::Rsa4096, &[Token::U8(4)]);
+        assert_tokens(&DecryptionAlgorithm::EcDhP384, &[Token::U8(5)]);
+        assert_tokens(&DecryptionAlgorithm::EcDhP521, &[Token::U8(6)]);
+        assert_tokens(&DecryptionAlgorithm::EcDhBrainpoolP256R1, &[Token::U8(7)]);
+        assert_tokens(&DecryptionAlgorithm::EcDhBrainpoolP384R1, &[Token::U8(8)]);
+        assert_tokens(&DecryptionAlgorithm::EcDhBrainpoolP512R1, &[Token::U8(9)]);
+        assert_tokens(&DecryptionAlgorithm::EcDhSecp256k1, &[Token::U8(10)]);
+    }
+    #[test]
+    fn asssert_aut_values() {
+        assert_eq!(AuthenticationAlgorithm::Ed255 as u8, 0);
+        assert_eq!(AuthenticationAlgorithm::EcDsaP256 as u8, 1);
+        assert_eq!(AuthenticationAlgorithm::Rsa2048 as u8, 2);
+        assert_eq!(AuthenticationAlgorithm::Rsa3072 as u8, 3);
+        assert_eq!(AuthenticationAlgorithm::Rsa4096 as u8, 4);
+        assert_eq!(AuthenticationAlgorithm::EcDsaP384 as u8, 5);
+        assert_eq!(AuthenticationAlgorithm::EcDsaP521 as u8, 6);
+        assert_eq!(AuthenticationAlgorithm::EcDsaBrainpoolP256R1 as u8, 7);
+        assert_eq!(AuthenticationAlgorithm::EcDsaBrainpoolP384R1 as u8, 8);
+        assert_eq!(AuthenticationAlgorithm::EcDsaBrainpoolP512R1 as u8, 9);
+        assert_eq!(AuthenticationAlgorithm::EcDsaSecp256k1 as u8, 10);
+
+        assert_tokens(&AuthenticationAlgorithm::Ed255, &[Token::U8(0)]);
+        assert_tokens(&AuthenticationAlgorithm::EcDsaP256, &[Token::U8(1)]);
+        assert_tokens(&AuthenticationAlgorithm::Rsa2048, &[Token::U8(2)]);
+        assert_tokens(&AuthenticationAlgorithm::Rsa3072, &[Token::U8(3)]);
+        assert_tokens(&AuthenticationAlgorithm::Rsa4096, &[Token::U8(4)]);
+        assert_tokens(&AuthenticationAlgorithm::EcDsaP384, &[Token::U8(5)]);
+        assert_tokens(&AuthenticationAlgorithm::EcDsaP521, &[Token::U8(6)]);
+        assert_tokens(
+            &AuthenticationAlgorithm::EcDsaBrainpoolP256R1,
+            &[Token::U8(7)],
+        );
+        assert_tokens(
+            &AuthenticationAlgorithm::EcDsaBrainpoolP384R1,
+            &[Token::U8(8)],
+        );
+        assert_tokens(
+            &AuthenticationAlgorithm::EcDsaBrainpoolP512R1,
+            &[Token::U8(9)],
+        );
+        assert_tokens(&AuthenticationAlgorithm::EcDsaSecp256k1, &[Token::U8(10)]);
     }
 }

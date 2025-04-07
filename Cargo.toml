@@ -3,7 +3,7 @@
 
 [package]
 name = "opcard"
-version = "1.5.0"
+version = "1.5.1"
 authors = ["Nitrokey GmbH <info@nitrokey.com>"]
 edition = "2021"
 description = "OpenPGP smart card implementation"
@@ -72,6 +72,7 @@ hex = { version = "0.4", features = ["serde"] }
 
 # usbip
 trussed-usbip = { version = "0.0.1", default-features = false, features = ["ccid"] }
+serde_test = "1.0.177"
 
 [features]
 default = []

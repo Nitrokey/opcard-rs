@@ -1,0 +1,9 @@
+# Copyright (C) 2022 Nitrokey GmbH
+# SPDX-License-Identifier: CC0-1.0
+
+version = 1
+
+[[annotations]]
+path = "tests/state_test_data/**"
+SPDX-FileCopyrightText = "2025 Nitrokey GmbH"
+SPDX-License-Identifier = "CC0-1.0"

@@ -63,6 +63,10 @@ make dangerous-real-card-test \
   OPCARD_DANGEROUS_TEST_CARD_NAME="test card"
 ```
 
+To ensure backward compatibility, the test suite contains tests that the persistent state of the application can still be loaded from previous versions.
+Whenever the version is bumped in `Cargo.toml`, new "reference" files must be generated for the new version.
+This can be done with `TEST_STATE_CAN_CREATE=true cargo test`.
+
 ## Bug reports
 
 If you encounter a bug or have a feature request, please inform us on [our forum](https://support.nitrokey.com/).
