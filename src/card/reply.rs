@@ -69,11 +69,15 @@ impl<const R: usize> Reply<'_, R> {
         }
         let len = self.len() - offset;
         let encoded = Self::serialize_len(len)?;
-        self.extend_from_slice(&encoded).map_err(|_| {
+        let l = encoded.len();
+        let new_len = self.len() + l;
+        self.resize_default(new_len).map_err(|_| {
             error!("Buffer full");
             Status::UnspecifiedNonpersistentExecutionError
         })?;
-        self[offset..].rotate_right(encoded.len());
+
+        self[offset..].copy_within(..len, l);
+        self[offset..][..encoded.len()].copy_from_slice(&encoded);
         Ok(())
     }
 
@@ -106,29 +110,41 @@ mod tests {
         let offset = buf.len();
         buf.extend_from_slice(&[0; 20]).unwrap();
         buf.prepend_len(offset).unwrap();
-        let mut expected = vec![20];
+        let mut expected = vec![0, 20];
         expected.extend_from_slice(&[0; 20]);
-        assert_eq!(&buf[offset..], expected,);
+        assert_eq!(&***buf, expected,);
 
         let offset = buf.len();
         buf.extend_from_slice(&[1; 127]).unwrap();
         buf.prepend_len(offset).unwrap();
-        let mut expected = vec![127];
+        let mut expected = vec![0, 20];
+        expected.extend_from_slice(&[0; 20]);
+        expected.extend_from_slice(&[127]);
         expected.extend_from_slice(&[1; 127]);
-        assert_eq!(&buf[offset..], expected);
+        assert_eq!(&***buf, expected);
 
         let offset = buf.len();
         buf.extend_from_slice(&[2; 128]).unwrap();
         buf.prepend_len(offset).unwrap();
-        let mut expected = vec![0x81, 128];
+        let mut expected = vec![0, 20];
+        expected.extend_from_slice(&[0; 20]);
+        expected.extend_from_slice(&[127]);
+        expected.extend_from_slice(&[1; 127]);
+        expected.extend_from_slice(&[0x81, 128]);
         expected.extend_from_slice(&[2; 128]);
-        assert_eq!(&buf[offset..], expected);
+        assert_eq!(&***buf, expected);
 
         let offset = buf.len();
         buf.extend_from_slice(&[3; 256]).unwrap();
         buf.prepend_len(offset).unwrap();
-        let mut expected = vec![0x82, 0x01, 0x00];
+        let mut expected = vec![0, 20];
+        expected.extend_from_slice(&[0; 20]);
+        expected.extend_from_slice(&[127]);
+        expected.extend_from_slice(&[1; 127]);
+        expected.extend_from_slice(&[0x81, 128]);
+        expected.extend_from_slice(&[2; 128]);
+        expected.extend_from_slice(&[0x82, 0x01, 0x00]);
         expected.extend_from_slice(&[3; 256]);
-        assert_eq!(&buf[offset..], expected);
+        assert_eq!(&***buf, expected);
     }
 }
