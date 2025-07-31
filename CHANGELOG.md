@@ -7,6 +7,19 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+## [v1.6.0][] (2025-07-31)
+
+[v1.6.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.6.0
+
+- Add support for secp256k1.
+- Prevent updates to algorithms from chaning their serialization ([#221][]).
+- Replace `apdu-dispatch` with `apdu-app`.
+- Replace `trussed` with `trussed-core`.
+- Update `littlefs2` dependency to v0.5.
+- Update `trussed-auth` to v0.4.
+
+[#221]: https://github.com/Nitrokey/opcard-rs/pull/221
+
 ## [v1.5.0][] (2024-07-31)
 
 [v1.5.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.5.0

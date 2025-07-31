@@ -518,29 +518,29 @@ pub fn gnupg_test(
 }
 
 fn attr_ec_ask() -> Vec<&'static str> {
-    iter::repeat(
+    iter::repeat_n(
         [
             r"\[GNUPG:\] GET_LINE cardedit.genkeys.algo",
             r"\[GNUPG:\] GET_LINE keygen.curve",
         ]
         .into_iter()
         .chain(gpg_inquire_pin()),
+        3,
     )
-    .take(3)
     .flatten()
     .collect()
 }
 
 fn attr_rsa_ask() -> Vec<&'static str> {
-    iter::repeat(
+    iter::repeat_n(
         [
             r"\[GNUPG:\] GET_LINE cardedit.genkeys.algo",
             r"\[GNUPG:\] GET_LINE cardedit.genkeys.size",
         ]
         .into_iter()
         .chain(gpg_inquire_pin()),
+        3,
     )
-    .take(3)
     .flatten()
     .collect()
 }
@@ -1082,7 +1082,7 @@ pub fn gpg_test_import(algo: KeyAlgo) {
     );
 
     let custom_match2 = format!(
-        r"uid:u::::::::{temp_name} \(no comment\) <{temp_email}>:::.*,mdc,aead,no-ks-modify:1,p::"
+        r"uid:u::::::::{temp_name} \(no comment\) <{temp_email}>:::.*,mdc,no-ks-modify:1,p::"
     );
 
     gnupg_test(
