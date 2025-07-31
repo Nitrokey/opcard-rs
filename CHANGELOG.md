@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+- Update `trussed-rsa-alloc` dependency to v0.3.
+
 ## [v1.6.0][] (2025-07-31)
 
 [v1.6.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.6.0
