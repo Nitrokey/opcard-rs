@@ -3,7 +3,7 @@
 
 [package]
 name = "opcard"
-version = "1.6.0"
+version = "1.6.1"
 authors = ["Nitrokey GmbH <info@nitrokey.com>"]
 edition = "2021"
 description = "OpenPGP smart card implementation"
