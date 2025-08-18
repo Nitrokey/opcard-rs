@@ -7,7 +7,8 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
--
+- Replace `trussed-rsa-alloc` dependency with `trussed-rsa-types` for most use cases.
+  (Only the `virt` feature still requires `trussed-rsa-alloc`.)
 
 ## [v1.6.1][] (2025-07-31)
 

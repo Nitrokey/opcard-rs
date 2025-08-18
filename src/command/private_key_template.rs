@@ -15,7 +15,7 @@ const CARDHOLDER_PRIVATE_KEY_TEMPLATE_DO: u16 = 0x7F48;
 const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
 
 #[cfg(feature = "rsa")]
-use trussed_rsa_alloc::RsaImportFormat;
+use trussed_rsa_types::RsaImportFormat;
 
 // § 4.4.3.12
 pub fn put_private_key_template<const R: usize, T: crate::card::Client>(

@@ -13,7 +13,7 @@ use crate::types::*;
 const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
 
 #[cfg(feature = "rsa")]
-use trussed_rsa_alloc::RsaPublicParts;
+use trussed_rsa_types::RsaPublicParts;
 
 fn serialize_pub<const R: usize, T: crate::card::Client>(
     algo: CurveAlgo,
