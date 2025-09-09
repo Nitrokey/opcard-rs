@@ -341,10 +341,7 @@ impl GetDataObject {
                 | Self::DigitalSignatureCounter
         )
     }
-    fn reply<const R: usize, T: crate::card::Client>(
-        self,
-        mut context: Context<'_, R, T>,
-    ) -> Result<(), Status> {
+    fn reply<T: crate::card::Client>(self, mut context: Context<'_, T>) -> Result<(), Status> {
         match self {
             Self::HistoricalBytes => historical_bytes(context)?,
             Self::ApplicationIdentifier => context.reply.expand(&context.options.aid())?,
@@ -447,8 +444,8 @@ const EXTENDED_CAPABILITIES: [u8; 10] = [
 ];
 
 // § 7.2.6
-pub fn get_data<const R: usize, T: crate::card::Client>(
-    mut context: Context<'_, R, T>,
+pub fn get_data<T: crate::card::Client>(
+    mut context: Context<'_, T>,
     mode: GetDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
@@ -478,8 +475,8 @@ pub fn get_data<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.7
-pub fn get_next_data<const R: usize, T: crate::card::Client>(
-    context: Context<'_, R, T>,
+pub fn get_next_data<T: crate::card::Client>(
+    context: Context<'_, T>,
     tag: Tag,
 ) -> Result<(), Status> {
     let cur_do = &mut context.state.volatile.cur_do;
@@ -509,8 +506,8 @@ fn filtered_objects(
     objects.iter().filter(move |o| !to_filter.contains(o))
 }
 
-fn get_constructed_data<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
+fn get_constructed_data<T: crate::card::Client>(
+    mut ctx: Context<'_, T>,
     objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
     for obj in filtered_objects(ctx.options, objects) {
@@ -533,9 +530,7 @@ fn get_constructed_data<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-pub fn historical_bytes<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+pub fn historical_bytes<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     ctx.reply.expand(&ctx.options.historical_bytes)?;
     let lifecycle_idx = ctx.reply.len() - 3;
     ctx.reply[lifecycle_idx] =
@@ -543,9 +538,7 @@ pub fn historical_bytes<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-fn cardholder_cert<const R: usize, T: crate::card::Client>(
-    ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn cardholder_cert<T: crate::card::Client>(ctx: Context<'_, T>) -> Result<(), Status> {
     let occ = match ctx.state.volatile.cur_do {
         Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
         _ => Occurrence::First,
@@ -558,9 +551,7 @@ fn cardholder_cert<const R: usize, T: crate::card::Client>(
     get_arbitrary_do(ctx, to_load)
 }
 
-fn pw_status_bytes<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn pw_status_bytes<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     let status = if let Ok(ctx) = ctx.load_state() {
         PasswordStatus {
             pw1_valid_multiple: ctx.state.persistent.pw1_valid_multiple(),
@@ -597,9 +588,7 @@ fn pw_status_bytes<const R: usize, T: crate::card::Client>(
     ctx.reply.expand(&status)
 }
 
-fn algo_info<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn algo_info<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     for alg in SignatureAlgorithm::iter_all() {
         ctx.reply.expand(&[0xC1])?;
         let offset = ctx.reply.len();
@@ -621,9 +610,7 @@ fn algo_info<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-fn alg_attr_sign<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn alg_attr_sign<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply
             .expand(ctx.state.persistent.sign_alg().attributes())
@@ -633,9 +620,7 @@ fn alg_attr_sign<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn alg_attr_dec<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn alg_attr_dec<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply
             .expand(ctx.state.persistent.dec_alg().attributes())
@@ -646,9 +631,7 @@ fn alg_attr_dec<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn alg_attr_aut<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn alg_attr_aut<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply
             .expand(ctx.state.persistent.aut_alg().attributes())
@@ -659,9 +642,7 @@ fn alg_attr_aut<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn fingerprints<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn fingerprints<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply.expand(&ctx.state.persistent.fingerprints().0)
     } else {
@@ -670,9 +651,7 @@ fn fingerprints<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn ca_fingerprints<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn ca_fingerprints<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply.expand(&ctx.state.persistent.ca_fingerprints().0)
     } else {
@@ -681,9 +660,7 @@ fn ca_fingerprints<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn keygen_dates<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn keygen_dates<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply.expand(&ctx.state.persistent.keygen_dates().0)
     } else {
@@ -700,9 +677,7 @@ fn key_info_byte(data: Option<KeyOrigin>) -> u8 {
     }
 }
 
-fn key_info<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn key_info<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         // Key-Ref. : Sig = 1, Dec = 2, Aut = 3 (see §7.2.18)
         ctx.reply.expand(&[
@@ -724,10 +699,7 @@ fn key_info<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn uif<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-    key: KeyType,
-) -> Result<(), Status> {
+fn uif<T: crate::card::Client>(mut ctx: Context<'_, T>, key: KeyType) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         if !ctx.options.button_available {
             warn!("GET DAT for uif without a button available");
@@ -746,9 +718,7 @@ fn uif<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn cardholder_name<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn cardholder_name<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply.expand(ctx.state.persistent.cardholder_name())
     } else {
@@ -757,9 +727,7 @@ fn cardholder_name<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn cardholder_sex<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn cardholder_sex<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply
             .expand(&[ctx.state.persistent.cardholder_sex() as u8])
@@ -769,9 +737,7 @@ fn cardholder_sex<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn language_preferences<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn language_preferences<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(mut ctx) = ctx.load_state() {
         ctx.reply
             .expand(ctx.state.persistent.language_preferences())
@@ -781,9 +747,7 @@ fn language_preferences<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn signature_counter<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn signature_counter<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     // Counter is only on 3 bytes
     if let Ok(mut ctx) = ctx.load_state() {
         let resp = &ctx.state.persistent.sign_count().to_be_bytes()[1..];
@@ -794,8 +758,8 @@ fn signature_counter<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn get_arbitrary_do<const R: usize, T: crate::card::Client>(
-    ctx: Context<'_, R, T>,
+fn get_arbitrary_do<T: crate::card::Client>(
+    ctx: Context<'_, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     match obj.read_permission() {
@@ -817,8 +781,8 @@ fn get_arbitrary_do<const R: usize, T: crate::card::Client>(
 }
 
 /// Get an arbitrary DO encrypted with the user key
-fn get_arbitrary_user_enc_do<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn get_arbitrary_user_enc_do<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     let Some(k) = ctx.state.volatile.other_verified_kek() else {
@@ -833,8 +797,8 @@ fn get_arbitrary_user_enc_do<const R: usize, T: crate::card::Client>(
 }
 
 /// Get an arbitrary DO encrypted with the admin key
-fn get_arbitrary_admin_enc_do<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn get_arbitrary_admin_enc_do<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     let Some(k) = ctx.state.volatile.admin_kek() else {
@@ -849,8 +813,8 @@ fn get_arbitrary_admin_enc_do<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.8
-pub fn put_data<const R: usize, T: crate::card::Client>(
-    mut context: Context<'_, R, T>,
+pub fn put_data<T: crate::card::Client>(
+    mut context: Context<'_, T>,
     mode: PutDataMode,
     tag: Tag,
 ) -> Result<(), Status> {
@@ -931,10 +895,7 @@ impl PutDataObject {
         }
     }
 
-    fn put_data<const R: usize, T: crate::card::Client>(
-        self,
-        mut ctx: Context<'_, R, T>,
-    ) -> Result<(), Status> {
+    fn put_data<T: crate::card::Client>(self, mut ctx: Context<'_, T>) -> Result<(), Status> {
         match self {
             Self::PrivateUse1 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse1)?,
             Self::PrivateUse2 => put_arbitrary_do(ctx, ArbitraryDO::PrivateUse2)?,
@@ -977,9 +938,7 @@ impl PutDataObject {
     }
 }
 
-fn put_cardholder_cert<const R: usize, T: crate::card::Client>(
-    ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn put_cardholder_cert<T: crate::card::Client>(ctx: Context<'_, T>) -> Result<(), Status> {
     let occ = match ctx.state.volatile.cur_do {
         Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
         _ => Occurrence::First,
@@ -994,9 +953,7 @@ fn put_cardholder_cert<const R: usize, T: crate::card::Client>(
 
 const AES256_KEY_LEN: usize = 32;
 
-fn put_enc_dec_key<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_enc_dec_key<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     if ctx.data.len() != AES256_KEY_LEN {
         warn!(
             "Attempt at importing an AES of length not {AES256_KEY_LEN}: {}",
@@ -1027,9 +984,7 @@ fn put_enc_dec_key<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-fn put_resetting_code<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_resetting_code<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     if ctx.data.is_empty() {
         info!("Removing resetting code");
         return ctx
@@ -1057,10 +1012,7 @@ fn put_resetting_code<const R: usize, T: crate::card::Client>(
         })
 }
 
-fn put_uif<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-    key: KeyType,
-) -> Result<(), Status> {
+fn put_uif<T: crate::card::Client>(ctx: LoadedContext<'_, T>, key: KeyType) -> Result<(), Status> {
     if !ctx.options.button_available {
         warn!("put uif without button support");
         return Err(Status::FunctionNotSupported);
@@ -1087,9 +1039,7 @@ fn put_uif<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_status_bytes<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_status_bytes<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     if ctx.data.len() != 4 && ctx.data.len() != 1 {
         warn!("put status bytes with incorrect length");
         return Err(Status::WrongLength);
@@ -1117,11 +1067,9 @@ fn put_status_bytes<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-fn put_language_prefs<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_language_prefs<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let bytes = if ctx.data.len() % 2 == 0 {
-        Bytes::from_slice(ctx.data).ok()
+        Bytes::try_from(ctx.data).ok()
     } else {
         None
     };
@@ -1140,9 +1088,7 @@ fn put_language_prefs<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_cardholder_sex<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_cardholder_sex<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     if ctx.data.len() != 1 {
         warn!(
             "put CardHolder sex length different than 1 byte: {:x?}",
@@ -1161,9 +1107,7 @@ fn put_cardholder_sex<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_cardholder_name<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_cardholder_name<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let bytes = heapless::Vec::try_from(ctx.data)
         .map_err(|_| {
             warn!(
@@ -1179,8 +1123,8 @@ fn put_cardholder_name<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_alg_attributes_sign<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_alg_attributes_sign<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
 ) -> Result<(), Status> {
     let alg = SignatureAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
@@ -1196,9 +1140,7 @@ fn put_alg_attributes_sign<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_alg_attributes_dec<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_alg_attributes_dec<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let alg = DecryptionAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
             "PUT DATA for decryption attribute for unkown algorithm: {:x?}",
@@ -1213,9 +1155,7 @@ fn put_alg_attributes_dec<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_alg_attributes_aut<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn put_alg_attributes_aut<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let alg = AuthenticationAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
             "PUT DATA for authentication attribute for unkown algorithm: {:x?}",
@@ -1230,8 +1170,8 @@ fn put_alg_attributes_aut<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_arbitrary_admin_enc_do<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_arbitrary_admin_enc_do<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     let Some(k) = ctx.state.volatile.admin_kek() else {
@@ -1239,8 +1179,8 @@ fn put_arbitrary_admin_enc_do<const R: usize, T: crate::card::Client>(
     };
     put_arbitrary_enc_do(ctx, obj, k)
 }
-fn put_arbitrary_user_enc_do<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_arbitrary_user_enc_do<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     let Some(k) = ctx.state.volatile.other_verified_kek() else {
@@ -1249,8 +1189,8 @@ fn put_arbitrary_user_enc_do<const R: usize, T: crate::card::Client>(
     put_arbitrary_enc_do(ctx, obj, k)
 }
 
-fn put_arbitrary_enc_do<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_arbitrary_enc_do<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     obj: ArbitraryDO,
     key: KeyId,
 ) -> Result<(), Status> {
@@ -1263,8 +1203,8 @@ fn put_arbitrary_enc_do<const R: usize, T: crate::card::Client>(
     .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_arbitrary_do<const R: usize, T: crate::card::Client>(
-    ctx: Context<'_, R, T>,
+fn put_arbitrary_do<T: crate::card::Client>(
+    ctx: Context<'_, T>,
     obj: ArbitraryDO,
 ) -> Result<(), Status> {
     if ctx.data.len() > MAX_GENERIC_LENGTH {
@@ -1279,8 +1219,8 @@ fn put_arbitrary_do<const R: usize, T: crate::card::Client>(
     .map_err(|_| Status::UnspecifiedPersistentExecutionError)
 }
 
-fn put_fingerprint<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_fingerprint<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     for_key: KeyType,
 ) -> Result<(), Status> {
     if ctx.data.len() != 20 {
@@ -1295,8 +1235,8 @@ fn put_fingerprint<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_ca_fingerprint<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_ca_fingerprint<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     for_key: KeyType,
 ) -> Result<(), Status> {
     if ctx.data.len() != 20 {
@@ -1310,8 +1250,8 @@ fn put_ca_fingerprint<const R: usize, T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-fn put_keygen_date<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_keygen_date<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     for_key: KeyType,
 ) -> Result<(), Status> {
     if ctx.data.len() != 4 {

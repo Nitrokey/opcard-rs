@@ -12,8 +12,8 @@ use crate::state::KeyRef;
 use crate::tlv::get_do;
 use crate::types::*;
 
-fn check_uif<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn check_uif<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     key: KeyType,
 ) -> Result<(), Status> {
     if ctx.state.persistent.uif(key).is_enabled() {
@@ -23,9 +23,7 @@ fn check_uif<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn prompt_uif<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn prompt_uif<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let success = ctx
         .backend
         .confirm_user_present()
@@ -40,9 +38,7 @@ fn prompt_uif<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.10
-pub fn sign<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn sign<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let key_id = ctx
         .state
         .key_id(ctx.backend.client_mut(), KeyType::Sign, ctx.options.storage)?;
@@ -111,8 +107,8 @@ pub fn sign<const R: usize, T: crate::card::Client>(
     sign_result
 }
 
-fn sign_ec<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn sign_ec<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     key_id: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -135,8 +131,8 @@ fn sign_ec<const R: usize, T: crate::card::Client>(
     ctx.reply.expand(&signature)
 }
 
-fn sign_rsa<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn sign_rsa<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     key_id: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -159,8 +155,8 @@ enum RsaOrEcc {
     Ecc,
 }
 
-fn int_aut_key_mecha_uif<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn int_aut_key_mecha_uif<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
     let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.internal_aut {
         KeyRef::Aut => (
@@ -244,8 +240,8 @@ fn int_aut_key_mecha_uif<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.13
-pub fn internal_authenticate<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+pub fn internal_authenticate<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
 ) -> Result<(), Status> {
     if !ctx.state.volatile.other_verified() {
         warn!("Attempt to sign without PW1 verified");
@@ -263,8 +259,8 @@ pub fn internal_authenticate<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn decipher_key_mecha_uif<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn decipher_key_mecha_uif<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
 ) -> Result<(KeyId, Mechanism, bool, RsaOrEcc), Status> {
     let (key_type, (mechanism, key_kind)) = match ctx.state.volatile.keyrefs.pso_decipher {
         KeyRef::Dec => (
@@ -327,9 +323,7 @@ fn decipher_key_mecha_uif<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.11
-pub fn decipher<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn decipher<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     if !ctx.state.volatile.other_verified() {
         warn!("Attempt to sign without PW1 verified");
         return Err(Status::SecurityStatusNotSatisfied);
@@ -352,8 +346,8 @@ pub fn decipher<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn decrypt_rsa<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn decrypt_rsa<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     private_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -380,8 +374,8 @@ fn decrypt_rsa<const R: usize, T: crate::card::Client>(
     ctx.reply.expand(&plaintext)
 }
 
-fn decrypt_ec<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn decrypt_ec<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     private_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -459,9 +453,7 @@ fn decrypt_ec<const R: usize, T: crate::card::Client>(
     ctx.reply.expand(&data)
 }
 
-fn decipher_aes<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+fn decipher_aes<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let key_id = ctx
         .state
         .volatile
@@ -492,9 +484,7 @@ fn decipher_aes<const R: usize, T: crate::card::Client>(
     ctx.reply.expand(&plaintext)
 }
 
-pub fn encipher<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn encipher<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let key_id = ctx
         .state
         .volatile

@@ -55,10 +55,7 @@ impl Command {
         }
     }
 
-    pub fn exec<const R: usize, T: crate::card::Client>(
-        &self,
-        mut ctx: Context<'_, R, T>,
-    ) -> Result<(), Status> {
+    pub fn exec<T: crate::card::Client>(&self, mut ctx: Context<'_, T>) -> Result<(), Status> {
         let lifecycle = State::lifecycle(ctx.backend.client_mut(), ctx.options.storage);
         if !self.can_lifecycle_run(lifecycle) {
             warn!(
@@ -334,8 +331,8 @@ impl TryFrom<u8> for ManageSecurityEnvironmentMode {
 }
 
 // § 7.2.1
-fn select<const R: usize, T: crate::card::Client>(
-    context: Context<'_, R, T>,
+fn select<T: crate::card::Client>(
+    context: Context<'_, T>,
     lifecycle: LifeCycle,
 ) -> Result<(), Status> {
     if context.data.starts_with(&RID) {
@@ -352,8 +349,8 @@ fn select<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.2
-fn verify<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn verify<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     mode: VerifyMode,
     password: PasswordMode,
 ) -> Result<(), Status> {
@@ -403,8 +400,8 @@ fn verify<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.3
-fn change_reference_data<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn change_reference_data<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     password: Password,
 ) -> Result<(), Status> {
     let min_len = match password {
@@ -440,8 +437,8 @@ fn change_reference_data<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.14
-fn gen_keypair<const R: usize, T: crate::card::Client>(
-    context: LoadedContext<'_, R, T>,
+fn gen_keypair<T: crate::card::Client>(
+    context: LoadedContext<'_, T>,
     mode: GenerateAsymmetricKeyPairMode,
 ) -> Result<(), Status> {
     let key = KeyType::try_from_crt(context.data)?;
@@ -466,9 +463,7 @@ fn gen_keypair<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.16
-fn terminate_df<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn terminate_df<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if let Ok(ctx) = ctx.load_state() {
         if ctx.state.volatile.admin_verified()
             || ctx
@@ -492,9 +487,7 @@ fn unspecified_delete_error<E: core::fmt::Debug>(_err: E) -> Status {
     Status::UnspecifiedPersistentExecutionError
 }
 
-fn factory_reset<const R: usize, T: crate::card::Client>(
-    ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn factory_reset<T: crate::card::Client>(ctx: Context<'_, T>) -> Result<(), Status> {
     ctx.state.volatile.clear(ctx.backend.client_mut());
     *ctx.state = Default::default();
     try_syscall!(ctx
@@ -523,9 +516,7 @@ fn factory_reset<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.17
-fn activate_file<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
-) -> Result<(), Status> {
+fn activate_file<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Result<(), Status> {
     if State::lifecycle(ctx.backend.client_mut(), ctx.options.storage) == LifeCycle::Operational {
         return Ok(());
     }
@@ -544,8 +535,8 @@ fn activate_file<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.4
-fn reset_retry_conter<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn reset_retry_conter<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     mode: ResetRetryCounterMode,
 ) -> Result<(), Status> {
     match mode {
@@ -554,8 +545,8 @@ fn reset_retry_conter<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn reset_retry_conter_with_p3<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn reset_retry_conter_with_p3<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
 ) -> Result<(), Status> {
     if ctx.data.len() < MIN_LENGTH_USER_PIN || ctx.data.len() > MAX_PIN_LENGTH {
         warn!(
@@ -577,8 +568,8 @@ fn reset_retry_conter_with_p3<const R: usize, T: crate::card::Client>(
         })
 }
 
-fn reset_retry_conter_with_code<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn reset_retry_conter_with_code<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
 ) -> Result<(), Status> {
     let code_len = ctx.state.persistent.reset_code_len().ok_or_else(|| {
         warn!("Attempt to use reset when not set");
@@ -628,8 +619,8 @@ fn reset_retry_conter_with_code<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.5
-fn select_data<const R: usize, T: crate::card::Client>(
-    ctx: Context<'_, R, T>,
+fn select_data<T: crate::card::Client>(
+    ctx: Context<'_, T>,
     occurrence: Occurrence,
 ) -> Result<(), Status> {
     let tag: Tag = match tlv::get_do(&[0x60, 0x5C], ctx.data) {
@@ -645,8 +636,8 @@ fn select_data<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.15
-fn get_challenge<const R: usize, T: crate::card::Client>(
-    mut ctx: Context<'_, R, T>,
+fn get_challenge<T: crate::card::Client>(
+    mut ctx: Context<'_, T>,
     expected: usize,
 ) -> Result<(), Status> {
     if expected > MAX_GENERIC_LENGTH {
@@ -667,8 +658,8 @@ fn get_challenge<const R: usize, T: crate::card::Client>(
 }
 
 // § 7.2.18
-fn manage_security_environment<const R: usize, T: crate::card::Client>(
-    ctx: Context<'_, R, T>,
+fn manage_security_environment<T: crate::card::Client>(
+    ctx: Context<'_, T>,
     mode: ManageSecurityEnvironmentMode,
 ) -> Result<(), Status> {
     const DEC_DATA: &[u8] = &hex!("83 01 02");

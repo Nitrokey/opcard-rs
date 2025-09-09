@@ -19,15 +19,15 @@ members = [
 name = "vpicc"
 required-features = ["vpicc"]
 
-[[example]]
-name = "usbip"
-required-features = ["apdu-dispatch"]
+# [[example]]
+# name = "usbip"
+# required-features = ["apdu-dispatch"]
 
 [dependencies]
-cbor-smol = { version = "0.5", features = ["heapless-bytes-v0-3"] }
-heapless = "0.7"
-heapless-bytes = "0.3"
-iso7816 = "0.1.3"
+cbor-smol = { version = "0.5", features = ["heapless-bytes-v0-5"] }
+heapless = "0.9"
+heapless-bytes = "0.5"
+iso7816 = "0.2.0"
 littlefs2-core = "0.1"
 log = "0.4"
 serde = { version = "1.0", default-features = false }
@@ -72,7 +72,7 @@ tempfile = "3.8.0"
 hex = { version = "0.4", features = ["serde"] }
 
 # usbip
-trussed-usbip = { version = "0.0.1", default-features = false, features = ["ccid"] }
+# trussed-usbip = { version = "0.0.1", default-features = false, features = ["ccid"] }
 serde_test = "1.0.177"
 
 [features]
@@ -102,13 +102,32 @@ log-warn = []
 log-error = []
 
 [patch.crates-io]
+trussed-auth-backend = { git = "https://github.com/trussed-dev/trussed-auth", branch = "heapless-09" }
+trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", branch = "heapless-09" }
+trussed-rsa-types = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", branch = "heapless-09" }
+
+trussed = { git = "https://github.com/trussed-dev/trussed.git", rev = "e6bb61a716a3575b3e5d9869a0e1bb1740fe9969" }
+trussed-core = { git = "https://github.com/trussed-dev/trussed.git", rev = "e6bb61a716a3575b3e5d9869a0e1bb1740fe9969" }
+heapless-bytes = { git = "https://github.com/trussed-dev/heapless-bytes.git", rev = "b146aa5d614eedba9c294bd4869342bbf29d0eb5" }
+cosey = { git = "https://github.com/trussed-dev/cosey.git", branch = "heapless-bytes-0.5" }
+littlefs2 = { git = "https://github.com/trussed-dev/littlefs2.git", branch = "update-heapless" }
+littlefs2-core = { git = "https://github.com/trussed-dev/littlefs2.git", branch = "update-heapless" }
+littlefs2-sys = { git = "https://github.com/trussed-dev/littlefs2-sys", rev = "v0.3.1-nitrokey.1" }
+flexiber = { git = "https://github.com/trussed-dev/flexiber.git", branch = "heapless-090" }
+iso7816 = { git = "https://github.com/trussed-dev/iso7816.git", branch = "heapless-09" }
+# cbor-smol = { git = "https://github.com/trussed-dev/cbor-smol.git", branch = "heapless-0.9" }
+cbor-smol = { git = "https://github.com/trussed-dev/cbor-smol.git", rev = "6145f0fd910b56d0958c14e9fac00ecb859bbb00" }
+apdu-app = { git = "https://github.com/trussed-dev/apdu-dispatch.git", branch = "heapless-09" }
+apdu-dispatch = { git = "https://github.com/trussed-dev/apdu-dispatch.git", branch = "heapless-09" }
+trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", branch = "heapless-09" }
+trussed-manage = { git = "https://github.com/trussed-dev/trussed-staging.git", branch = "heapless-09" }
+trussed-chunked = { git = "https://github.com/trussed-dev/trussed-staging.git", branch = "heapless-09" }
+trussed-wrap-key-to-file = { git = "https://github.com/trussed-dev/trussed-staging.git", branch = "heapless-09" }
+trussed-hpke = { git = "https://github.com/trussed-dev/trussed-staging.git", branch = "heapless-09" }
+trussed-auth = { git = "https://github.com/trussed-dev/trussed-auth.git", branch = "heapless-09" }
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
-trussed = { git = "https://github.com/trussed-dev/trussed.git", rev = "6bba8fde36d05c0227769eb63345744e87d84b2b" }
-trussed-auth-backend = { git = "https://github.com/trussed-dev/trussed-auth.git", tag = "v0.4.0" }
-trussed-rsa-alloc = { git = "https://github.com/trussed-dev/trussed-rsa-backend.git", tag = "v0.3.0" }
-trussed-staging = { git = "https://github.com/trussed-dev/trussed-staging.git", rev = "1e1ca03a3a62ea9b802f4070ea4bce002eeb4bec" }
-trussed-usbip = { git = "https://github.com/trussed-dev/pc-usbip-runner.git", rev = "60c58eb80685f72d80850b850800fc6a660fe50a" }
-admin-app = { git = "https://github.com/Nitrokey/admin-app.git", rev = "d5f1c6df405e4edeb6524f908c1c713139173e81" }
+# trussed-usbip = { git = "https://github.com/trussed-dev/pc-usbip-runner.git", rev = "504674453c9573a30aa2f155101df49eb2af1ba7" }
+admin-app = { git = "https://github.com/Nitrokey/admin-app.git", branch = "heapless-09" }
 
 [package.metadata.docs.rs]
 all-features = true

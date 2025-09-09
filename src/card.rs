@@ -55,10 +55,10 @@ impl<T: Client> Card<T> {
     /// Handles an APDU command and writes the response to the given buffer.
     ///
     /// The APDU command must be complete, i. e. chained commands must be resolved by the caller.
-    pub fn handle<const R: usize>(
+    pub fn handle(
         &mut self,
         command: iso7816::command::CommandView<'_>,
-        reply: &mut heapless::Vec<u8, R>,
+        reply: &mut heapless::VecView<u8>,
     ) -> Result<(), Status> {
         #[cfg(feature = "admin-app")]
         if let Some(reset_signal) = self.options.reset_signal {
@@ -127,12 +127,12 @@ impl<T: Client> iso7816::App for Card<T> {
 }
 
 #[cfg(feature = "apdu-dispatch")]
-impl<T: Client, const R: usize> apdu_app::App<R> for Card<T> {
+impl<T: Client> apdu_app::App for Card<T> {
     fn select(
         &mut self,
         interface: apdu_app::Interface,
         command: iso7816::command::CommandView<'_>,
-        reply: &mut heapless::Vec<u8, R>,
+        reply: &mut heapless::VecView<u8>,
     ) -> Result<(), Status> {
         if interface != apdu_app::Interface::Contact {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -144,7 +144,7 @@ impl<T: Client, const R: usize> apdu_app::App<R> for Card<T> {
         &mut self,
         interface: apdu_app::Interface,
         command: iso7816::command::CommandView<'_>,
-        reply: &mut heapless::Vec<u8, R>,
+        reply: &mut heapless::VecView<u8>,
     ) -> Result<(), Status> {
         if interface != apdu_app::Interface::Contact {
             return Err(Status::ConditionsOfUseNotSatisfied);
@@ -305,16 +305,16 @@ impl Default for Options {
 }
 
 #[derive(Debug)]
-pub struct Context<'a, const R: usize, T: Client> {
+pub struct Context<'a, T: Client> {
     pub backend: &'a mut Backend<T>,
     pub options: &'a Options,
     pub state: &'a mut State,
     pub data: &'a [u8],
-    pub reply: Reply<'a, R>,
+    pub reply: Reply<'a>,
 }
 
-impl<const R: usize, T: Client> Context<'_, R, T> {
-    pub fn load_state(&mut self) -> Result<LoadedContext<'_, R, T>, Status> {
+impl<T: Client> Context<'_, T> {
+    pub fn load_state(&mut self) -> Result<LoadedContext<'_, T>, Status> {
         Ok(LoadedContext {
             state: self
                 .state
@@ -331,7 +331,7 @@ impl<const R: usize, T: Client> Context<'_, R, T> {
     ///
     /// The resulting `Context` has a shorter lifetime than the original one, meaning that it
     /// can be passed by value to other functions and the original context can then be used again
-    pub fn lend(&mut self) -> Context<'_, R, T> {
+    pub fn lend(&mut self) -> Context<'_, T> {
         Context {
             reply: Reply(self.reply.0),
             backend: self.backend,
@@ -344,20 +344,20 @@ impl<const R: usize, T: Client> Context<'_, R, T> {
 
 #[derive(Debug)]
 /// Context with the persistent state loaded from flash
-pub struct LoadedContext<'a, const R: usize, T: Client> {
+pub struct LoadedContext<'a, T: Client> {
     pub backend: &'a mut Backend<T>,
     pub options: &'a Options,
     pub state: LoadedState<'a>,
     pub data: &'a [u8],
-    pub reply: Reply<'a, R>,
+    pub reply: Reply<'a>,
 }
 
-impl<const R: usize, T: Client> LoadedContext<'_, R, T> {
+impl<T: Client> LoadedContext<'_, T> {
     /// Lend the context
     ///
     /// The resulting `LoadedContext` has a shorter lifetime than the original one, meaning that it
     /// can be passed by value to other functions and the original context can then be used again
-    pub fn lend(&mut self) -> LoadedContext<'_, R, T> {
+    pub fn lend(&mut self) -> LoadedContext<'_, T> {
         LoadedContext {
             reply: Reply(self.reply.0),
             backend: self.backend,

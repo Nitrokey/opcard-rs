@@ -246,7 +246,7 @@ impl LoadedState<'_> {
     ///
     /// The resulting `LoadedState` has a shorter lifetime than the original one, meaning that it
     /// can be passed by value to other functions and the original state can then be used again
-    pub fn lend(&mut self) -> LoadedState {
+    pub fn lend(&mut self) -> LoadedState<'_> {
         LoadedState {
             persistent: self.persistent,
             volatile: self.volatile,
@@ -260,7 +260,7 @@ impl LoadedState<'_> {
         value: &[u8],
         password: PasswordMode,
     ) -> Result<(), Error> {
-        let pin = Bytes::from_slice(value).map_err(|_| {
+        let pin = Bytes::try_from(value).map_err(|_| {
             warn!("Attempt to verify pin that is too long");
             Error::InvalidPin
         })?;
@@ -309,7 +309,7 @@ impl LoadedState<'_> {
         value: &[u8],
         password: Password,
     ) -> Result<KeyId, Error> {
-        let pin = Bytes::from_slice(value).map_err(|_| {
+        let pin = Bytes::try_from(value).map_err(|_| {
             warn!("Attempt to verify pin that is too long");
             Error::InvalidPin
         })?;
@@ -382,7 +382,7 @@ impl LoadedState<'_> {
         new_value: &[u8],
     ) -> Result<(), Error> {
         let user_key = self.get_user_key(client, storage)?;
-        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        let new_pin = Bytes::try_from(new_value).map_err(|_| Error::InvalidPin)?;
         syscall!(client.set_pin_with_key(Password::Pw1, new_pin, Some(3), user_key));
         self.persistent
             .set_pin_len(client, storage, new_value.len(), Password::Pw1)?;
@@ -398,7 +398,7 @@ impl LoadedState<'_> {
         rc_key: KeyId,
     ) -> Result<(), Error> {
         let user_key = self.get_user_key_from_rc(client, storage, rc_key)?;
-        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        let new_pin = Bytes::try_from(new_value).map_err(|_| Error::InvalidPin)?;
         syscall!(client.set_pin_with_key(Password::Pw1, new_pin, Some(3), user_key));
         self.persistent
             .set_pin_len(client, storage, new_value.len(), Password::Pw1)?;
@@ -412,7 +412,7 @@ impl LoadedState<'_> {
         storage: Location,
         new_value: &[u8],
     ) -> Result<(), Error> {
-        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
+        let new_pin = Bytes::try_from(new_value).map_err(|_| Error::InvalidPin)?;
         syscall!(client.set_pin(Password::ResetCode, new_pin.clone(), Some(3), true));
         self.persistent
             .set_pin_len(client, storage, new_pin.len(), Password::ResetCode)?;
@@ -730,9 +730,9 @@ impl Persistent {
 
     fn init_pins<T: crate::card::Client>(client: &mut T, location: Location) -> Result<(), Error> {
         #[allow(clippy::unwrap_used)]
-        let default_user_pin = Bytes::from_slice(DEFAULT_USER_PIN).unwrap();
+        let default_user_pin = Bytes::try_from(DEFAULT_USER_PIN).unwrap();
         #[allow(clippy::unwrap_used)]
-        let default_admin_pin = Bytes::from_slice(DEFAULT_ADMIN_PIN).unwrap();
+        let default_admin_pin = Bytes::try_from(DEFAULT_ADMIN_PIN).unwrap();
 
         // If PINs are already there when initializing, it likely means that the state was corrupted rather than absent.
         // In that case, we wait for the user to explicitely factory-reset the device to avoid risking loosing data.
@@ -847,8 +847,8 @@ impl Persistent {
         new_value: &[u8],
         password: Password,
     ) -> Result<(), Error> {
-        let new_pin = Bytes::from_slice(new_value).map_err(|_| Error::InvalidPin)?;
-        let old_pin = Bytes::from_slice(old_value).map_err(|_| Error::InvalidPin)?;
+        let new_pin = Bytes::try_from(new_value).map_err(|_| Error::InvalidPin)?;
+        let old_pin = Bytes::try_from(old_value).map_err(|_| Error::InvalidPin)?;
         try_syscall!(client.change_pin(password, old_pin, new_pin.clone()))
             .map_err(|_| Error::InvalidPin)?;
         self.set_pin_len(client, storage, new_pin.len(), password)
@@ -1510,7 +1510,7 @@ impl ArbitraryDO {
         #[allow(clippy::unwrap_used)]
         match self {
             // KDF-DO initialized to NONE
-            Self::KdfDo => Bytes::from_slice(&hex!("F9 03 81 01 00")).unwrap(),
+            Self::KdfDo => Bytes::try_from(&hex!("F9 03 81 01 00")).unwrap(),
             _ => Bytes::new(),
         }
     }
@@ -1523,11 +1523,11 @@ impl ArbitraryDO {
         }
     }
 
-    pub fn load<const R: usize>(
+    pub fn load(
         self,
         client: &mut impl crate::card::Client,
         storage: Location,
-        mut reply: Reply<'_, R>,
+        mut reply: Reply<'_>,
         encryption_key: Option<KeyId>,
     ) -> Result<(), Status> {
         match try_syscall!(client.entry_metadata(storage, self.path())) {
@@ -1700,9 +1700,9 @@ mod tests {
                 pw1_valid_multiple: true,
                 user_pin_len: 127,
                 admin_pin_len: 127,
-                cardholder_name: Bytes::from_slice(b"some name").unwrap(),
+                cardholder_name: Bytes::try_from(b"some name").unwrap(),
                 cardholder_sex: Sex::NotApplicable,
-                language_preferences: Bytes::from_slice(b"so").unwrap(),
+                language_preferences: Bytes::try_from(b"so").unwrap(),
                 signing_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 confidentiality_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 aut_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
@@ -1731,9 +1731,9 @@ mod tests {
                 pw1_valid_multiple: true,
                 user_pin_len: 127,
                 admin_pin_len: 127,
-                cardholder_name: Bytes::from_slice(b"some name").unwrap(),
+                cardholder_name: Bytes::try_from(b"some name").unwrap(),
                 cardholder_sex: Sex::NotApplicable,
-                language_preferences: Bytes::from_slice(b"so").unwrap(),
+                language_preferences: Bytes::try_from(b"so").unwrap(),
                 signing_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 confidentiality_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 aut_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
