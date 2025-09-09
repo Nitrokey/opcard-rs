@@ -15,9 +15,9 @@ const KEYGEN_DO_TAG: &[u8] = &hex!("7f49");
 #[cfg(feature = "rsa")]
 use trussed_rsa_types::RsaPublicParts;
 
-fn serialize_pub<const R: usize, T: crate::card::Client>(
+fn serialize_pub<T: crate::card::Client>(
     algo: CurveAlgo,
-    ctx: LoadedContext<'_, R, T>,
+    ctx: LoadedContext<'_, T>,
     public_key: &[u8],
 ) -> Result<(), Status> {
     match algo {
@@ -39,9 +39,7 @@ fn serialize_pub<const R: usize, T: crate::card::Client>(
     }
 }
 
-pub fn sign<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn sign<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let algo = ctx.state.persistent.sign_alg();
     if !algo.is_allowed(ctx.options.allowed_generation) {
         warn!("Attempt to generate key disabled {:?}", algo);
@@ -83,9 +81,7 @@ pub fn sign<const R: usize, T: crate::card::Client>(
     }
 }
 
-pub fn dec<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn dec<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let algo = ctx.state.persistent.dec_alg();
     if !algo.is_allowed(ctx.options.allowed_generation) {
         warn!("Attempt to generate key disabled {:?}", algo);
@@ -121,9 +117,7 @@ pub fn dec<const R: usize, T: crate::card::Client>(
     }
 }
 
-pub fn aut<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn aut<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let algo = ctx.state.persistent.aut_alg();
     if !algo.is_allowed(ctx.options.allowed_generation) {
         warn!("Attempt to generate key disabled {:?}", algo);
@@ -166,8 +160,8 @@ pub fn aut<const R: usize, T: crate::card::Client>(
 }
 
 #[cfg(feature = "rsa")]
-fn gen_rsa_key<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn gen_rsa_key<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     key: KeyType,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -204,16 +198,16 @@ fn gen_rsa_key<const R: usize, T: crate::card::Client>(
     read_rsa_key(ctx, pubkey, mechanism)
 }
 #[cfg(not(feature = "rsa"))]
-fn gen_rsa_key<const R: usize, T: crate::card::Client>(
-    _ctx: LoadedContext<'_, R, T>,
+fn gen_rsa_key<T: crate::card::Client>(
+    _ctx: LoadedContext<'_, T>,
     _key: KeyType,
     _mechanism: Mechanism,
 ) -> Result<(), Status> {
     Err(Status::FunctionNotSupported)
 }
 
-fn gen_ec_key<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn gen_ec_key<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     key: KeyType,
     curve: CurveAlgo,
 ) -> Result<(), Status> {
@@ -250,9 +244,7 @@ fn gen_ec_key<const R: usize, T: crate::card::Client>(
     read_ec_key(ctx, pubkey, curve)
 }
 
-pub fn read_sign<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn read_sign<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let key_id = ctx
         .state
         .persistent
@@ -283,9 +275,7 @@ pub fn read_sign<const R: usize, T: crate::card::Client>(
     }
 }
 
-pub fn read_dec<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn read_dec<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let key_id = ctx
         .state
         .persistent
@@ -322,9 +312,7 @@ pub fn read_dec<const R: usize, T: crate::card::Client>(
     }
 }
 
-pub fn read_aut<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn read_aut<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let key_id = ctx
         .state
         .persistent
@@ -361,8 +349,8 @@ pub fn read_aut<const R: usize, T: crate::card::Client>(
     }
 }
 
-fn serialize_nist_curve<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn serialize_nist_curve<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     serialized: &[u8],
 ) -> Result<(), Status> {
     ctx.reply.expand(&[0x86])?;
@@ -371,8 +359,8 @@ fn serialize_nist_curve<const R: usize, T: crate::card::Client>(
     ctx.reply.expand(serialized)
 }
 
-fn serialize_25519<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn serialize_25519<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     serialized: &[u8],
 ) -> Result<(), Status> {
     ctx.reply.expand(&[0x86])?;
@@ -380,8 +368,8 @@ fn serialize_25519<const R: usize, T: crate::card::Client>(
     ctx.reply.expand(serialized)
 }
 
-fn read_ec_key<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn read_ec_key<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     public_key: KeyId,
     curve: CurveAlgo,
 ) -> Result<(), Status> {
@@ -400,8 +388,8 @@ fn read_ec_key<const R: usize, T: crate::card::Client>(
 }
 
 #[cfg(feature = "rsa")]
-fn read_rsa_key<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
+fn read_rsa_key<T: crate::card::Client>(
+    mut ctx: LoadedContext<'_, T>,
     public_key: KeyId,
     mechanism: Mechanism,
 ) -> Result<(), Status> {
@@ -434,8 +422,8 @@ fn read_rsa_key<const R: usize, T: crate::card::Client>(
 }
 
 #[cfg(not(feature = "rsa"))]
-fn read_rsa_key<const R: usize, T: crate::card::Client>(
-    _ctx: LoadedContext<'_, R, T>,
+fn read_rsa_key<T: crate::card::Client>(
+    _ctx: LoadedContext<'_, T>,
     _key_id: KeyId,
     _mechanism: Mechanism,
 ) -> Result<(), Status> {
