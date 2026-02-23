@@ -30,7 +30,14 @@ Here are the currently supported algorithms:
 - RSA-2048
 - RSA-3072
 - RSA-4096
-- EcDSA and ECDH for P256
+- EcDSA and ECDH for:
+  - secp256r1 (NIST P-256)
+  - secp384r1 (NIST P-384)
+  - secp521r1 (NIST P-521)
+  - secp256k1 (Koblitz/Bitcoin curve)
+  - brainpoolp256r1
+  - brainpoolp384r1
+  - brainpoolp512r1
 - EdDSA and ECDH for Curve25519
 
 ## Development
