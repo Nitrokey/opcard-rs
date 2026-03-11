@@ -18,8 +18,8 @@ const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
 use trussed_rsa_types::RsaImportFormat;
 
 // § 4.4.3.12
-pub fn put_private_key_template<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+pub fn put_private_key_template<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
 ) -> Result<(), Status> {
     let data = get_do(&[PRIVATE_KEY_TEMPLATE_DO], ctx.data).ok_or_else(|| {
         warn!("Got put private key template without 4D DO");
@@ -37,9 +37,7 @@ pub fn put_private_key_template<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-pub fn put_sign<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn put_sign<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let attr = ctx.state.persistent.sign_alg();
     if !attr.is_allowed(ctx.options.allowed_imports) {
         warn!("Attempt to import key disabled {:?}", attr);
@@ -79,9 +77,7 @@ pub fn put_sign<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-pub fn put_dec<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn put_dec<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let attr = ctx.state.persistent.dec_alg();
     if !attr.is_allowed(ctx.options.allowed_imports) {
         warn!("Attempt to import key disabled {:?}", attr);
@@ -121,9 +117,7 @@ pub fn put_dec<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-pub fn put_aut<const R: usize, T: crate::card::Client>(
-    mut ctx: LoadedContext<'_, R, T>,
-) -> Result<(), Status> {
+pub fn put_aut<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let attr = ctx.state.persistent.aut_alg();
     if !attr.is_allowed(ctx.options.allowed_imports) {
         warn!("Attempt to import key disabled {:?}", attr);
@@ -163,8 +157,8 @@ pub fn put_aut<const R: usize, T: crate::card::Client>(
     Ok(())
 }
 
-fn put_ec<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_ec<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     curve: CurveAlgo,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
     use crate::tlv::take_len;
@@ -265,7 +259,7 @@ fn put_ec<const R: usize, T: crate::card::Client>(
 }
 
 #[cfg(feature = "rsa")]
-fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat> {
+fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat<'_>> {
     use crate::tlv::take_len;
     const TEMPLATE_DO: u16 = 0x7F48;
 
@@ -295,8 +289,8 @@ fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat> {
 }
 
 #[cfg(feature = "rsa")]
-fn put_rsa<const R: usize, T: crate::card::Client>(
-    ctx: LoadedContext<'_, R, T>,
+fn put_rsa<T: crate::card::Client>(
+    ctx: LoadedContext<'_, T>,
     mechanism: Mechanism,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
     match mechanism {
@@ -345,8 +339,8 @@ fn put_rsa<const R: usize, T: crate::card::Client>(
 }
 
 #[cfg(not(feature = "rsa"))]
-fn put_rsa<const R: usize, T: crate::card::Client>(
-    _ctx: LoadedContext<'_, R, T>,
+fn put_rsa<T: crate::card::Client>(
+    _ctx: LoadedContext<'_, T>,
     _mechanism: Mechanism,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
     Err(Status::FunctionNotSupported)

@@ -6,22 +6,22 @@ use iso7816::Status;
 use core::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
-pub struct Reply<'v, const R: usize>(pub &'v mut heapless::Vec<u8, R>);
+pub struct Reply<'v>(pub &'v mut heapless::VecView<u8>);
 
-impl<'v, const R: usize> Deref for Reply<'v, R> {
-    type Target = &'v mut heapless::Vec<u8, R>;
+impl<'v> Deref for Reply<'v> {
+    type Target = &'v mut heapless::VecView<u8>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<const R: usize> DerefMut for Reply<'_, R> {
+impl DerefMut for Reply<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<const R: usize> Reply<'_, R> {
+impl Reply<'_> {
     /// Extend the reply and return an error otherwise
     /// The MoreAvailable and GET RESPONSE mechanisms are handled by adpu_dispatch
     ///
@@ -85,7 +85,7 @@ impl<const R: usize> Reply<'_, R> {
         })
     }
 
-    pub fn lend(&mut self) -> Reply<'_, R> {
+    pub fn lend(&mut self) -> Reply<'_> {
         Reply(self.0)
     }
 }
