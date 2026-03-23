@@ -1510,7 +1510,7 @@ impl ArbitraryDO {
         #[allow(clippy::unwrap_used)]
         match self {
             // KDF-DO initialized to NONE
-            Self::KdfDo => Bytes::try_from(&hex!("F9 03 81 01 00")).unwrap(),
+            Self::KdfDo => Bytes::from(&hex!("F9 03 81 01 00")),
             _ => Bytes::new(),
         }
     }
@@ -1665,14 +1665,13 @@ mod tests {
             if *v == env!("CARGO_PKG_VERSION") {
                 let mut buf = Message::new();
                 cbor_smol::cbor_serialize_to(state, &mut buf).unwrap();
-                let serialized = &**buf;
                 // If test reference does not exist, create it
                 if path.exists() {
                     let file = fs::read(&path).unwrap();
-                    assert_eq!(serialized, file,);
+                    assert_eq!(buf, file);
                 } else if env::var("TEST_STATE_CAN_CREATE").is_ok() {
                     fs::create_dir_all(PathBuf::from(prefix).join(v)).unwrap();
-                    fs::write(&path, serialized).unwrap();
+                    fs::write(&path, buf).unwrap();
                 } else {
                     panic!("Missing test file");
                 }
@@ -1700,9 +1699,9 @@ mod tests {
                 pw1_valid_multiple: true,
                 user_pin_len: 127,
                 admin_pin_len: 127,
-                cardholder_name: Bytes::try_from(b"some name").unwrap(),
+                cardholder_name: Bytes::from(b"some name"),
                 cardholder_sex: Sex::NotApplicable,
-                language_preferences: Bytes::try_from(b"so").unwrap(),
+                language_preferences: Bytes::from(b"so"),
                 signing_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 confidentiality_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 aut_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
@@ -1731,9 +1730,9 @@ mod tests {
                 pw1_valid_multiple: true,
                 user_pin_len: 127,
                 admin_pin_len: 127,
-                cardholder_name: Bytes::try_from(b"some name").unwrap(),
+                cardholder_name: Bytes::from(b"some name"),
                 cardholder_sex: Sex::NotApplicable,
-                language_preferences: Bytes::try_from(b"so").unwrap(),
+                language_preferences: Bytes::from(b"so"),
                 signing_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 confidentiality_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),
                 aut_key: Some((KeyId::from_special(30), KeyOrigin::Imported)),

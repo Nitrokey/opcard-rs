@@ -24,7 +24,7 @@ lint:
 	cargo check --no-default-features --all-targets
 	cargo clippy --all-features --all-targets -- --deny warnings
 	cargo fmt -- --check
-	RUSTDOCFLAGS='-Dwarnings' cargo doc --all-features --package opcard
+	RUSTDOCFLAGS='-Dwarnings' cargo doc --all-features --package opcard --no-deps
 	reuse lint
 
 .PHONY: fix

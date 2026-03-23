@@ -4,14 +4,22 @@
 //! USB/IP runner for opcard.
 //! Run with cargo run --example --features apdu-dispatch (and optionally rsa4096-gen)
 
-use littlefs2_core::path;
-use trussed::virt::{self, Platform, StoreProvider, UserInterface};
-use trussed::{client::ClientBuilder, ClientImplementation, Platform as _, Service};
-use trussed_usbip::Syscall;
+use littlefs2::{
+    const_ram_storage,
+    fs::{Allocation, Filesystem},
+};
+use littlefs2_core::{path, DynFilesystem};
+use trussed::{
+    pipe::{ServiceEndpoint, TrussedChannel},
+    types::CoreContext,
+    virt::UserInterface,
+    Platform as _, Service,
+};
+use trussed_usbip::{Client, Platform, Store, Syscall};
 
-use opcard::virt::dispatch::{self, Dispatch};
+use opcard::virt::dispatch::{self, Backend, Dispatch, DispatchContext};
 
-type VirtClient = ClientImplementation<Syscall, dispatch::Dispatch>;
+type VirtClient = Client<Dispatch>;
 
 const MANUFACTURER: &str = "Nitrokey";
 const PRODUCT: &str = "Nitrokey 3";
@@ -22,25 +30,37 @@ struct OpcardApp {
     opcard: opcard::Card<VirtClient>,
 }
 
-impl<S: StoreProvider> trussed_usbip::Apps<'_, S, Dispatch> for OpcardApp {
+impl trussed_usbip::Apps<'_, Dispatch> for OpcardApp {
     type Data = ();
-    fn new(service: &mut Service<Platform<S>, Dispatch>, syscall: Syscall, _data: ()) -> Self {
-        let client = ClientBuilder::new(path!("opcard"))
-            .backends(dispatch::BACKENDS)
-            .prepare(service)
-            .expect("failed to create client")
-            .build(syscall);
+    fn new(
+        _service: &mut Service<Platform, Dispatch>,
+        endpoints: &mut Vec<ServiceEndpoint<'static, Backend, DispatchContext>>,
+        syscall: Syscall,
+        _data: (),
+    ) -> Self {
+        static CHANNEL: TrussedChannel = TrussedChannel::new();
+        let (requester, responder) = CHANNEL.split().unwrap();
+        let context = CoreContext::new(path!("opcard").into());
+        endpoints.push(ServiceEndpoint::new(responder, context, dispatch::BACKENDS));
+        let client = VirtClient::new(requester, syscall, None);
         OpcardApp {
             opcard: opcard::Card::new(client, opcard::Options::default()),
         }
     }
 
-    fn with_ccid_apps<T>(
-        &mut self,
-        f: impl FnOnce(&mut [&mut dyn apdu_dispatch::App<7609>]) -> T,
-    ) -> T {
+    fn with_ccid_apps<T>(&mut self, f: impl FnOnce(&mut [&mut dyn apdu_dispatch::App]) -> T) -> T {
         f(&mut [&mut self.opcard])
     }
+}
+
+const_ram_storage!(RamStorage, 512 * 128);
+
+fn ram_filesystem() -> &'static dyn DynFilesystem {
+    let storage = Box::leak(Box::new(RamStorage::new()));
+    Filesystem::format(storage).expect("failed to format RAM filesystem");
+    let alloc = Box::leak(Box::new(Allocation::new()));
+    let fs = Filesystem::mount(alloc, storage).expect("failed to mount RAM filesystem");
+    Box::leak(Box::new(fs))
 }
 
 fn main() {
@@ -53,13 +73,17 @@ fn main() {
         vid: VID,
         pid: PID,
     };
-    trussed_usbip::Builder::new(virt::Ram::default(), options)
+    let store = Store {
+        ifs: ram_filesystem(),
+        efs: ram_filesystem(),
+        vfs: ram_filesystem(),
+    };
+    let mut platform = Platform::new(store);
+    let ui: Box<dyn trussed::platform::UserInterface + Send + Sync> =
+        Box::new(UserInterface::new());
+    platform.user_interface().set_inner(ui);
+    trussed_usbip::Builder::new(options)
         .dispatch(Dispatch::new())
-        .init_platform(move |platform| {
-            let ui: Box<dyn trussed::platform::UserInterface + Send + Sync> =
-                Box::new(UserInterface::new());
-            platform.user_interface().set_inner(ui);
-        })
         .build::<OpcardApp>()
-        .exec(|_platform| {});
+        .exec(platform, ());
 }

@@ -215,24 +215,23 @@ pub mod dispatch {
 
 use std::path::PathBuf;
 use trussed::{
+    pipe::TrussedChannel,
     types::Bytes,
-    virt::{self, Client, Filesystem, Ram, StoreProvider},
+    virt::{self, Client, Runner, StorageConfig, StoreConfig},
 };
 
 /// Client type using a dispatcher with the backends required by opcard
-pub type VirtClient<S> = Client<S, dispatch::Dispatch>;
+pub type VirtClient<'a> = Client<'a, dispatch::Dispatch>;
 
 /// Run a client using a provided store
-pub fn with_client<S, R, F>(store: S, client_id: &str, f: F) -> R
+pub fn with_client<R, F>(store: StoreConfig, client_id: &str, f: F) -> R
 where
-    F: FnOnce(VirtClient<S>) -> R,
-    S: StoreProvider,
+    F: FnOnce(VirtClient<'_>) -> R,
 {
-    #[allow(clippy::unwrap_used)]
     virt::with_platform(store, |platform| {
         platform.run_client_with_backends(
             client_id,
-            dispatch::Dispatch::with_hw_key(Bytes::from_slice(b"some bytes").unwrap()),
+            dispatch::Dispatch::with_hw_key(Bytes::from(b"some bytes")),
             dispatch::BACKENDS,
             f,
         )
@@ -243,17 +242,40 @@ where
 /// using storage backed by a file
 pub fn with_fs_client<P, R, F>(internal: P, client_id: &str, f: F) -> R
 where
-    F: FnOnce(VirtClient<Filesystem>) -> R,
+    F: FnOnce(VirtClient<'_>) -> R,
     P: Into<PathBuf>,
 {
-    with_client(Filesystem::new(internal), client_id, f)
+    let store = StoreConfig {
+        internal: StorageConfig::filesystem(internal.into()),
+        external: StorageConfig::ram(),
+        volatile: StorageConfig::ram(),
+    };
+    with_client(store, client_id, f)
 }
 
 /// Run the backend with the extensions required by opcard
 /// using a RAM file storage
 pub fn with_ram_client<R, F>(client_id: &str, f: F) -> R
 where
-    F: FnOnce(VirtClient<Ram>) -> R,
+    F: FnOnce(VirtClient<'_>) -> R,
 {
-    with_client(Ram::default(), client_id, f)
+    with_client(StoreConfig::ram(), client_id, f)
+}
+
+/// Run a client using a provided store, leaking the interchange to achieve static lifetime of the
+/// client
+pub fn with_leaking_client<R, F>(store: StoreConfig, client_id: &str, f: F) -> R
+where
+    F: FnOnce(VirtClient<'static>) -> R,
+{
+    virt::with_platform(store, |platform| {
+        let channel = Box::leak(Box::new(TrussedChannel::new()));
+        let mut runner = Runner::new();
+        #[expect(clippy::unwrap_used)]
+        let (requester, responder) = channel.split().unwrap();
+        runner.add_endpoint(responder, client_id, dispatch::BACKENDS);
+        let dispatch = dispatch::Dispatch::with_hw_key(Bytes::from(b"some bytes"));
+        let client = Client::new(requester, runner.syscall(), None);
+        runner.run(platform, dispatch, || f(client))
+    })
 }

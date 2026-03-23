@@ -9,6 +9,10 @@ SPDX-License-Identifier: CC0-1.0
 
 - Replace `trussed-rsa-alloc` dependency with `trussed-rsa-types` for most use cases.
   (Only the `virt` feature still requires `trussed-rsa-alloc`.)
+- Update dependencies:
+  - `heapless` v0.9
+  - `heapless-bytes` v0.5
+  - `trussed-core` v0.2
 
 ## [v1.6.1][] (2025-07-31)
 

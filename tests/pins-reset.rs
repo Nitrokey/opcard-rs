@@ -11,6 +11,7 @@ use trussed::{
     client::*,
     syscall,
     types::{Message, PathBuf},
+    virt::StoreConfig,
 };
 use trussed_auth::AuthClient;
 
@@ -21,11 +22,9 @@ use test_log::test;
 // Tested with the VPICC example that it works with gpg
 #[ignore]
 fn factory_reset_pins_no_data() {
-    opcard::virt::with_ram_client("opcard", |mut client| {
-        #[allow(clippy::unwrap_used)]
-        let default_user_pin = Bytes::from_slice(b"123456").unwrap();
-        #[allow(clippy::unwrap_used)]
-        let default_admin_pin = Bytes::from_slice(b"12345678").unwrap();
+    opcard::virt::with_leaking_client(StoreConfig::ram(), "opcard", |mut client| {
+        let default_user_pin = Bytes::from(b"123456");
+        let default_admin_pin = Bytes::from(b"12345678");
         syscall!(client.set_pin(0, default_user_pin, Some(3), true,));
         syscall!(client.set_pin(1, default_admin_pin, Some(3), true,));
         // Here we create an invalid (empty state) but with Pins set
@@ -50,18 +49,16 @@ fn factory_reset_pins_no_data() {
 #[test]
 #[ignore]
 fn factory_reset_pins_bad_data() {
-    opcard::virt::with_ram_client("opcard", |mut client| {
+    opcard::virt::with_leaking_client(StoreConfig::ram(), "opcard", |mut client| {
         let options = opcard::Options::default();
-        #[allow(clippy::unwrap_used)]
-        let default_user_pin = Bytes::from_slice(b"123456").unwrap();
-        #[allow(clippy::unwrap_used)]
-        let default_admin_pin = Bytes::from_slice(b"12345678").unwrap();
+        let default_user_pin = Bytes::from(b"123456");
+        let default_admin_pin = Bytes::from(b"12345678");
         syscall!(client.set_pin(0, default_user_pin, Some(3), true,));
         syscall!(client.set_pin(1, default_admin_pin, Some(3), true,));
         syscall!(client.write_file(
             options.storage,
             PathBuf::from(path!("persistent-state.cbor")),
-            Message::from_slice(&hex!("AAAAAAAAAAAAAAAAAA")).unwrap(),
+            Message::from(&hex!("AAAAAAAAAAAAAAAAAA")),
             None
         ));
         // Here we create an invalid (empty state) but with Pins set

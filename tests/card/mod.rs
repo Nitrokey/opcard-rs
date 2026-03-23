@@ -17,10 +17,9 @@ use openpgp_card::{
 };
 use sequoia_openpgp::types::HashAlgorithm;
 
-use trussed::{
-    virt::{Platform, Ram},
-    Service,
-};
+#[cfg(not(feature = "dangerous-test-real-card"))]
+use trussed::virt::StoreConfig;
+use trussed::{virt::Platform, Service};
 use trussed_auth::AuthClient;
 
 const REQUEST_LEN: usize = 7609;
@@ -134,14 +133,14 @@ impl<T: opcard::Client + Send + Sync + 'static> CardTransaction for Transaction<
 }
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
-pub fn with_card_options<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(options: Options, f: F) -> R {
-    opcard::virt::with_ram_client("opcard", |client| {
+pub fn with_card_options<F: FnOnce(Card<VirtClient<'_>>) -> R, R>(options: Options, f: F) -> R {
+    opcard::virt::with_leaking_client(StoreConfig::ram(), "opcard", |client| {
         f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
-pub fn with_card<F: FnOnce(Card<VirtClient<Ram>>) -> R, R>(f: F) -> R {
+pub fn with_card<F: FnOnce(Card<VirtClient<'_>>) -> R, R>(f: F) -> R {
     with_card_options(Options::default(), f)
 }
 
