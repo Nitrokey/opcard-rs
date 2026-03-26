@@ -7,6 +7,12 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+-
+
+## [v1.7.0][] (2026-03-26)
+
+[v1.7.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.7.0
+
 - Replace `trussed-rsa-alloc` dependency with `trussed-rsa-types` for most use cases.
   (Only the `virt` feature still requires `trussed-rsa-alloc`.)
 - Update dependencies:
