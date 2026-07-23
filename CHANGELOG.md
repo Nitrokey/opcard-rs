@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
--
+- Update to `trussed` v0.2
 
 ## [v1.7.0][] (2026-03-26)
 

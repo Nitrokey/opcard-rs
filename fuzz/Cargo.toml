@@ -15,7 +15,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 heapless = "0.9"
 iso7816 = "0.2"
-trussed = { version = "0.1.0", features = ["virt", "verbose-tests"] }
+trussed = { version = "0.2", features = ["virt", "verbose-tests"] }
 arbitrary = { version = "1", features = ["derive"] }
 hex-literal = "0.4"
 env_logger =  { version = "0.10.0", optional = true } 

@@ -7,13 +7,13 @@ use card::Card;
 use heapless_bytes::Bytes;
 use hex_literal::hex;
 use littlefs2_core::path;
-use trussed::{
-    client::*,
+use trussed::virt::StoreConfig;
+use trussed_auth::AuthClient;
+use trussed_core::{
     syscall,
     types::{Message, PathBuf},
-    virt::StoreConfig,
+    FilesystemClient as _,
 };
-use trussed_auth::AuthClient;
 
 use test_log::test;
 
