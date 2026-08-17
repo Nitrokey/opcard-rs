@@ -41,7 +41,7 @@ trussed-wrap-key-to-file = "0.3.0"
 serde_repr = "0.1"
 hex-literal = "0.4.1"
 trussed-auth = "0.5"
-admin-app = { version = "0.2", optional = true }
+admin-app = { version = "0.3", optional = true }
 
 # optional dependencies
 apdu-app = { version = "0.2", optional = true }

@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
--
+- Update to `admin-app` v0.3
 
 ## [v1.8.0][] (2026-07-23)
 
