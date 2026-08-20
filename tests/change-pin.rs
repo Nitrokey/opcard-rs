@@ -1,6 +1,5 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(all(feature = "virt", not(feature = "dangerous-test-real-card")))]
 
 use openpgp_card::StatusBytes;
 use test_log::test;
@@ -38,6 +37,10 @@ macro_rules! assert_checks {
 
 #[test]
 fn change() {
+    if card::dangerous_real_card_enabled() {
+        return;
+    }
+
     with_card(|mut card| {
         card.with_tx(|mut tx| {
             assert!(tx.verify_pw1_user(b"bad pin").is_err());

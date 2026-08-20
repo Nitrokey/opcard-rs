@@ -1,8 +1,7 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-#![cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
-
+mod card;
 mod virt;
 
 use std::process::Command;
@@ -12,6 +11,10 @@ use test_log::test;
 
 #[test]
 fn gpg_card_status() {
+    if card::dangerous_real_card_enabled() {
+        return;
+    }
+
     let status_regex = Regex::new(
         "\
             Reader ...........: Virtual PCD \\d\\d \\d\\d\n\

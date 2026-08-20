@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use iso7816::{
-    command::{CommandView, FromSliceError},
     Command, Status,
+    command::{CommandView, FromSliceError},
 };
 
 use log::{trace, warn};
@@ -60,10 +60,10 @@ impl<T: opcard::Client> vpicc::VSmartCard for VpiccCard<T> {
     }
 
     fn execute(&mut self, request: &[u8]) -> Vec<u8> {
-        trace!("Received request {:x?}", request);
+        trace!("Received request {request:x?}");
         let (data, status) = self.handle(request);
         let response = make_response(data, status);
-        trace!("Sending response {:x?}", response);
+        trace!("Sending response {response:x?}");
         response
     }
 }

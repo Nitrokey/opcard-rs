@@ -1,6 +1,5 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(any(feature = "vpicc", feature = "dangerous-test-real-card"))]
 
 use rand::Rng;
 use std::iter;
@@ -13,13 +12,11 @@ use std::{
     thread,
 };
 
-#[cfg(feature = "vpicc")]
 use std::{sync::mpsc, thread::sleep, time::Duration};
 
 use regex::{Regex, RegexSet};
 use tempfile::TempDir;
 
-#[cfg(feature = "vpicc")]
 use stoppable_thread::spawn;
 
 const STDOUT_FILTER: &[&str] = &[
@@ -64,7 +61,6 @@ impl Context {
     }
 }
 
-#[cfg(feature = "vpicc")]
 #[allow(unused)]
 pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let mut vpicc = vpicc::connect().expect("failed to connect to vpcd");
@@ -73,7 +69,7 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
     let handle = spawn(move |stopped| {
         dev_vpicc::virt::with_ram_client("opcard", |client| {
             let card = opcard::Card::new(client, opcard::Options::default());
-            let mut vpicc_card = dev_vpicc::VpiccCard::new(card);
+            let mut vpicc_card = dev_vpicc::vpicc::VpiccCard::new(card);
             let mut result = Ok(());
             while !stopped.get() && result.is_ok() {
                 result = vpicc.poll(&mut vpicc_card);
@@ -307,9 +303,6 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<&'static str> {
     };
 
     let fprtimes = r"fprtime:\d*:\d*:\d*:";
-    #[cfg(feature = "vpicc")]
-    let reader = r"Reader:Virtual PCD \d\d \d\d:AID:D276000124010304[A-Z0-9]*:openpgp-card";
-    #[cfg(feature = "dangerous-test-real-card")]
     let reader = concat!(
         "Reader:",
         "((",
