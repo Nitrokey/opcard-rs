@@ -17,7 +17,7 @@ use trussed::{
 };
 use trussed_usbip::{Client, Platform, Store, Syscall};
 
-use opcard::virt::dispatch::{self, Backend, Dispatch, DispatchContext};
+use dev_vpicc::virt::dispatch::{self, Backend, Dispatch, DispatchContext};
 
 type VirtClient = Client<Dispatch>;
 

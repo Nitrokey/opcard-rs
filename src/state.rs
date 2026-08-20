@@ -1181,7 +1181,7 @@ impl Drop for UserKeys {
             return;
         }
 
-        #[cfg(all(debug_assertions, feature = "std"))]
+        #[cfg(all(debug_assertions, test))]
         if !std::thread::panicking() {
             panic!("User dropped with keys still in volatile storage {self:?}");
         }
@@ -1213,7 +1213,7 @@ impl Drop for UserVerified {
             return;
         }
 
-        #[cfg(all(debug_assertions, feature = "std"))]
+        #[cfg(all(debug_assertions, test))]
         if !std::thread::panicking() {
             panic!("User dropped with kek still available");
         }
@@ -1359,7 +1359,7 @@ impl Drop for AdminVerified {
             return;
         }
 
-        #[cfg(all(debug_assertions, feature = "std"))]
+        #[cfg(all(debug_assertions, test))]
         if !std::thread::panicking() {
             panic!("Admin dropped with kek still available");
         }

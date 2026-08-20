@@ -21,11 +21,8 @@ hex-literal = "0.4"
 env_logger =  { version = "0.10.0", optional = true } 
 delog = { version = "0.1.6", optional = true }
 log = { version = "0.4", optional = true }
-
-
-[dependencies.opcard]
-path = ".."
-features = ["virt"]
+opcard = { path = ".." }
+dev-vpicc = { path = "../dev-vpicc" }
 
 [[bin]]
 name = "fuzz_target_1"

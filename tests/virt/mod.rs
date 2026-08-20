@@ -14,9 +14,9 @@ pub fn with_vsc<F: FnOnce() -> R, R>(f: F) -> R {
 
     let (tx, rx) = mpsc::channel();
     let handle = spawn(move |stopped| {
-        opcard::virt::with_ram_client("opcard", |client| {
+        dev_vpicc::virt::with_ram_client("opcard", |client| {
             let card = opcard::Card::new(client, opcard::Options::default());
-            let mut vpicc_card = opcard::VpiccCard::new(card);
+            let mut vpicc_card = dev_vpicc::VpiccCard::new(card);
             let mut result = Ok(());
             while !stopped.get() && result.is_ok() {
                 result = vpicc.poll(&mut vpicc_card);

@@ -4,12 +4,12 @@
 
 use std::sync::{Arc, Mutex};
 
+#[cfg(not(feature = "dangerous-test-real-card"))]
+use dev_vpicc::virt::VirtClient;
 use iso7816::{
     command::{CommandView, FromSliceError},
     Command, Status,
 };
-#[cfg(not(feature = "dangerous-test-real-card"))]
-use opcard::virt::VirtClient;
 use opcard::Options;
 use openpgp_card::{
     algorithm::AlgoSimple, CardBackend, CardCaps, CardTransaction, Error, OpenPgp,
@@ -24,6 +24,10 @@ use trussed_auth::AuthClient;
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
+
+pub fn dangerous_real_card_enabled() -> bool {
+    option_env!("DANGEROUS_TEST_RUN_REAL_CARD") == Some("true")
+}
 
 #[derive(Debug)]
 pub struct Card<T: opcard::Client + Send + Sync + 'static>(Arc<Mutex<opcard::Card<T>>>);
@@ -134,7 +138,7 @@ impl<T: opcard::Client + Send + Sync + 'static> CardTransaction for Transaction<
 
 #[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_card_options<F: FnOnce(Card<VirtClient<'_>>) -> R, R>(options: Options, f: F) -> R {
-    opcard::virt::with_leaking_client(StoreConfig::ram(), "opcard", |client| {
+    dev_vpicc::virt::with_leaking_client(StoreConfig::ram(), "opcard", |client| {
         f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }

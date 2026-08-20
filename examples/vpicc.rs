@@ -28,9 +28,9 @@
 fn main() {
     env_logger::init();
 
-    opcard::virt::with_ram_client("opcard", |client| {
+    dev_vpicc::virt::with_ram_client("opcard", |client| {
         let card = opcard::Card::new(client, opcard::Options::default());
-        let mut vpicc_card = opcard::VpiccCard::new(card);
+        let mut vpicc_card = dev_vpicc::vpicc::VpiccCard::new(card);
         let vpicc = vpicc::connect().expect("failed to connect to vpicc");
         vpicc
             .run(&mut vpicc_card)

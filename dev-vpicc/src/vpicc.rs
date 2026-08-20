@@ -6,7 +6,8 @@ use iso7816::{
     Command, Status,
 };
 
-use crate::card::Card;
+use log::{trace, warn};
+use opcard::Card;
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
@@ -16,13 +17,13 @@ const RESPONSE_LEN: usize = 7609;
 /// This struct provides a vpicc OpenPGP smart card implementation that can be used with
 /// `vpicc-rs` and [`vsmartcard`](https://frankmorgner.github.io/vsmartcard/) to emulate the card.
 #[derive(Clone, Debug)]
-pub struct VpiccCard<T: crate::card::Client> {
+pub struct VpiccCard<T: opcard::Client> {
     request_buffer: RequestBuffer<REQUEST_LEN>,
     response_buffer: ResponseBuffer<RESPONSE_LEN>,
     card: Card<T>,
 }
 
-impl<T: crate::card::Client> VpiccCard<T> {
+impl<T: opcard::Client> VpiccCard<T> {
     /// Creates a new virtual smart card from the given card.
     pub fn new(card: Card<T>) -> Self {
         Self {
@@ -47,7 +48,7 @@ impl<T: crate::card::Client> VpiccCard<T> {
     }
 }
 
-impl<T: crate::card::Client> vpicc::VSmartCard for VpiccCard<T> {
+impl<T: opcard::Client> vpicc::VSmartCard for VpiccCard<T> {
     fn power_on(&mut self) {}
 
     fn power_off(&mut self) {
