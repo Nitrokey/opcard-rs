@@ -34,15 +34,15 @@ fix:
 
 .PHONY: test
 test:
-	cargo test --features vpicc,rsa4096-gen 
+	cargo test --features rsa4096-gen 
 	
 
 .PHONY: test
 dangerous-real-card-test:
 	ps aux | grep pcscd | grep -v grep || sudo pcscd
-	cargo test --features rsa2048-gen,rsa4096,dangerous-test-real-card sequoia_hardware
+	DANGEROUS_TEST_RUN_REAL_CARD=true cargo test --features rsa2048-gen,rsa4096,dangerous-test-real-card sequoia_hardware
 	sudo pkill pcscd
-	cargo test --features rsa2048-gen,rsa4096-gen,dangerous-test-real-card gpg_hardware
+	DANGEROUS_TEST_RUN_REAL_CARD=true cargo test --features rsa2048-gen,rsa4096-gen,dangerous-test-real-card gpg_hardware
 
 .PHONY: fuzz
 fuzz: fuzz-corpus
@@ -63,7 +63,7 @@ fuzz-cov:
 
 .PHONY: tarpaulin
 tarpaulin:
-	cargo tarpaulin --features vpicc,rsa4096-gen -o Html -o Xml
+	cargo tarpaulin --features rsa4096-gen -o Html -o Xml
 
 .PHONY: ci
 ci: lint tarpaulin
@@ -76,8 +76,8 @@ clean:
 
 .PHONY: example-vpicc
 example-vpicc:
-	cargo run --example vpicc --features vpicc,rsa4096-gen
+	cargo run --example vpicc --features rsa4096-gen
 
 .PHONY: example-usbip
 example-usbip:
-	cargo run --example usbip --features virt,rsa4096-gen,apdu-dispatch
+	cargo run --example usbip --features rsa4096-gen,apdu-dispatch
