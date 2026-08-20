@@ -10,8 +10,8 @@ use test_log::test;
 #[test]
 fn cv25519_import_gpg() {
     if card::dangerous_real_card_enabled() {
-        virt::with_vsc(|| gpg::gpg_test_import(gpg::KeyAlgo::Cv25519));
-    } else {
         gpg::gpg_test_import(gpg::KeyAlgo::Cv25519);
+    } else {
+        virt::with_vsc(|| gpg::gpg_test_import(gpg::KeyAlgo::Cv25519));
     }
 }

@@ -11,8 +11,8 @@ use test_log::test;
 #[test]
 fn p256_sequoia() {
     if card::dangerous_real_card_enabled() {
-        virt::with_vsc(|| sequoia_test(KeyAlgo::P256));
-    } else {
         sequoia_test(KeyAlgo::P256);
+    } else {
+        virt::with_vsc(|| sequoia_test(KeyAlgo::P256));
     }
 }
