@@ -48,7 +48,6 @@ apdu-app = { version = "0.2", optional = true }
 delog = { version = "0.1.7", optional = true }
 cfg-if = "1.0.0"
 bitflags = "2.5.0"
-trussed = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
 apdu-dispatch = "0.4"
