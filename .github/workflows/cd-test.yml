@@ -1,0 +1,18 @@
+# Copyright (C) 2023 Nitrokey GmbH
+# SPDX-License-Identifier: CC0-1.0
+
+name: Continuous delivery - test
+
+on:
+  pull_request:
+    # opened, reopenened, synchronize are the default types for pull_request
+    # labeled, unlabeled ensure this check is also run if a label is added or removed
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+jobs:
+  test-publish:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-publish-check') }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+    - run: cargo publish --dry-run
