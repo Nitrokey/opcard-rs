@@ -4,12 +4,11 @@
 
 use std::sync::{Arc, Mutex};
 
+use dev_vpicc::virt::VirtClient;
 use iso7816::{
     command::{CommandView, FromSliceError},
     Command, Status,
 };
-#[cfg(not(feature = "dangerous-test-real-card"))]
-use opcard::virt::VirtClient;
 use opcard::Options;
 use openpgp_card::{
     algorithm::AlgoSimple, CardBackend, CardCaps, CardTransaction, Error, OpenPgp,
@@ -17,13 +16,16 @@ use openpgp_card::{
 };
 use sequoia_openpgp::types::HashAlgorithm;
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 use trussed::virt::StoreConfig;
 use trussed::{virt::Platform, Service};
 use trussed_auth::AuthClient;
 
 const REQUEST_LEN: usize = 7609;
 const RESPONSE_LEN: usize = 7609;
+
+pub fn dangerous_real_card_enabled() -> bool {
+    option_env!("DANGEROUS_TEST_RUN_REAL_CARD") == Some("true")
+}
 
 #[derive(Debug)]
 pub struct Card<T: opcard::Client + Send + Sync + 'static>(Arc<Mutex<opcard::Card<T>>>);
@@ -132,34 +134,28 @@ impl<T: opcard::Client + Send + Sync + 'static> CardTransaction for Transaction<
     }
 }
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_card_options<F: FnOnce(Card<VirtClient<'_>>) -> R, R>(options: Options, f: F) -> R {
-    opcard::virt::with_leaking_client(StoreConfig::ram(), "opcard", |client| {
+    dev_vpicc::virt::with_leaking_client(StoreConfig::ram(), "opcard", |client| {
         f(Card::from_opcard(opcard::Card::new(client, options)))
     })
 }
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_card<F: FnOnce(Card<VirtClient<'_>>) -> R, R>(f: F) -> R {
     with_card_options(Options::default(), f)
 }
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_tx_options<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(options: Options, f: F) -> R {
     with_card_options(options, move |mut card| card.with_tx(f))
 }
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(f: F) -> R {
     with_card(move |mut card| card.with_tx(f))
 }
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn with_many_tx(fs: impl IntoIterator<Item = impl FnOnce(OpenPgpTransaction<'_>)>) {
     with_card(move |mut card| card.with_many_tx(fs))
 }
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
     match err {
         Ok(()) => None,
@@ -169,9 +165,6 @@ pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
         Err(e) => panic!("Unexpected error {e}"),
     }
 }
-#[cfg(all(feature = "vpicc", not(feature = "dangerous-test-real-card")))]
-const IDENT: &str = "0000:00000000";
-#[cfg(feature = "dangerous-test-real-card")]
 const IDENT: &str = concat!(
     env!("OPCARD_DANGEROUS_TEST_CARD_PGP_VENDOR"),
     ":",

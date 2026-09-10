@@ -17,21 +17,19 @@ pub mod dispatch {
     use trussed_auth_backend::{AuthBackend, AuthContext, FilesystemLayout, MAX_HW_KEY_LEN};
     use trussed_chunked::ChunkedExtension;
     use trussed_core::{
-        api::{reply, request, Reply, Request},
-        types::{Bytes, Location},
         Error,
+        api::{Reply, Request, reply, request},
+        types::{Bytes, Location},
     };
     use trussed_staging::{StagingBackend, StagingContext};
     use trussed_wrap_key_to_file::WrapKeyToFileExtension;
 
-    #[cfg(feature = "rsa")]
     use trussed_rsa_alloc::SoftwareRsa;
 
     /// Backends used by opcard
     pub const BACKENDS: &[BackendId<Backend>] = &[
         BackendId::Custom(Backend::Staging),
         BackendId::Custom(Backend::Auth),
-        #[cfg(feature = "rsa")]
         BackendId::Custom(Backend::Rsa),
         BackendId::Core,
     ];
@@ -44,7 +42,6 @@ pub mod dispatch {
         /// trussed-staging
         Staging,
         /// trussed-rsa-alloc
-        #[cfg(feature = "rsa")]
         Rsa,
     }
 
@@ -145,7 +142,6 @@ pub mod dispatch {
                     request,
                     resources,
                 ),
-                #[cfg(feature = "rsa")]
                 Backend::Rsa => SoftwareRsa.request(&mut ctx.core, &mut (), request, resources),
             }
         }
@@ -192,7 +188,6 @@ pub mod dispatch {
                     Extension::Auth => Err(Error::RequestNotAvailable),
                 },
 
-                #[cfg(feature = "rsa")]
                 Backend::Rsa => Err(Error::RequestNotAvailable),
             }
         }

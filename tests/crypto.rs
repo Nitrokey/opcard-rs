@@ -1,6 +1,5 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(all(feature = "virt", not(feature = "dangerous-test-real-card")))]
 
 mod card;
 
@@ -28,6 +27,10 @@ fn public_key_material_to_fp(
 
 #[test]
 fn gen_key() {
+    if card::dangerous_real_card_enabled() {
+        return;
+    }
+
     with_card(|mut card| {
         card.with_tx(|mut tx| {
             let appdata = tx.application_related_data().unwrap();

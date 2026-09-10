@@ -1,20 +1,17 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(feature = "vpicc")]
 
+mod card;
 mod gpg;
 mod virt;
 
 use test_log::test;
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
 #[test]
 fn p256_gpg() {
-    virt::with_vsc(|| gpg::gpg_test(gpg::KeyAlgo::P256));
-}
-
-#[cfg(feature = "dangerous-test-real-card")]
-#[test]
-fn p256_gpg_hardware() {
-    gpg::gpg_test(gpg::KeyAlgo::P256);
+    if card::dangerous_real_card_enabled() {
+        gpg::gpg_test(gpg::KeyAlgo::P256);
+    } else {
+        virt::with_vsc(|| gpg::gpg_test(gpg::KeyAlgo::P256));
+    }
 }

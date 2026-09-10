@@ -1,6 +1,5 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(all(feature = "virt", not(feature = "dangerous-test-real-card")))]
 
 use hex_literal::hex;
 mod card;
@@ -17,6 +16,10 @@ use openpgp_card::{
 
 #[test]
 fn get_data() {
+    if card::dangerous_real_card_enabled() {
+        return;
+    }
+
     let mut options = Options::default();
     options.button_available = false;
     with_tx_options(options.clone(), |mut tx| {
@@ -139,6 +142,10 @@ fn get_data() {
 
 #[test]
 fn arbitrary() {
+    if card::dangerous_real_card_enabled() {
+        return;
+    }
+
     with_many_tx([|mut tx: OpenPgpTransaction<'_>| {
         assert_eq!(tx.private_use_do(1).unwrap(), b"");
         assert_eq!(tx.private_use_do(2).unwrap(), b"");

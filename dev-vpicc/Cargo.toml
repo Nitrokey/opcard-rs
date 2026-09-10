@@ -1,0 +1,23 @@
+# Copyright (C) 2026 Nitrokey GmbH
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "dev-vpicc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+opcard = { path = ".." }
+iso7816 = "0.2.0"
+log = "0.4"
+vpicc = "0.1.0"
+heapless = "0.9"
+trussed-rsa-alloc = "0.5"
+trussed-wrap-key-to-file = "0.3.0"
+trussed-core = { version = "0.2", features = ["aes256-cbc", "brainpoolp256r1", "brainpoolp384r1", "brainpoolp512r1", "chacha8-poly1305", "crypto-client", "ed255", "filesystem-client", "p256", "p384", "p521", "rsa2048", "rsa3072", "rsa4096", "secp256k1", "shared-secret", "ui-client", "x255"] }
+trussed = { version = "0.2", features = ["virt", "p384", "p521"] }
+trussed-auth-backend = "0.2"
+trussed-auth = "0.5"
+trussed-chunked = "0.3.0"
+trussed-staging = { version = "0.5", features = ["chunked", "wrap-key-to-file"] }
+

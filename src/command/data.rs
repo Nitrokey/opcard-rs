@@ -1265,7 +1265,7 @@ fn put_keygen_date<T: crate::card::Client>(
         .map_err(|_| Status::UnspecifiedNonpersistentExecutionError)
 }
 
-#[cfg(all(test, feature = "virt"))]
+#[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -1365,7 +1365,7 @@ mod tests {
 
     #[test]
     fn constructed_dos_tlv() {
-        crate::virt::with_ram_client("constructed_dos_tlv", |client| {
+        dev_vpicc::virt::with_ram_client("constructed_dos_tlv", |client| {
             use crate::state::State;
             use crate::tlv::*;
             let mut backend = crate::backend::Backend::new(client);

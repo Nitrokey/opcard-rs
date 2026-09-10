@@ -1,6 +1,5 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(feature = "virt")]
 
 use std::borrow::Cow;
 
@@ -972,7 +971,7 @@ fn command_response() {
     for t in tests {
         println!("\n\n===========================================================",);
         println!("Running {}", t.name);
-        opcard::virt::with_ram_client("opcard", |client| {
+        dev_vpicc::virt::with_ram_client("opcard", |client| {
             let mut card = opcard::Card::new(client, opcard::Options::default());
             for io in t.cmd_resp {
                 io.run(&mut card);

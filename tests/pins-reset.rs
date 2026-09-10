@@ -1,6 +1,5 @@
 // Copyright (C) 2023 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(all(feature = "virt", not(feature = "dangerous-test-real-card")))]
 
 mod card;
 use card::Card;
@@ -22,7 +21,11 @@ use test_log::test;
 // Tested with the VPICC example that it works with gpg
 #[ignore]
 fn factory_reset_pins_no_data() {
-    opcard::virt::with_leaking_client(StoreConfig::ram(), "opcard", |mut client| {
+    if card::dangerous_real_card_enabled() {
+        return;
+    }
+
+    dev_vpicc::virt::with_leaking_client(StoreConfig::ram(), "opcard", |mut client| {
         let default_user_pin = Bytes::from(b"123456");
         let default_admin_pin = Bytes::from(b"12345678");
         syscall!(client.set_pin(0, default_user_pin, Some(3), true,));
@@ -49,7 +52,11 @@ fn factory_reset_pins_no_data() {
 #[test]
 #[ignore]
 fn factory_reset_pins_bad_data() {
-    opcard::virt::with_leaking_client(StoreConfig::ram(), "opcard", |mut client| {
+    if card::dangerous_real_card_enabled() {
+        return;
+    }
+
+    dev_vpicc::virt::with_leaking_client(StoreConfig::ram(), "opcard", |mut client| {
         let options = opcard::Options::default();
         let default_user_pin = Bytes::from(b"123456");
         let default_admin_pin = Bytes::from(b"12345678");

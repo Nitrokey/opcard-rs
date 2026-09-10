@@ -11,17 +11,18 @@ repository = "https://github.com/nitrokey/opcard-rs"
 license = "LGPL-3.0-only"
 
 [workspace]
+resolver = "3"
 members = [
-	"fuzz"
+	"dev-vpicc",
+	"fuzz",
 ]
 
 [[example]]
 name = "vpicc"
-required-features = ["vpicc"]
 
 [[example]]
 name = "usbip"
-required-features = ["apdu-dispatch", "virt"]
+required-features = ["apdu-dispatch"]
 
 [dependencies]
 cbor-smol = { version = "0.5", features = ["heapless-bytes-v0-5"] }
@@ -35,23 +36,18 @@ subtle = { version = "2.4.1", default-features = false }
 trussed-chunked = "0.3.0"
 # TODO: only set RSA features if RSA is enabled?
 trussed-core = { version = "0.2", features = ["aes256-cbc", "brainpoolp256r1", "brainpoolp384r1", "brainpoolp512r1", "chacha8-poly1305", "crypto-client", "ed255", "filesystem-client", "p256", "p384", "p521", "rsa2048", "rsa3072", "rsa4096", "secp256k1", "shared-secret", "ui-client", "x255"] }
-trussed-rsa-alloc = { version = "0.5", optional = true }
 trussed-rsa-types = { version = "0.2", optional = true }
 trussed-wrap-key-to-file = "0.3.0"
 serde_repr = "0.1"
-hex-literal = "0.4.1"
+hex-literal = "1"
 trussed-auth = "0.5"
 admin-app = { version = "0.3", optional = true }
 
 # optional dependencies
 apdu-app = { version = "0.2", optional = true }
 delog = { version = "0.1.7", optional = true }
-trussed-staging = { version = "0.5", features = ["chunked", "wrap-key-to-file"], optional = true }
-vpicc = { version = "0.1.0", optional = true }
 cfg-if = "1.0.0"
 bitflags = "2.5.0"
-trussed = { version = "0.2", default-features = false, optional = true }
-trussed-auth-backend = { version = "0.2", optional = true }
 
 [dev-dependencies]
 apdu-dispatch = "0.4"
@@ -71,6 +67,8 @@ ron = "0.8"
 serde_cbor = "0.11"
 tempfile = "3.8.0"
 hex = { version = "0.4", features = ["serde"] }
+vpicc = "0.1.0"
+dev-vpicc = { path = "dev-vpicc" }
 
 # usbip
 trussed-usbip = { version = "0.1", default-features = false, features = ["ccid"] }
@@ -78,10 +76,7 @@ serde_test = "1.0.177"
 
 [features]
 default = []
-std = []
 apdu-dispatch = ["dep:apdu-app"]
-vpicc = ["std", "dep:vpicc", "virt"]
-virt = ["std", "trussed/virt", "trussed-auth-backend", "trussed-rsa-alloc", "trussed-staging"]
 
 rsa = ["trussed-rsa-types"]
 rsa2048 = ["rsa"]
@@ -90,8 +85,6 @@ rsa3072 = ["rsa2048"]
 rsa3072-gen = ["rsa3072", "rsa2048-gen"]
 rsa4096 = ["rsa3072"]
 rsa4096-gen = ["rsa4096", "rsa3072-gen"]
-
-dangerous-test-real-card = []
 
 # used for delog
 log-all = []

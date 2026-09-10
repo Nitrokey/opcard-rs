@@ -1,20 +1,18 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
-#![cfg(all(feature = "vpicc", feature = "rsa2048-gen"))]
-
+mod card;
 mod gpg;
 mod virt;
 
 use test_log::test;
 
-#[cfg(not(feature = "dangerous-test-real-card"))]
+use crate::card::dangerous_real_card_enabled;
+
 #[test]
 fn rsa2048_gpg() {
-    virt::with_vsc(|| gpg::gpg_test(gpg::KeyAlgo::Rsa2048));
-}
-
-#[cfg(feature = "dangerous-test-real-card")]
-#[test]
-fn rsa2048_gpg_hardware() {
-    gpg::gpg_test(gpg::KeyAlgo::Rsa2048);
+    if dangerous_real_card_enabled() {
+        gpg::gpg_test(gpg::KeyAlgo::Rsa2048);
+    } else {
+        virt::with_vsc(|| gpg::gpg_test(gpg::KeyAlgo::Rsa2048));
+    }
 }
