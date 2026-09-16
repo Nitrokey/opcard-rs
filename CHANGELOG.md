@@ -7,6 +7,12 @@ SPDX-License-Identifier: CC0-1.0
 
 ## Unreleased
 
+-
+
+## [v1.10.0][] (2026-09-16)
+
+[v1.10.0]: https://github.com/Nitrokey/opcard-rs/releases/tag/v1.10.0
+
 - Update to `admin-app` v0.4
 
 ## [v1.9.0][] (2026-09-10)
