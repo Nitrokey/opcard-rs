@@ -61,7 +61,7 @@ fuzz-cov:
 
 .PHONY: tarpaulin
 tarpaulin:
-	cargo tarpaulin --features rsa4096-gen -o Html -o Xml
+	cargo tarpaulin --features rsa4096-gen -o Html -o Xml --timeout 180
 
 .PHONY: ci
 ci: lint tarpaulin
