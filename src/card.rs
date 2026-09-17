@@ -1,14 +1,16 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-#[cfg(feature = "admin-app")]
-use admin_app::{ResetSignal, ResetSignalAllocation};
 use bitflags::bitflags;
 use hex_literal::hex;
 use iso7816::Status;
 use trussed_auth::AuthClient;
 use trussed_chunked::ChunkedClient;
-use trussed_core::{types::Location, CryptoClient, FilesystemClient, UiClient};
+use trussed_core::{
+    reset_signal::{ResetSignal, ResetSignalAllocation},
+    types::Location,
+    CryptoClient, FilesystemClient, UiClient,
+};
 
 pub(crate) mod reply;
 
@@ -46,7 +48,6 @@ impl<T: Client> Card<T> {
         }
     }
 
-    #[cfg(feature = "admin-app")]
     fn ack_factory_reset(&mut self, reset_signal: &ResetSignalAllocation) -> bool {
         self.state = State::default();
         reset_signal.ack_factory_reset()
@@ -60,7 +61,6 @@ impl<T: Client> Card<T> {
         command: iso7816::command::CommandView<'_>,
         reply: &mut heapless::VecView<u8>,
     ) -> Result<(), Status> {
-        #[cfg(feature = "admin-app")]
         if let Some(reset_signal) = self.options.reset_signal {
             match reset_signal.load() {
                 ResetSignal::None => {}
@@ -92,7 +92,6 @@ impl<T: Client> Card<T> {
 
     /// Resets the state of the card.
     pub fn reset(&mut self) {
-        #[cfg(feature = "admin-app")]
         if let Some(reset_signal) = self.options.reset_signal {
             match reset_signal.load() {
                 ResetSignal::None => {}
@@ -254,9 +253,6 @@ pub struct Options {
     pub allowed_generation: AllowedAlgorithms,
 
     /// Flag to signal that the application has had its configuration changed or was factory-resetted by the admin application
-    ///
-    /// Requires the feature-flag admin-app
-    #[cfg(feature = "admin-app")]
     pub reset_signal: Option<&'static ResetSignalAllocation>,
 }
 
@@ -298,7 +294,6 @@ impl Default for Options {
             storage: Location::External,
             allowed_imports: AllowedAlgorithms::default_import(),
             allowed_generation: AllowedAlgorithms::default_gen(),
-            #[cfg(feature = "admin-app")]
             reset_signal: None,
         }
     }

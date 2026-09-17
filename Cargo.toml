@@ -41,7 +41,6 @@ trussed-wrap-key-to-file = "0.3.0"
 serde_repr = "0.1"
 hex-literal = "1"
 trussed-auth = "0.5"
-admin-app = { version = "0.4", optional = true }
 
 # optional dependencies
 apdu-app = { version = "0.2", optional = true }
@@ -97,6 +96,7 @@ log-error = []
 
 [patch.crates-io]
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
+trussed-core = { git = "https://github.com/trussed-dev/trussed.git", rev = "bc01fd6728f3b1efef2eb12adcce5acff558f6bb"}
 
 [package.metadata.docs.rs]
 all-features = true
