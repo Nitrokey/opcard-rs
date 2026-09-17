@@ -10,6 +10,10 @@ v3.4][spec] using the [Trussed][] framework for modern cryptographic firmware.
 It is developed for the [Nitrokey 3][] but can be used with any device
 supporting Trussed.
 
+> [!WARNING]
+> opcard releases do not follow Rust semver, see [Versioning](#versioning).
+
+
 [spec]: https://github.com/Nitrokey/openpgp-card/raw/master/OpenPGP%20Card%20Specification%203.4.pdf
 [Trussed]: https://github.com/trussed-dev/trussed
 [Nitrokey 3]: https://github.com/nitrokey/nitrokey-3-firmware
@@ -39,6 +43,13 @@ Here are the currently supported algorithms:
   - brainpoolp384r1
   - brainpoolp512r1
 - EdDSA and ECDH for Curve25519
+
+## Versioning
+
+opcard version numbers are based on the functionality provided by the application, not on the compatibility of the Rust library.
+This means that even minor releases may break compilation if you use opcard as a library.
+If you depend on opcard as a library, you should pin it to a minor version.
+
 
 ## Development
 
