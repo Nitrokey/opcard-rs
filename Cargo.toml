@@ -50,7 +50,7 @@ bitflags = "2.5.0"
 
 [dev-dependencies]
 apdu-dispatch = "0.4"
-env_logger = "0.9"
+env_logger = "0.11"
 littlefs2 = "0.8"
 openpgp-card = "0.3"
 openpgp-card-sequoia = "0.1.2"
@@ -62,7 +62,7 @@ test-log = "0.2.10"
 trussed = { version = "0.2", features = ["virt", "p384", "p521"] }
 trussed-rsa-alloc = { version = "0.5", features = ["virt"] }
 rand = "0.8.5"
-ron = "0.8"
+ron = "0.12"
 serde_cbor = "0.11"
 tempfile = "3.8.0"
 hex = { version = "0.4", features = ["serde"] }
