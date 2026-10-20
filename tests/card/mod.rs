@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 #![allow(unused)]
 
-use std::sync::{Arc, Mutex};
+use std::{
+    io::BufReader,
+    sync::{Arc, Mutex},
+};
 
+use card_backend::{CardBackend, CardCaps, CardTransaction, PinType, SmartcardError};
 use dev_vpicc::virt::VirtClient;
 use iso7816::{
     command::{CommandView, FromSliceError},
@@ -11,11 +15,26 @@ use iso7816::{
 };
 use opcard::Options;
 use openpgp_card::{
-    algorithm::AlgoSimple, CardBackend, CardCaps, CardTransaction, Error, OpenPgp,
-    OpenPgpTransaction, PinType,
+    ocard::{
+        algorithm::{AlgoSimple, AlgorithmAttributes, Curve, EccAttributes, RsaAttributes},
+        crypto::{EccType, PublicKeyMaterial},
+        data::{Fingerprint, KeyGenerationTime},
+        KeyType, OpenPGP, Transaction as OpenPgpTransaction,
+    },
+    state::{Admin, Open},
+    Error,
 };
-use sequoia_openpgp::types::HashAlgorithm;
+use pgp::{
+    composed::{Message, MessageBuilder},
+    crypto::{aead::AeadAlgorithm, hash::HashAlgorithm, sym::SymmetricKeyAlgorithm},
+    packet::PublicKey,
+    types::{EskType, Password},
+};
 
+use openpgp_card_rpgp::{public_key_material_to_key, CardSlot};
+use pgp::types::KeyDetails;
+
+use secrecy::SecretBox;
 use trussed::virt::StoreConfig;
 use trussed::{virt::Platform, Service};
 use trussed_auth::AuthClient;
@@ -46,10 +65,21 @@ impl<T: opcard::Client + Send + Sync + 'static> Card<T> {
 
     pub fn with_tx<F: FnOnce(OpenPgpTransaction<'_>) -> R, R>(&mut self, f: F) -> R {
         let dyn_b: Box<(dyn CardBackend + Send + Sync + 'static)> = Box::new(Self(self.0.clone()));
-        let mut openpgp = OpenPgp::new(dyn_b);
+        let mut openpgp = OpenPGP::new(dyn_b).unwrap();
         let tx = openpgp.transaction().expect("failed to create transaction");
         f(tx)
     }
+
+    pub fn with_card<F: FnOnce(openpgp_card::Card<openpgp_card::state::Transaction>) -> R, R>(
+        &mut self,
+        f: F,
+    ) -> R {
+        let dyn_b: Box<(dyn CardBackend + Send + Sync + 'static)> = Box::new(Self(self.0.clone()));
+        let mut card = openpgp_card::Card::new(dyn_b).unwrap();
+
+        f(card.transaction().unwrap())
+    }
+
     pub fn with_many_tx(
         &mut self,
         fs: impl IntoIterator<Item = impl FnOnce(OpenPgpTransaction<'_>)>,
@@ -66,13 +96,20 @@ impl<T: opcard::Client + Send + Sync + 'static> Card<T> {
 }
 
 impl<T: opcard::Client + Send + Sync + 'static> CardBackend for Card<T> {
-    fn transaction(&mut self) -> Result<Box<dyn CardTransaction + Send + Sync + Sync>, Error> {
+    fn limit_card_caps(&self, card_caps: CardCaps) -> CardCaps {
+        card_caps
+    }
+
+    fn transaction(
+        &mut self,
+        _reselect_application: Option<&[u8]>,
+    ) -> Result<Box<dyn CardTransaction + Send + Sync + Sync>, SmartcardError> {
         let mut transaction = Transaction {
             card: self.0.clone(),
             caps: None,
             buffer: heapless::Vec::new(),
         };
-        CardTransaction::initialize(&mut transaction).unwrap();
+        // CardTransaction::initialize(&mut transaction).unwrap();
         Ok(Box::new(transaction))
     }
 }
@@ -100,7 +137,7 @@ impl<T: opcard::Client + Send + Sync + 'static> Transaction<T> {
 }
 
 impl<T: opcard::Client + Send + Sync + 'static> CardTransaction for Transaction<T> {
-    fn transmit(&mut self, command: &[u8], _buf_size: usize) -> Result<Vec<u8>, Error> {
+    fn transmit(&mut self, command: &[u8], _buf_size: usize) -> Result<Vec<u8>, SmartcardError> {
         let status = self.handle(command).err().unwrap_or_default();
         let status: [u8; 2] = status.into();
         let mut response = Vec::with_capacity(self.buffer.len() + 2);
@@ -109,12 +146,8 @@ impl<T: opcard::Client + Send + Sync + 'static> CardTransaction for Transaction<
         Ok(response)
     }
 
-    fn init_card_caps(&mut self, caps: CardCaps) {
-        self.caps = Some(caps);
-    }
-
-    fn card_caps(&self) -> Option<&CardCaps> {
-        self.caps.as_ref()
+    fn was_reset(&self) -> bool {
+        false
     }
 
     fn feature_pinpad_verify(&self) -> bool {
@@ -125,11 +158,19 @@ impl<T: opcard::Client + Send + Sync + 'static> CardTransaction for Transaction<
         false
     }
 
-    fn pinpad_verify(&mut self, _pin: PinType) -> Result<Vec<u8>, Error> {
+    fn pinpad_verify(
+        &mut self,
+        _pin: PinType,
+        _card_caps: &Option<CardCaps>,
+    ) -> Result<Vec<u8>, SmartcardError> {
         unimplemented!();
     }
 
-    fn pinpad_modify(&mut self, _pin: PinType) -> Result<Vec<u8>, Error> {
+    fn pinpad_modify(
+        &mut self,
+        _pin: PinType,
+        _card_caps: &Option<CardCaps>,
+    ) -> Result<Vec<u8>, SmartcardError> {
         unimplemented!();
     }
 }
@@ -159,9 +200,9 @@ pub fn with_many_tx(fs: impl IntoIterator<Item = impl FnOnce(OpenPgpTransaction<
 pub fn error_to_retries(err: Result<(), openpgp_card::Error>) -> Option<u8> {
     match err {
         Ok(()) => None,
-        Err(openpgp_card::Error::CardStatus(openpgp_card::StatusBytes::PasswordNotChecked(c))) => {
-            Some(c)
-        }
+        Err(openpgp_card::Error::CardStatus(
+            openpgp_card::ocard::StatusBytes::PasswordNotChecked(c),
+        )) => Some(c),
         Err(e) => panic!("Unexpected error {e}"),
     }
 }
@@ -200,13 +241,13 @@ impl From<KeyAlgo> for AlgoSimple {
 impl KeyAlgo {
     fn hash_algo(self) -> HashAlgorithm {
         match self {
-            KeyAlgo::Rsa2048 => HashAlgorithm::SHA256,
-            KeyAlgo::Rsa3072 => HashAlgorithm::SHA384,
-            KeyAlgo::Rsa4096 => HashAlgorithm::SHA512,
-            KeyAlgo::Cv25519 => HashAlgorithm::SHA256,
-            KeyAlgo::P256 => HashAlgorithm::SHA256,
-            KeyAlgo::P384 => HashAlgorithm::SHA384,
-            KeyAlgo::P521 => HashAlgorithm::SHA512,
+            KeyAlgo::Rsa2048 => HashAlgorithm::Sha256,
+            KeyAlgo::Rsa3072 => HashAlgorithm::Sha384,
+            KeyAlgo::Rsa4096 => HashAlgorithm::Sha512,
+            KeyAlgo::Cv25519 => HashAlgorithm::Sha256,
+            KeyAlgo::P256 => HashAlgorithm::Sha256,
+            KeyAlgo::P384 => HashAlgorithm::Sha384,
+            KeyAlgo::P521 => HashAlgorithm::Sha512,
         }
     }
 
@@ -235,22 +276,37 @@ impl KeyAlgo {
     }
 }
 
-pub fn sequoia_test(algo: KeyAlgo) {
-    use openpgp_card::KeyType;
-    use openpgp_card_pcsc::PcscBackend;
-    use openpgp_card_sequoia::util::public_key_material_to_key;
-    use openpgp_card_sequoia::{state::Open, Card};
-    use sequoia_openpgp::crypto::Decryptor;
-    use sequoia_openpgp::crypto::SessionKey;
-    use sequoia_openpgp::crypto::Signer;
+fn encrypt_for_key(plaintext: &[u8], public_key: &PublicKey) -> Vec<u8> {
+    let mut rng = rand::thread_rng();
+    let mut builder = MessageBuilder::from_bytes("", plaintext.to_owned()).seipd_v2(
+        &mut rng,
+        SymmetricKeyAlgorithm::default(),
+        AeadAlgorithm::Ocb,
+        Default::default(),
+    );
+    builder.encrypt_to_key(&mut rng, public_key);
+    builder.to_vec(&mut rng).unwrap()
+}
 
-    let mut card: Card<Open> = PcscBackend::open_by_ident(IDENT, None).unwrap().into();
+pub fn sequoia_test(algo: KeyAlgo) {
+    use openpgp_card::ocard::KeyType;
+    use openpgp_card::{state::Open, Card};
+    use openpgp_card_rpgp::public_key_material_to_key;
+    use pgp::crypto::Decryptor;
+    use pgp::crypto::Signer;
+    use pgp::types::{EncryptionKey, VerifyingKey};
+
+    let mut card: Card<Open> = Card::open_by_ident(
+        card_backend_pcsc::PcscBackend::card_backends(None).unwrap(),
+        IDENT,
+    )
+    .unwrap()
+    .into();
     let mut open = card.transaction().unwrap();
-    open.verify_admin(b"12345678").unwrap();
-    let mut admin = open.admin_card().unwrap();
-    let (material, gendate) = admin
-        .generate_key_simple(KeyType::Decryption, Some(algo.into()))
-        .unwrap();
+    open.verify_admin_pin(secret_str("12345678")).unwrap();
+    let mut admin = open.as_admin_card(None).unwrap();
+    let (material, gendate) =
+        generate_key_simple(&mut admin, KeyType::Decryption, algo.into()).unwrap();
 
     let dec_pubk =
         public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None).unwrap();
@@ -260,9 +316,8 @@ pub fn sequoia_test(algo: KeyAlgo) {
 
     println!("======== GENERATED {algo:?} Decryption key =======");
 
-    let (material, gendate) = admin
-        .generate_key_simple(KeyType::Authentication, Some(algo.into()))
-        .unwrap();
+    let (material, gendate) =
+        generate_key_simple(&mut admin, KeyType::Authentication, algo.into()).unwrap();
     let aut_pubk =
         public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
             .unwrap();
@@ -271,89 +326,175 @@ pub fn sequoia_test(algo: KeyAlgo) {
 
     println!("======== GENERATED {algo:?} Authentication key =======");
 
-    let (material, gendate) = admin
-        .generate_key_simple(KeyType::Signing, Some(algo.into()))
-        .unwrap();
+    let (material, gendate) =
+        generate_key_simple(&mut admin, KeyType::Signing, algo.into()).unwrap();
     let sign_pubk =
         public_key_material_to_key(&material, KeyType::Signing, &gendate, None, None).unwrap();
 
     println!("======== GENERATED {algo:?} Signing key =======");
 
-    open.verify_user_for_signing(b"123456").unwrap();
-    let mut sign_card = open.signing_card().unwrap();
-    let mut signer = sign_card.signer_from_public(sign_pubk.clone(), &|| {});
+    open.verify_user_signing_pin(secret_str("123456")).unwrap();
+    let mut signer =
+        CardSlot::with_public_key(&mut open, KeyType::Signing, sign_pubk.clone(), &|| {}).unwrap();
     let data = vec![1; algo.plaintext_len()];
-    let signature = signer.sign(algo.hash_algo(), &data).unwrap();
+    let signature = signer
+        .sign_data(&data, false, &Password::empty(), algo.hash_algo())
+        .unwrap();
     assert!(sign_pubk
-        .verify(&signature, algo.hash_algo(), &data)
+        .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
         .is_ok());
 
     println!("======== Verified signature =======");
 
-    open.verify_user(b"123456").unwrap();
-    let mut user_card = open.user_card().unwrap();
-    let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+    open.verify_user_pin(secret_str("123456")).unwrap();
+    let mut authenticator =
+        CardSlot::with_public_key(&mut open, KeyType::Authentication, aut_pubk.clone(), &|| {})
+            .unwrap();
     let data = vec![2; algo.plaintext_len()];
-    let signature = authenticator.sign(algo.hash_algo(), &data).unwrap();
+    let signature = authenticator
+        .sign_data(&data, false, &Password::empty(), algo.hash_algo())
+        .unwrap();
     assert!(dec_pubk_aut
-        .verify(&signature, algo.hash_algo(), &data)
+        .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
         .is_err());
-    assert!(aut_pubk.verify(&signature, algo.hash_algo(), &data).is_ok());
+    assert!(aut_pubk
+        .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
+        .is_ok());
 
     println!("======== Verified authentication =======");
 
-    let mut session = SessionKey::new(19);
-    session[0] = 7;
-    let ciphertext = dec_pubk.encrypt(&session).unwrap();
-    let mut decryptor = user_card.decryptor_from_public(dec_pubk, &|| {});
+    let plaintext = b"plaintext";
+    let ciphertext_bytes = encrypt_for_key(plaintext, &dec_pubk);
+    let ciphertext_message = Message::from_bytes(BufReader::new(&*ciphertext_bytes)).unwrap();
+    let mut decryptor =
+        CardSlot::with_public_key(&mut open, KeyType::Decryption, dec_pubk.clone(), &|| {})
+            .unwrap();
     assert_eq!(
-        session,
-        decryptor
-            .decrypt(&ciphertext, Some(algo.plaintext_len()))
+        plaintext.as_slice(),
+        &decryptor
+            .decrypt_message(ciphertext_message)
+            .unwrap()
+            .as_data_vec()
             .unwrap()
     );
 
     open.manage_security_environment(KeyType::Authentication, KeyType::Decryption)
         .unwrap();
-    let mut user_card = open.user_card().unwrap();
-    let mut authenticator = user_card.authenticator_from_public(aut_pubk.clone(), &|| {});
+    let mut user_card = open.as_user_card(None).unwrap();
+    let mut authenticator =
+        CardSlot::with_public_key(&mut open, KeyType::Authentication, aut_pubk.clone(), &|| {})
+            .unwrap();
     let data = vec![3; algo.plaintext_len()];
     if algo.can_work_with_mse() {
-        let signature = authenticator.sign(algo.hash_algo(), &data).unwrap();
+        let signature = authenticator
+            .sign_data(&data, false, &Password::empty(), algo.hash_algo())
+            .unwrap();
         assert!(aut_pubk
-            .verify(&signature, algo.hash_algo(), &data)
+            .verify(algo.hash_algo(), &data, &signature.signature().unwrap(),)
             .is_err());
         dec_pubk_aut
-            .verify(&signature, algo.hash_algo(), &data)
+            .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
             .unwrap();
     } else {
-        _ = authenticator.sign(algo.hash_algo(), &data).unwrap_err();
+        _ = authenticator
+            .sign_data(&data, false, &Password::empty(), algo.hash_algo())
+            .unwrap_err();
     }
 
     println!("======== Verified MSE 1 =======");
 
     open.manage_security_environment(KeyType::Decryption, KeyType::Authentication)
         .unwrap();
-    let mut user_card = open.user_card().unwrap();
-    let mut session = SessionKey::new(19);
-    session[0] = 7;
+    let mut user_card = open.as_user_card(None).unwrap();
+    let plaintext = b"plaintext";
     if algo.can_work_with_mse() {
-        let ciphertext = aut_pubk_dec.encrypt(&session).unwrap();
-        let mut decryptor = user_card.decryptor_from_public(aut_pubk_dec, &|| {});
+        let plaintext = b"plaintext";
+        let ciphertext_bytes = encrypt_for_key(plaintext, &aut_pubk_dec);
+        let ciphertext_message = Message::from_bytes(BufReader::new(&*ciphertext_bytes)).unwrap();
+        let mut decryptor =
+            CardSlot::with_public_key(&mut open, KeyType::Decryption, aut_pubk_dec.clone(), &|| {})
+                .unwrap();
         assert_eq!(
-            session,
-            decryptor
-                .decrypt(&ciphertext, Some(algo.plaintext_len()))
+            plaintext.as_slice(),
+            &decryptor
+                .decrypt_message(ciphertext_message)
+                .unwrap()
+                .as_data_vec()
                 .unwrap()
         );
     } else {
-        let mut decryptor = user_card.decryptor_from_public(aut_pubk_dec, &|| {});
-        assert!(decryptor
-            .decrypt(&ciphertext, Some(algo.plaintext_len()))
-            .is_err());
+        let mut decryptor =
+            CardSlot::with_public_key(&mut open, KeyType::Decryption, aut_pubk_dec.clone(), &|| {})
+                .unwrap();
+        let plaintext = b"plaintext";
+        let ciphertext_bytes = encrypt_for_key(plaintext, &aut_pubk_dec);
+        let ciphertext_message = Message::from_bytes(BufReader::new(&*ciphertext_bytes)).unwrap();
+        assert!(decryptor.decrypt_message(ciphertext_message).is_err());
     }
 
     println!("======== Verified MSE 2 =======");
 
     open.factory_reset().unwrap();
+}
+
+pub fn secret_pin(data: &[u8]) -> SecretBox<[u8]> {
+    SecretBox::new(data.into())
+}
+
+pub fn secret_str(data: &str) -> SecretBox<str> {
+    SecretBox::new(data.into())
+}
+
+pub fn public_key_material_to_fp(
+    mat: &PublicKeyMaterial,
+    time: KeyGenerationTime,
+    ty: KeyType,
+) -> Result<Fingerprint, openpgp_card::Error> {
+    let key = public_key_material_to_key(mat, ty, &time, None, None).unwrap();
+
+    // Get fingerprint from the Sequoia Key
+    let fp = key.fingerprint();
+    fp.as_bytes().try_into()
+}
+
+pub fn generate_key_simple(
+    card: &mut openpgp_card::Card<Admin>,
+    key_type: KeyType,
+    algo: AlgoSimple,
+) -> Result<(PublicKeyMaterial, KeyGenerationTime), openpgp_card::Error> {
+    card.set_algorithm(key_type, algo)?;
+    card.generate_key(public_key_material_to_fp, key_type)
+}
+
+pub fn generate_key_simple_transaction(
+    card: &mut OpenPgpTransaction,
+    key_type: KeyType,
+    algo: AlgoSimple,
+) -> Result<(PublicKeyMaterial, KeyGenerationTime), openpgp_card::Error> {
+    let attributes =
+        match (algo, key_type) {
+            (AlgoSimple::RSA2k, _) => AlgorithmAttributes::Rsa(RsaAttributes::new(2048, 32, 0)),
+            (AlgoSimple::RSA3k, _) => AlgorithmAttributes::Rsa(RsaAttributes::new(3072, 32, 0)),
+            (AlgoSimple::RSA4k, _) => AlgorithmAttributes::Rsa(RsaAttributes::new(4096, 32, 0)),
+            (AlgoSimple::NIST256, KeyType::Decryption) => AlgorithmAttributes::Ecc(
+                EccAttributes::new(EccType::ECDH, Curve::Secp256k1, Some(0xFF)),
+            ),
+            (AlgoSimple::NIST256, _) => AlgorithmAttributes::Ecc(EccAttributes::new(
+                EccType::ECDSA,
+                Curve::Secp256k1,
+                Some(0xFF),
+            )),
+            (AlgoSimple::Curve25519, KeyType::Decryption) => AlgorithmAttributes::Ecc(
+                EccAttributes::new(EccType::ECDH, Curve::Curve25519, Some(0xFF)),
+            ),
+            (AlgoSimple::Curve25519, _) => AlgorithmAttributes::Ecc(EccAttributes::new(
+                EccType::EdDSA,
+                Curve::Ed25519,
+                Some(0xFF),
+            )),
+            _ => todo!("Implement {algo:?} {key_type:?}"),
+        };
+    println!("Setting attributes: {attributes:?}");
+    card.set_algorithm_attributes(key_type, &attributes)?;
+    card.generate_key(public_key_material_to_fp, key_type)
 }

@@ -1128,7 +1128,7 @@ fn put_alg_attributes_sign<T: crate::card::Client>(
 ) -> Result<(), Status> {
     let alg = SignatureAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
-            "PUT DATA for signature attribute for unkown algorithm: {:x?}",
+            "PUT DATA for signature attribute for unkown algorithm: {:02x?}",
             ctx.data
         );
         Status::IncorrectDataParameter
@@ -1143,7 +1143,7 @@ fn put_alg_attributes_sign<T: crate::card::Client>(
 fn put_alg_attributes_dec<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let alg = DecryptionAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
-            "PUT DATA for decryption attribute for unkown algorithm: {:x?}",
+            "PUT DATA for decryption attribute for unkown algorithm: {:02x?}",
             ctx.data
         );
         Status::IncorrectDataParameter
@@ -1158,7 +1158,7 @@ fn put_alg_attributes_dec<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> 
 fn put_alg_attributes_aut<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
     let alg = AuthenticationAlgorithm::try_from(ctx.data).map_err(|_| {
         warn!(
-            "PUT DATA for authentication attribute for unkown algorithm: {:x?}",
+            "PUT DATA for authentication attribute for unkown algorithm: {:02x?}",
             ctx.data
         );
         Status::IncorrectDataParameter

@@ -121,8 +121,8 @@ const ECDH_BRAINPOOL_P512R1_ATTRIBUTES: &[u8] = hex!("122b240303020801010d").as_
 const ECDH_BRAINPOOL_P256R1_ATTRIBUTES_PK: &[u8] = hex!("122b2403030208010107 FF").as_slice();
 const ECDH_BRAINPOOL_P384R1_ATTRIBUTES_PK: &[u8] = hex!("122b240303020801010b FF").as_slice();
 const ECDH_BRAINPOOL_P512R1_ATTRIBUTES_PK: &[u8] = hex!("122b240303020801010d FF").as_slice();
-const X255_ATTRIBUTES: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01").as_slice();
-const X255_ATTRIBUTES_PK: &[u8] = hex!("12 2B 06 01 04 01 97 55 01 05 01 FF").as_slice();
+const X255_ATTRIBUTES: &[u8] = hex!("122B060104019755010501").as_slice();
+const X255_ATTRIBUTES_PK: &[u8] = hex!("122B060104019755010501FF").as_slice();
 const RSA_2K_ATTRIBUTES: &[u8] = hex!(
     "01"
     "0800" // Length modulus (in bit): 2048

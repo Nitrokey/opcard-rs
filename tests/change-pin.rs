@@ -1,13 +1,15 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use openpgp_card::StatusBytes;
+use openpgp_card::ocard::StatusBytes;
 use test_log::test;
 
 mod card;
 
 use card::{error_to_retries, with_card};
 use opcard::{DEFAULT_ADMIN_PIN, DEFAULT_USER_PIN};
+
+use crate::card::secret_pin;
 
 macro_rules! assert_checks {
     ($tx:expr, $sign:expr, $user:expr, $admin:expr) => {{
@@ -43,86 +45,132 @@ fn change() {
 
     with_card(|mut card| {
         card.with_tx(|mut tx| {
-            assert!(tx.verify_pw1_user(b"bad pin").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"bad pin")).is_err());
             assert_eq!(error_to_retries(tx.check_pw1_user()), Some(2));
-            assert!(tx.change_pw1(b"bad pin", b"new pin").is_err());
+            assert!(tx
+                .change_pw1(secret_pin(b"bad pin"), secret_pin(b"new pin"))
+                .is_err());
             assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(1));
-            assert!(tx.verify_pw1_user(DEFAULT_USER_PIN).is_ok());
-            assert!(tx.verify_pw1_sign(b"new pin").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(DEFAULT_USER_PIN)).is_ok());
+            assert!(tx.verify_pw1_sign(secret_pin(b"new pin")).is_err());
             assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
             // new pin too short
-            assert!(tx.change_pw1(DEFAULT_USER_PIN, b"").is_err());
+            assert!(tx
+                .change_pw1(secret_pin(DEFAULT_USER_PIN), secret_pin(b""))
+                .is_err());
             // Pin validation routine didn't run
             assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
             // New pin too long
-            assert!(tx.change_pw1(DEFAULT_USER_PIN, &[55; 129]).is_err());
+            assert!(tx
+                .change_pw1(secret_pin(DEFAULT_USER_PIN), secret_pin(&[55; 129]))
+                .is_err());
             // The pin validation part still ran
             assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(3));
 
             // New pin not utf8
-            assert!(tx.change_pw1(DEFAULT_USER_PIN, &[0; 8]).is_ok());
-            assert!(tx.change_pw1(&[0; 8], &[255; 8]).is_ok());
-            assert!(tx.change_pw1(&[255; 8], &[]).is_err());
-            assert!(tx.change_pw1(&[255; 8], &[1]).is_err());
+            assert!(tx
+                .change_pw1(secret_pin(DEFAULT_USER_PIN), secret_pin(&[0; 8]))
+                .is_ok());
+            assert!(tx
+                .change_pw1(secret_pin(&[0; 8]), secret_pin(&[255; 8]))
+                .is_ok());
+            assert!(tx
+                .change_pw1(secret_pin(&[255; 8]), secret_pin(&[]))
+                .is_err());
+            assert!(tx
+                .change_pw1(secret_pin(&[255; 8]), secret_pin(&[1]))
+                .is_err());
 
             let unicode = "ハローワールド".as_bytes();
             // More than 127 bytes (max supported length)
-            assert!(tx.change_pw1(&[255; 8], &[0xcc; 129]).is_err());
-            assert!(tx.change_pw1(&[255; 8], &unicode[0..10]).is_ok());
-            assert!(tx.verify_pw1_user(&unicode[0..10]).is_ok());
-            assert!(tx.change_pw1(&unicode[0..10], b"new pin").is_ok());
-            assert!(tx.verify_pw1_user(DEFAULT_USER_PIN).is_err());
+            assert!(tx
+                .change_pw1(secret_pin(&[255; 8]), secret_pin(&[0xcc; 129]))
+                .is_err());
+            assert!(tx
+                .change_pw1(secret_pin(&[255; 8]), secret_pin(&unicode[0..10]))
+                .is_ok());
+            assert!(tx.verify_pw1_user(secret_pin(&unicode[0..10])).is_ok());
+            assert!(tx
+                .change_pw1(secret_pin(&unicode[0..10]), secret_pin(b"new pin"))
+                .is_ok());
+            assert!(tx.verify_pw1_user(secret_pin(DEFAULT_USER_PIN)).is_err());
             assert_eq!(error_to_retries(tx.check_pw1_sign()), Some(2));
-            assert!(tx.verify_pw1_user(b"new pin").is_ok());
+            assert!(tx.verify_pw1_user(secret_pin(b"new pin")).is_ok());
         });
 
         card.with_tx(|mut tx| {
-            assert!(tx.change_pw3(b"bad pin2", b"new pin2").is_err());
+            assert!(tx
+                .change_pw3(secret_pin(b"bad pin2"), secret_pin(b"new pin2"))
+                .is_err());
             assert_eq!(error_to_retries(tx.check_pw3()), Some(2));
-            assert!(tx.verify_pw3(b"new pin2").is_err());
+            assert!(tx.verify_pw3(secret_pin(b"new pin2")).is_err());
             assert_eq!(error_to_retries(tx.check_pw3()), Some(1));
-            assert!(tx.change_pw3(DEFAULT_ADMIN_PIN, b"new pin2").is_ok());
+            assert!(tx
+                .change_pw3(secret_pin(DEFAULT_ADMIN_PIN), secret_pin(b"new pin2"))
+                .is_ok());
             assert_eq!(error_to_retries(tx.check_pw3()), Some(3));
 
             // Too long
-            assert!(tx.change_pw3(b"bad pin2", &[10; 128]).is_err());
+            assert!(tx
+                .change_pw3(secret_pin(b"bad pin2"), secret_pin(&[10; 128]))
+                .is_err());
             assert_eq!(error_to_retries(tx.check_pw3()), Some(2));
 
             // New pin not utf8
-            assert!(tx.change_pw3(b"new pin2", &[10; 8]).is_ok());
-            assert!(tx.change_pw3(&[10; 8], &[255; 8]).is_ok());
-            assert!(tx.change_pw3(&[255; 8], &[]).is_err());
-            assert!(tx.change_pw3(&[255; 8], &[100]).is_err());
+            assert!(tx
+                .change_pw3(secret_pin(b"new pin2"), secret_pin(&[10; 8]))
+                .is_ok());
+            assert!(tx
+                .change_pw3(secret_pin(&[10; 8]), secret_pin(&[255; 8]))
+                .is_ok());
+            assert!(tx
+                .change_pw3(secret_pin(&[255; 8]), secret_pin(&[]))
+                .is_err());
+            assert!(tx
+                .change_pw3(secret_pin(&[255; 8]), secret_pin(&[100]))
+                .is_err());
 
             let unicode = "😀😃😄😁😆".as_bytes();
             // More than 127 bytes (max supported length)
-            assert!(tx.change_pw3(&[255; 8], &[0xde; 129]).is_err());
-            assert!(tx.change_pw3(&[255; 8], &unicode[0..13]).is_ok());
-            assert!(tx.verify_pw3(&unicode[0..13]).is_ok());
-            assert!(tx.change_pw3(&unicode[0..13], b"new pin2").is_ok());
-            assert!(tx.verify_pw3(b"new pin2").is_ok());
-            assert!(tx.verify_pw3(DEFAULT_ADMIN_PIN).is_err());
-            assert!(tx.verify_pw3(b"new pin2").is_ok());
+            assert!(tx
+                .change_pw3(secret_pin(&[255; 8]), secret_pin(&[0xde; 129]))
+                .is_err());
+            assert!(tx
+                .change_pw3(secret_pin(&[255; 8]), secret_pin(&unicode[0..13]))
+                .is_ok());
+            assert!(tx.verify_pw3(secret_pin(&unicode[0..13])).is_ok());
+            assert!(tx
+                .change_pw3(secret_pin(&unicode[0..13]), secret_pin(b"new pin2"))
+                .is_ok());
+            assert!(tx.verify_pw3(secret_pin(b"new pin2")).is_ok());
+            assert!(tx.verify_pw3(secret_pin(DEFAULT_ADMIN_PIN)).is_err());
+            assert!(tx.verify_pw3(secret_pin(b"new pin2")).is_ok());
 
-            tx.set_resetting_code(&[0; 127]).unwrap();
-            tx.set_resetting_code(&[0; 128]).unwrap_err();
+            tx.set_resetting_code(secret_pin(&[0; 127])).unwrap();
+            tx.set_resetting_code(secret_pin(&[0; 128])).unwrap_err();
         });
         card.reset();
         card.with_tx(|mut tx| {
-            tx.reset_retry_counter_pw1(b"123456", Some(&[0; 127]))
+            tx.reset_retry_counter_pw1(secret_pin(b"123456"), Some(secret_pin(&[0; 127])))
                 .unwrap();
             assert_checks!(tx, Some(3), Some(3), Some(3));
-            tx.verify_pw1_user(b"123456").unwrap();
+            tx.verify_pw1_user(secret_pin(b"123456")).unwrap();
         });
         card.reset();
         card.with_tx(|mut tx| {
-            assert!(tx.reset_retry_counter_pw1(b"new code", None).is_err());
-            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert!(tx
+                .reset_retry_counter_pw1(secret_pin(b"new code"), None)
+                .is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"new code")).is_err());
             assert_eq!(
-                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                error_to_retries(tx.reset_retry_counter_pw1(
+                    secret_pin(b"new code"),
+                    Some(secret_pin(b"12345678"))
+                )),
                 Some(2)
             );
-            let short_reset = tx.reset_retry_counter_pw1(b"short", Some(&[0; 127]));
+            let short_reset =
+                tx.reset_retry_counter_pw1(secret_pin(b"short"), Some(secret_pin(&[0; 127])));
             assert!(
                 matches!(
                     short_reset,
@@ -133,28 +181,40 @@ fn change() {
                 "Got: {short_reset:?}"
             );
             assert_eq!(
-                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                error_to_retries(tx.reset_retry_counter_pw1(
+                    secret_pin(b"new code"),
+                    Some(secret_pin(b"12345678"))
+                )),
                 Some(2)
             );
-            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"new code")).is_err());
             assert_eq!(
-                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                error_to_retries(tx.reset_retry_counter_pw1(
+                    secret_pin(b"new code"),
+                    Some(secret_pin(b"12345678"))
+                )),
                 Some(1)
             );
-            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"new code")).is_err());
             assert_eq!(
-                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                error_to_retries(tx.reset_retry_counter_pw1(
+                    secret_pin(b"new code"),
+                    Some(secret_pin(b"12345678"))
+                )),
                 Some(0)
             );
-            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"new code")).is_err());
             assert_eq!(
-                error_to_retries(tx.reset_retry_counter_pw1(b"new code", Some(b"12345678"))),
+                error_to_retries(tx.reset_retry_counter_pw1(
+                    secret_pin(b"new code"),
+                    Some(secret_pin(b"12345678"))
+                )),
                 Some(0)
             );
-            assert!(tx.verify_pw1_user(b"new code").is_err());
-            tx.reset_retry_counter_pw1(b"123456", Some(b"1234567890"))
+            assert!(tx.verify_pw1_user(secret_pin(b"new code")).is_err());
+            tx.reset_retry_counter_pw1(secret_pin(b"123456"), Some(secret_pin(b"1234567890")))
                 .unwrap_err();
-            assert!(tx.verify_pw1_user(b"new code").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"new code")).is_err());
         });
     });
 }

@@ -29,9 +29,9 @@ pub const MIN_LENGTH_ADMIN_PIN: usize = 8;
 pub const MIN_LENGTH_USER_PIN: usize = 6;
 
 /// Default value for PW1
-pub const DEFAULT_USER_PIN: &[u8] = b"123456";
+pub const DEFAULT_USER_PIN: &[u8; 6] = b"123456";
 /// Default value for PW3
-pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
+pub const DEFAULT_ADMIN_PIN: &[u8; 8] = b"12345678";
 
 pub const MAX_GENERIC_LENGTH: usize = 4096;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
