@@ -477,11 +477,11 @@ pub fn generate_key_simple_transaction(
             (AlgoSimple::RSA3k, _) => AlgorithmAttributes::Rsa(RsaAttributes::new(3072, 32, 0)),
             (AlgoSimple::RSA4k, _) => AlgorithmAttributes::Rsa(RsaAttributes::new(4096, 32, 0)),
             (AlgoSimple::NIST256, KeyType::Decryption) => AlgorithmAttributes::Ecc(
-                EccAttributes::new(EccType::ECDH, Curve::Secp256k1, Some(0xFF)),
+                EccAttributes::new(EccType::ECDH, Curve::NistP256r1, Some(0xFF)),
             ),
             (AlgoSimple::NIST256, _) => AlgorithmAttributes::Ecc(EccAttributes::new(
                 EccType::ECDSA,
-                Curve::Secp256k1,
+                Curve::NistP256r1,
                 Some(0xFF),
             )),
             (AlgoSimple::Curve25519, KeyType::Decryption) => AlgorithmAttributes::Ecc(
