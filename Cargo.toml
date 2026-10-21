@@ -100,6 +100,7 @@ log-error = []
 [patch.crates-io]
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
 trussed = { git = "https://github.com/sosthene-nitrokey/trussed", rev = "f95e435abc045555b0a60deec8d73c7a79f8a7d6" }
+openpgp-card-rpgp = { git = "https://codeberg.org/sosthene-nitrokey/rpgp.git", rev = "e9c4205d2c80a40e57b156999278888627551507" }
 
 [package.metadata.docs.rs]
 all-features = true
