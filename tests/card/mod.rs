@@ -300,8 +300,7 @@ pub fn sequoia_test(algo: KeyAlgo) {
         card_backend_pcsc::PcscBackend::card_backends(None).unwrap(),
         IDENT,
     )
-    .unwrap()
-    .into();
+    .unwrap();
     let mut open = card.transaction().unwrap();
     open.verify_admin_pin(secret_str("12345678")).unwrap();
     let mut admin = open.as_admin_card(None).unwrap();
@@ -341,7 +340,7 @@ pub fn sequoia_test(algo: KeyAlgo) {
         .sign_data(&data, false, &Password::empty(), algo.hash_algo())
         .unwrap();
     assert!(sign_pubk
-        .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
+        .verify(algo.hash_algo(), &data, signature.signature().unwrap())
         .is_ok());
 
     println!("======== Verified signature =======");
@@ -355,10 +354,10 @@ pub fn sequoia_test(algo: KeyAlgo) {
         .sign_data(&data, false, &Password::empty(), algo.hash_algo())
         .unwrap();
     assert!(dec_pubk_aut
-        .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
+        .verify(algo.hash_algo(), &data, signature.signature().unwrap())
         .is_err());
     assert!(aut_pubk
-        .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
+        .verify(algo.hash_algo(), &data, signature.signature().unwrap())
         .is_ok());
 
     println!("======== Verified authentication =======");
@@ -390,10 +389,10 @@ pub fn sequoia_test(algo: KeyAlgo) {
             .sign_data(&data, false, &Password::empty(), algo.hash_algo())
             .unwrap();
         assert!(aut_pubk
-            .verify(algo.hash_algo(), &data, &signature.signature().unwrap(),)
+            .verify(algo.hash_algo(), &data, signature.signature().unwrap(),)
             .is_err());
         dec_pubk_aut
-            .verify(algo.hash_algo(), &data, &signature.signature().unwrap())
+            .verify(algo.hash_algo(), &data, signature.signature().unwrap())
             .unwrap();
     } else {
         _ = authenticator

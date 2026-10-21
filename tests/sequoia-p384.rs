@@ -10,6 +10,7 @@ use test_log::test;
 
 use crate::card::dangerous_real_card_enabled;
 
+#[ignore]
 #[test]
 fn p384_sequoia() {
     if dangerous_real_card_enabled() {

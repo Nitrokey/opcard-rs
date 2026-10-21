@@ -730,9 +730,9 @@ impl Persistent {
 
     fn init_pins<T: crate::card::Client>(client: &mut T, location: Location) -> Result<(), Error> {
         #[allow(clippy::unwrap_used)]
-        let default_user_pin = Bytes::try_from(DEFAULT_USER_PIN).unwrap();
+        let default_user_pin = Bytes::from(DEFAULT_USER_PIN);
         #[allow(clippy::unwrap_used)]
-        let default_admin_pin = Bytes::try_from(DEFAULT_ADMIN_PIN).unwrap();
+        let default_admin_pin = Bytes::from(DEFAULT_ADMIN_PIN);
 
         // If PINs are already there when initializing, it likely means that the state was corrupted rather than absent.
         // In that case, we wait for the user to explicitely factory-reset the device to avoid risking loosing data.

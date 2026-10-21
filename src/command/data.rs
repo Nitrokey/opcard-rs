@@ -1068,7 +1068,7 @@ fn put_status_bytes<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result
 }
 
 fn put_language_prefs<T: crate::card::Client>(ctx: LoadedContext<'_, T>) -> Result<(), Status> {
-    let bytes = if ctx.data.len() % 2 == 0 {
+    let bytes = if ctx.data.len().is_multiple_of(2) {
         Bytes::try_from(ctx.data).ok()
     } else {
         None

@@ -45,13 +45,14 @@ macro_rules! iterable_sub_enum {
     (
         $(#[$outer:meta])*
         $vis:vis enum $name:ident($parent:ident) {
-            $($var:ident $(= $val:literal)?),+
+            $($(#[$inner:meta])* $var:ident $(= $val:literal)?),+
             $(,)*
         }
     ) => {
         $(#[$outer])*
         $vis enum $name {
             $(
+                $(#[$inner])*
                 $var $(= $val)?,
             )*
         }
@@ -300,12 +301,13 @@ impl Algorithm {
 }
 
 iterable_sub_enum! {
-    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
+    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug, Default)]
     #[repr(u8)]
     pub enum SignatureAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255 = 0,
         EcDsaP256 = 1,
+        #[default]
         Rsa2048 = 2,
         Rsa3072 = 3,
         Rsa4096 = 4,
@@ -315,12 +317,6 @@ iterable_sub_enum! {
         EcDsaBrainpoolP384R1 = 8,
         EcDsaBrainpoolP512R1 = 9,
         EcDsaSecp256k1 = 10,
-    }
-}
-
-impl Default for SignatureAlgorithm {
-    fn default() -> Self {
-        Self::Rsa2048
     }
 }
 
@@ -360,12 +356,13 @@ impl TryFrom<&[u8]> for SignatureAlgorithm {
 }
 
 iterable_sub_enum! {
-    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
+    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug, Default)]
     #[repr(u8)]
     pub enum DecryptionAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         X255 = 0,
         EcDhP256 = 1,
+        #[default]
         Rsa2048 = 2,
         Rsa3072 = 3,
         Rsa4096 = 4,
@@ -375,12 +372,6 @@ iterable_sub_enum! {
         EcDhBrainpoolP384R1 = 8,
         EcDhBrainpoolP512R1 = 9,
         EcDhSecp256k1 = 10,
-    }
-}
-
-impl Default for DecryptionAlgorithm {
-    fn default() -> Self {
-        Self::Rsa2048
     }
 }
 
@@ -420,12 +411,13 @@ impl TryFrom<&[u8]> for DecryptionAlgorithm {
 }
 
 iterable_sub_enum! {
-    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug)]
+    #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, PartialEq, Eq, Debug,Default)]
     #[repr(u8)]
     pub enum AuthenticationAlgorithm(Algorithm) {
         // Part of draft https://datatracker.ietf.org/doc/draft-ietf-openpgp-crypto-refresh/
         Ed255 = 0,
         EcDsaP256 = 1,
+        #[default]
         Rsa2048 = 2,
         Rsa3072 = 3,
         Rsa4096 = 4,
@@ -435,12 +427,6 @@ iterable_sub_enum! {
         EcDsaBrainpoolP384R1 = 8,
         EcDsaBrainpoolP512R1 = 9,
         EcDsaSecp256k1,
-    }
-}
-
-impl Default for AuthenticationAlgorithm {
-    fn default() -> Self {
-        Self::Rsa2048
     }
 }
 
