@@ -39,7 +39,7 @@ test:
 
 .PHONY: test
 dangerous-real-card-test:
-	DANGEROUS_TEST_RUN_REAL_CARD=true cargo test --features rsa2048-gen,rsa4096 sequoia
+	DANGEROUS_TEST_RUN_REAL_CARD=true cargo test --features rsa2048-gen,rsa4096 rpgp
 	LC_ALL=C DANGEROUS_TEST_RUN_REAL_CARD=true cargo test --features rsa2048-gen,rsa4096-gen gpg
 
 .PHONY: fuzz

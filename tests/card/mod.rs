@@ -322,7 +322,7 @@ fn encrypt_for_key(plaintext: &[u8], public_key: &PublicKey) -> PkeskBytes {
         .unwrap()
 }
 
-pub fn sequoia_test(algo: KeyAlgo) {
+pub fn rpgp_test(algo: KeyAlgo) {
     use openpgp_card::ocard::KeyType;
     use openpgp_card::{state::Open, Card};
     use openpgp_card_rpgp::public_key_material_to_key;
@@ -515,7 +515,7 @@ pub fn public_key_material_to_fp(
 ) -> Result<Fingerprint, openpgp_card::Error> {
     let key = public_key_material_to_key(mat, ty, &time, None, None).unwrap();
 
-    // Get fingerprint from the Sequoia Key
+    // Get fingerprint from the rpgp Key
     let fp = key.fingerprint();
     fp.as_bytes().try_into()
 }
