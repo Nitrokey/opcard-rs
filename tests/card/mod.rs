@@ -17,7 +17,7 @@ use opcard::Options;
 use openpgp_card::{
     ocard::{
         algorithm::{AlgoSimple, AlgorithmAttributes, Curve, EccAttributes, RsaAttributes},
-        crypto::{EccType, PublicKeyMaterial},
+        crypto::{EccPub, EccType, PublicKeyMaterial},
         data::{Fingerprint, KeyGenerationTime},
         KeyType, OpenPGP, Transaction as OpenPgpTransaction,
     },
@@ -25,10 +25,10 @@ use openpgp_card::{
     Error,
 };
 use pgp::{
-    composed::{Message, MessageBuilder},
+    composed::{Message, MessageBuilder, PlainSessionKey},
     crypto::{aead::AeadAlgorithm, hash::HashAlgorithm, sym::SymmetricKeyAlgorithm},
     packet::PublicKey,
-    types::{EskType, Password},
+    types::{EncryptionKey, EskType, Password, PkeskBytes},
 };
 
 use openpgp_card_rpgp::{public_key_material_to_key, CardSlot};
@@ -276,16 +276,50 @@ impl KeyAlgo {
     }
 }
 
-fn encrypt_for_key(plaintext: &[u8], public_key: &PublicKey) -> Vec<u8> {
+fn change_ecc_type(material: PublicKeyMaterial, old: EccType, new: EccType) -> PublicKeyMaterial {
+    let PublicKeyMaterial::E(e) = material else {
+        return material;
+    };
+    let data = e.data();
+    let AlgorithmAttributes::Ecc(attrs) = e.algo() else {
+        unreachable!("ECC without ECC attributes")
+    };
+
+    assert_eq!(attrs.ecc_type(), old);
+    PublicKeyMaterial::E(EccPub::new(
+        data.into(),
+        AlgorithmAttributes::Ecc(EccAttributes::new(
+            new,
+            attrs.curve().clone(),
+            attrs.import_format(),
+        )),
+    ))
+}
+
+fn ecdh_to_ecdsa(material: PublicKeyMaterial) -> PublicKeyMaterial {
+    change_ecc_type(material, EccType::ECDH, EccType::ECDSA)
+}
+
+fn ecdsa_to_ecdh(material: PublicKeyMaterial) -> PublicKeyMaterial {
+    change_ecc_type(material, EccType::ECDSA, EccType::ECDH)
+}
+
+fn checksum_plaintext(plaintext: &[u8]) -> Vec<u8> {
+    let mut tmp = vec![0; 1];
+    tmp.extend_from_slice(plaintext);
+    tmp.extend_from_slice(&pgp::crypto::checksum::calculate_simple(plaintext).to_be_bytes());
+    tmp
+}
+
+fn encrypt_for_key(plaintext: &[u8], public_key: &PublicKey) -> PkeskBytes {
     let mut rng = rand::thread_rng();
-    let mut builder = MessageBuilder::from_bytes("", plaintext.to_owned()).seipd_v2(
-        &mut rng,
-        SymmetricKeyAlgorithm::default(),
-        AeadAlgorithm::Ocb,
-        Default::default(),
-    );
-    builder.encrypt_to_key(&mut rng, public_key);
-    builder.to_vec(&mut rng).unwrap()
+    public_key
+        .encrypt(
+            rand::thread_rng(),
+            &checksum_plaintext(plaintext),
+            EskType::V3_4,
+        )
+        .unwrap()
 }
 
 pub fn sequoia_test(algo: KeyAlgo) {
@@ -294,7 +328,7 @@ pub fn sequoia_test(algo: KeyAlgo) {
     use openpgp_card_rpgp::public_key_material_to_key;
     use pgp::crypto::Decryptor;
     use pgp::crypto::Signer;
-    use pgp::types::{EncryptionKey, VerifyingKey};
+    use pgp::types::{DecryptionKey, EncryptionKey, SigningKey, VerifyingKey};
 
     let mut card: Card<Open> = Card::open_by_ident(
         card_backend_pcsc::PcscBackend::card_backends(None).unwrap(),
@@ -309,9 +343,16 @@ pub fn sequoia_test(algo: KeyAlgo) {
 
     let dec_pubk =
         public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None).unwrap();
-    let dec_pubk_aut =
-        public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
-            .unwrap();
+    let dec_pubk_aut = algo.can_work_with_mse().then(|| {
+        public_key_material_to_key(
+            &ecdh_to_ecdsa(material),
+            KeyType::Authentication,
+            &gendate,
+            None,
+            None,
+        )
+        .unwrap()
+    });
 
     println!("======== GENERATED {algo:?} Decryption key =======");
 
@@ -320,8 +361,16 @@ pub fn sequoia_test(algo: KeyAlgo) {
     let aut_pubk =
         public_key_material_to_key(&material, KeyType::Authentication, &gendate, None, None)
             .unwrap();
-    let aut_pubk_dec =
-        public_key_material_to_key(&material, KeyType::Decryption, &gendate, None, None).unwrap();
+    let aut_pubk_dec = algo.can_work_with_mse().then(|| {
+        public_key_material_to_key(
+            &ecdsa_to_ecdh(material),
+            KeyType::Decryption,
+            &gendate,
+            None,
+            None,
+        )
+        .unwrap()
+    });
 
     println!("======== GENERATED {algo:?} Authentication key =======");
 
@@ -337,10 +386,10 @@ pub fn sequoia_test(algo: KeyAlgo) {
         CardSlot::with_public_key(&mut open, KeyType::Signing, sign_pubk.clone(), &|| {}).unwrap();
     let data = vec![1; algo.plaintext_len()];
     let signature = signer
-        .sign_data(&data, false, &Password::empty(), algo.hash_algo())
+        .sign(&Password::empty(), algo.hash_algo(), &data)
         .unwrap();
     assert!(sign_pubk
-        .verify(algo.hash_algo(), &data, signature.signature().unwrap())
+        .verify(algo.hash_algo(), &data, &signature)
         .is_ok());
 
     println!("======== Verified signature =======");
@@ -351,87 +400,102 @@ pub fn sequoia_test(algo: KeyAlgo) {
             .unwrap();
     let data = vec![2; algo.plaintext_len()];
     let signature = authenticator
-        .sign_data(&data, false, &Password::empty(), algo.hash_algo())
+        .sign(&Password::empty(), algo.hash_algo(), &data)
         .unwrap();
-    assert!(dec_pubk_aut
-        .verify(algo.hash_algo(), &data, signature.signature().unwrap())
-        .is_err());
-    assert!(aut_pubk
-        .verify(algo.hash_algo(), &data, signature.signature().unwrap())
-        .is_ok());
+    if let Some(dec_pubk_aut) = &dec_pubk_aut {
+        assert!(dec_pubk_aut
+            .verify(algo.hash_algo(), &data, &signature)
+            .is_err());
+    }
+    assert!(aut_pubk.verify(algo.hash_algo(), &data, &signature).is_ok());
 
     println!("======== Verified authentication =======");
 
     let plaintext = b"plaintext";
-    let ciphertext_bytes = encrypt_for_key(plaintext, &dec_pubk);
-    let ciphertext_message = Message::from_bytes(BufReader::new(&*ciphertext_bytes)).unwrap();
+    let ciphertext = encrypt_for_key(plaintext, &dec_pubk);
     let mut decryptor =
         CardSlot::with_public_key(&mut open, KeyType::Decryption, dec_pubk.clone(), &|| {})
             .unwrap();
-    assert_eq!(
-        plaintext.as_slice(),
-        &decryptor
-            .decrypt_message(ciphertext_message)
-            .unwrap()
-            .as_data_vec()
-            .unwrap()
-    );
+    let PlainSessionKey::V3_4 { key: ref other, .. } = decryptor
+        .decrypt(&Password::empty(), &ciphertext, EskType::V3_4)
+        .unwrap()
+        .unwrap()
+    else {
+        unreachable!()
+    };
+    assert_eq!(plaintext.as_slice(), other.as_ref());
 
-    open.manage_security_environment(KeyType::Authentication, KeyType::Decryption)
-        .unwrap();
-    let mut user_card = open.as_user_card(None).unwrap();
-    let mut authenticator =
-        CardSlot::with_public_key(&mut open, KeyType::Authentication, aut_pubk.clone(), &|| {})
-            .unwrap();
-    let data = vec![3; algo.plaintext_len()];
     if algo.can_work_with_mse() {
-        let signature = authenticator
-            .sign_data(&data, false, &Password::empty(), algo.hash_algo())
+        open.manage_security_environment(KeyType::Authentication, KeyType::Decryption)
             .unwrap();
-        assert!(aut_pubk
-            .verify(algo.hash_algo(), &data, signature.signature().unwrap(),)
-            .is_err());
-        dec_pubk_aut
-            .verify(algo.hash_algo(), &data, signature.signature().unwrap())
-            .unwrap();
-    } else {
-        _ = authenticator
-            .sign_data(&data, false, &Password::empty(), algo.hash_algo())
-            .unwrap_err();
-    }
-
-    println!("======== Verified MSE 1 =======");
-
-    open.manage_security_environment(KeyType::Decryption, KeyType::Authentication)
+        let mut user_card = open.as_user_card(None).unwrap();
+        let mut authenticator = CardSlot::with_public_key(
+            &mut open,
+            KeyType::Authentication,
+            dec_pubk_aut.clone().unwrap(),
+            &|| {},
+        )
         .unwrap();
-    let mut user_card = open.as_user_card(None).unwrap();
-    let plaintext = b"plaintext";
-    if algo.can_work_with_mse() {
-        let plaintext = b"plaintext";
-        let ciphertext_bytes = encrypt_for_key(plaintext, &aut_pubk_dec);
-        let ciphertext_message = Message::from_bytes(BufReader::new(&*ciphertext_bytes)).unwrap();
-        let mut decryptor =
-            CardSlot::with_public_key(&mut open, KeyType::Decryption, aut_pubk_dec.clone(), &|| {})
+        let data = vec![3; algo.plaintext_len()];
+        if algo.can_work_with_mse() {
+            let signature = authenticator
+                .sign(&Password::empty(), algo.hash_algo(), &data)
                 .unwrap();
-        assert_eq!(
-            plaintext.as_slice(),
-            &decryptor
-                .decrypt_message(ciphertext_message)
+            assert!(aut_pubk
+                .verify(algo.hash_algo(), &data, &signature)
+                .is_err());
+            dec_pubk_aut
+                .as_ref()
                 .unwrap()
-                .as_data_vec()
-                .unwrap()
-        );
-    } else {
-        let mut decryptor =
-            CardSlot::with_public_key(&mut open, KeyType::Decryption, aut_pubk_dec.clone(), &|| {})
+                .verify(algo.hash_algo(), &data, &signature)
                 .unwrap();
-        let plaintext = b"plaintext";
-        let ciphertext_bytes = encrypt_for_key(plaintext, &aut_pubk_dec);
-        let ciphertext_message = Message::from_bytes(BufReader::new(&*ciphertext_bytes)).unwrap();
-        assert!(decryptor.decrypt_message(ciphertext_message).is_err());
-    }
+        } else {
+            assert!(authenticator
+                .sign(&Password::empty(), algo.hash_algo(), &data)
+                .is_err());
+        }
 
-    println!("======== Verified MSE 2 =======");
+        println!("======== Verified MSE 1 =======");
+
+        open.manage_security_environment(KeyType::Decryption, KeyType::Authentication)
+            .unwrap();
+        let mut user_card = open.as_user_card(None).unwrap();
+        let plaintext = b"plaintext";
+        if algo.can_work_with_mse() {
+            let plaintext = b"plaintext";
+            let ciphertext = encrypt_for_key(plaintext, aut_pubk_dec.as_ref().unwrap());
+            let mut decryptor = CardSlot::with_public_key(
+                &mut open,
+                KeyType::Decryption,
+                aut_pubk_dec.clone().unwrap(),
+                &|| {},
+            )
+            .unwrap();
+            let PlainSessionKey::V3_4 { key: ref other, .. } = decryptor
+                .decrypt(&Password::empty(), &ciphertext, EskType::V3_4)
+                .unwrap()
+                .unwrap()
+            else {
+                unreachable!()
+            };
+            assert_eq!(plaintext.as_slice(), other.as_ref());
+        } else {
+            let mut decryptor = CardSlot::with_public_key(
+                &mut open,
+                KeyType::Decryption,
+                aut_pubk_dec.clone().unwrap(),
+                &|| {},
+            )
+            .unwrap();
+            let plaintext = b"plaintext";
+            let ciphertext = encrypt_for_key(plaintext, aut_pubk_dec.as_ref().unwrap());
+            assert!(decryptor
+                .decrypt(&Password::empty(), &ciphertext, EskType::V3_4)
+                .is_err());
+        }
+
+        println!("======== Verified MSE 2 =======");
+    }
 
     open.factory_reset().unwrap();
 }

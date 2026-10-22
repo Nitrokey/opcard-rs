@@ -8,7 +8,6 @@ use card::{sequoia_test, KeyAlgo};
 
 use test_log::test;
 
-#[ignore]
 #[test]
 fn cv25519_sequoia() {
     if card::dangerous_real_card_enabled() {
