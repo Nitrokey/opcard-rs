@@ -4,15 +4,15 @@
 mod card;
 mod virt;
 
-use card::{sequoia_test, KeyAlgo};
+use card::{rpgp_test, KeyAlgo};
 
 use test_log::test;
 
 #[test]
-fn rsa2048_sequoia() {
+fn p521_rpgp() {
     if card::dangerous_real_card_enabled() {
-        sequoia_test(KeyAlgo::Rsa2048);
+        rpgp_test(KeyAlgo::P521);
     } else {
-        virt::with_vsc(|| sequoia_test(KeyAlgo::Rsa2048));
+        virt::with_vsc(|| rpgp_test(KeyAlgo::P521));
     }
 }

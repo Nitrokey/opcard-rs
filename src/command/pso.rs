@@ -463,7 +463,7 @@ fn decipher_aes<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result
             Status::ConditionsOfUseNotSatisfied
         })?;
 
-    if (ctx.data.len() - 1) % 16 != 0 {
+    if !(ctx.data.len() - 1).is_multiple_of(16) {
         warn!("Attempt to decipher with AES with length not a multiple of block size");
         return Err(Status::IncorrectDataParameter);
     }
@@ -494,7 +494,7 @@ pub fn encipher<T: crate::card::Client>(mut ctx: LoadedContext<'_, T>) -> Result
             Status::ConditionsOfUseNotSatisfied
         })?;
 
-    if ctx.data.len() % 16 != 0 {
+    if !(ctx.data.len()).is_multiple_of(16) {
         warn!("Attempt to encipher with AES with length not a multiple of block size");
         return Err(Status::IncorrectDataParameter);
     }

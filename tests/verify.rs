@@ -5,7 +5,7 @@ use test_log::test;
 
 mod card;
 
-use card::{error_to_retries, with_card, with_tx};
+use card::{error_to_retries, secret_pin, with_card, with_tx};
 
 #[test]
 fn select() {
@@ -51,57 +51,59 @@ fn verify() {
     with_card(|mut card| {
         card.with_tx(|mut tx| {
             assert_checks!(tx, Some(3), Some(3), Some(3));
-            assert!(tx.verify_pw1_sign(b"12345678").is_err());
-            assert!(tx.verify_pw1_sign(b"123456\x00").is_err());
+            assert!(tx.verify_pw1_sign(secret_pin(b"12345678")).is_err());
+            assert!(tx.verify_pw1_sign(secret_pin(b"123456\x00")).is_err());
             assert_checks!(tx, Some(1), Some(1), Some(3));
-            assert!(tx.verify_pw1_sign(b"123456").is_ok());
+            assert!(tx.verify_pw1_sign(secret_pin(b"123456")).is_ok());
             assert_checks!(tx, None, Some(3), Some(3));
 
             // Empty pwd = checking
-            assert!(tx.verify_pw1_user(&[]).is_err());
+            assert!(tx.verify_pw1_user(secret_pin(&[])).is_err());
             assert_checks!(tx, None, Some(3), Some(3));
 
-            assert!(tx.verify_pw1_user(&[0]).is_err());
+            assert!(tx.verify_pw1_user(secret_pin(&[0])).is_err());
             assert_checks!(tx, None, Some(2), Some(3));
-            assert!(tx.verify_pw1_user("ハローワールド".as_bytes()).is_err());
+            assert!(tx
+                .verify_pw1_user(secret_pin("ハローワールド".as_bytes()))
+                .is_err());
             assert_checks!(tx, None, Some(1), Some(3));
-            assert!(tx.verify_pw1_user(b"123456").is_ok());
+            assert!(tx.verify_pw1_user(secret_pin(b"123456")).is_ok());
             assert_checks!(tx, None, None, Some(3));
 
-            assert!(tx.verify_pw3(b"123456").is_err());
+            assert!(tx.verify_pw3(secret_pin(b"123456")).is_err());
             assert_checks!(tx, None, None, Some(2));
-            assert!(tx.verify_pw3(&[0; 8]).is_err());
+            assert!(tx.verify_pw3(secret_pin(&[0; 8])).is_err());
             assert_checks!(tx, None, None, Some(1));
-            assert!(tx.verify_pw3(b"12345678").is_ok());
+            assert!(tx.verify_pw3(secret_pin(b"12345678")).is_ok());
             assert_checks!(tx, None, None, None);
         });
         card.reset();
         card.with_tx(|mut tx| {
             assert_checks!(tx, Some(3), Some(3), Some(3));
-            assert!(tx.verify_pw1_sign(b"12345678").is_err());
+            assert!(tx.verify_pw1_sign(secret_pin(b"12345678")).is_err());
             assert_checks!(tx, Some(2), Some(2), Some(3));
-            assert!(tx.verify_pw1_user(b"12345678").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"12345678")).is_err());
             assert_checks!(tx, Some(1), Some(1), Some(3));
-            assert!(tx.verify_pw1_sign(b"12345678").is_err());
+            assert!(tx.verify_pw1_sign(secret_pin(b"12345678")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(3));
-            assert!(tx.verify_pw1_sign(b"12345678").is_err());
+            assert!(tx.verify_pw1_sign(secret_pin(b"12345678")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(3));
-            assert!(tx.verify_pw1_sign(b"123456").is_err());
+            assert!(tx.verify_pw1_sign(secret_pin(b"123456")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(3));
         });
         card.reset();
         card.with_tx(|mut tx| {
             assert_checks!(tx, Some(0), Some(0), Some(3));
-            assert!(tx.verify_pw1_sign(b"123456").is_err());
-            assert!(tx.verify_pw1_user(b"123456").is_err());
+            assert!(tx.verify_pw1_sign(secret_pin(b"123456")).is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"123456")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(3));
-            assert!(tx.verify_pw3(b"123456").is_err());
-            assert!(tx.verify_pw3(b"123456").is_err());
-            assert!(tx.verify_pw3(b"123456").is_err());
+            assert!(tx.verify_pw3(secret_pin(b"123456")).is_err());
+            assert!(tx.verify_pw3(secret_pin(b"123456")).is_err());
+            assert!(tx.verify_pw3(secret_pin(b"123456")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(0));
-            assert!(tx.verify_pw3(b"123456").is_err());
+            assert!(tx.verify_pw3(secret_pin(b"123456")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(0));
-            assert!(tx.verify_pw3(b"12345678").is_err());
+            assert!(tx.verify_pw3(secret_pin(b"12345678")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(0));
         });
         card.reset();
@@ -111,21 +113,22 @@ fn verify() {
         card.with_tx(|mut tx| {
             tx.factory_reset().unwrap();
             assert_checks!(tx, Some(3), Some(3), Some(3));
-            tx.verify_pw3(b"12345678").unwrap();
-            tx.set_resetting_code(b"1234567890").unwrap();
-            assert!(tx.verify_pw1_user(b"bad code").is_err());
-            assert!(tx.verify_pw1_user(b"bad code").is_err());
-            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            tx.verify_pw3(secret_pin(b"12345678")).unwrap();
+            tx.set_resetting_code(secret_pin(b"1234567890")).unwrap();
+            assert!(tx.verify_pw1_user(secret_pin(b"bad code")).is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"bad code")).is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"bad code")).is_err());
             assert_checks!(tx, Some(0), Some(0), None);
-            tx.reset_retry_counter_pw1(b"new code", None).unwrap();
+            tx.reset_retry_counter_pw1(secret_pin(b"new code"), None)
+                .unwrap();
             assert_checks!(tx, Some(3), Some(3), None);
-            tx.verify_pw1_user(b"new code").unwrap();
+            tx.verify_pw1_user(secret_pin(b"new code")).unwrap();
         });
         card.reset();
         card.with_tx(|mut tx| {
-            assert!(tx.verify_pw1_user(b"bad code").is_err());
-            assert!(tx.verify_pw1_user(b"bad code").is_err());
-            assert!(tx.verify_pw1_user(b"bad code").is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"bad code")).is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"bad code")).is_err());
+            assert!(tx.verify_pw1_user(secret_pin(b"bad code")).is_err());
             assert_checks!(tx, Some(0), Some(0), Some(3));
         });
     })

@@ -171,7 +171,7 @@ fn gen_rsa_key<T: crate::card::Client>(
         StorageAttributes::default().set_persistence(Location::Volatile)
     ))
     .map_err(|_err| {
-        error!("Failed to generate key: {_err:?}");
+        error!("Failed to generate key: {_err:?} {key:?} {mechanism:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;
@@ -217,7 +217,7 @@ fn gen_ec_key<T: crate::card::Client>(
         StorageAttributes::default().set_persistence(Location::Volatile)
     ))
     .map_err(|_err| {
-        error!("Failed to generate key: {_err:?}");
+        error!("Failed to generate key: {_err:?} {key:?} {curve:?}");
         Status::UnspecifiedNonpersistentExecutionError
     })?
     .key;

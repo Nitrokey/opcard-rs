@@ -29,9 +29,9 @@ pub const MIN_LENGTH_ADMIN_PIN: usize = 8;
 pub const MIN_LENGTH_USER_PIN: usize = 6;
 
 /// Default value for PW1
-pub const DEFAULT_USER_PIN: &[u8] = b"123456";
+pub const DEFAULT_USER_PIN: &[u8; 6] = b"123456";
 /// Default value for PW3
-pub const DEFAULT_ADMIN_PIN: &[u8] = b"12345678";
+pub const DEFAULT_ADMIN_PIN: &[u8; 8] = b"12345678";
 
 pub const MAX_GENERIC_LENGTH: usize = 4096;
 /// Big endian encoding of [MAX_GENERIC_LENGTH](MAX_GENERIC_LENGTH)
@@ -730,9 +730,9 @@ impl Persistent {
 
     fn init_pins<T: crate::card::Client>(client: &mut T, location: Location) -> Result<(), Error> {
         #[allow(clippy::unwrap_used)]
-        let default_user_pin = Bytes::try_from(DEFAULT_USER_PIN).unwrap();
+        let default_user_pin = Bytes::from(DEFAULT_USER_PIN);
         #[allow(clippy::unwrap_used)]
-        let default_admin_pin = Bytes::try_from(DEFAULT_ADMIN_PIN).unwrap();
+        let default_admin_pin = Bytes::from(DEFAULT_ADMIN_PIN);
 
         // If PINs are already there when initializing, it likely means that the state was corrupted rather than absent.
         // In that case, we wait for the user to explicitely factory-reset the device to avoid risking loosing data.
