@@ -50,19 +50,22 @@ bitflags = "2.5.0"
 
 [dev-dependencies]
 apdu-dispatch = "0.4"
-env_logger = "0.9"
+env_logger = "0.11"
 littlefs2 = "0.8"
-openpgp-card = "0.3"
-openpgp-card-sequoia = "0.1.2"
-sequoia-openpgp = "1.17.0"
-openpgp-card-pcsc = "0.3"
+openpgp-card = "0.7"
+# openpgp-card-sequoia = "0.1.2"
+openpgp-card-rpgp = "0.8.1"
+pgp = "0.20.0"
+card-backend-pcsc = "0.5.2"
+card-backend = "0.2"
+secrecy = "0.10.3"
 regex = "1.6.0"
 stoppable_thread = "0.2.1"
 test-log = "0.2.10"
 trussed = { version = "0.2", features = ["virt", "p384", "p521"] }
 trussed-rsa-alloc = { version = "0.5", features = ["virt"] }
 rand = "0.8.5"
-ron = "0.8"
+ron = "0.12"
 serde_cbor = "0.11"
 tempfile = "3.8.0"
 hex = { version = "0.4", features = ["serde"] }
@@ -96,6 +99,9 @@ log-error = []
 
 [patch.crates-io]
 p256-cortex-m4 = { git = "https://github.com/Nitrokey/p256-cortex-m4", tag = "v0.1.0-alpha.6-nitrokey-1" }
+
+# Necessary for the testsuite, see https://github.com/trussed-dev/trussed/pull/237
+trussed = { git = "https://github.com/trussed-dev/trussed", rev = "83b0b87d63132cb6096e6f75e79922aa2c1750b2" }
 
 [package.metadata.docs.rs]
 all-features = true

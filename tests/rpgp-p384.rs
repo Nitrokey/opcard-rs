@@ -4,17 +4,17 @@
 mod card;
 mod virt;
 
-use card::{sequoia_test, KeyAlgo};
+use card::{rpgp_test, KeyAlgo};
 
 use test_log::test;
 
 use crate::card::dangerous_real_card_enabled;
 
 #[test]
-fn p384_sequoia() {
+fn p384_rpgp() {
     if dangerous_real_card_enabled() {
-        sequoia_test(KeyAlgo::P384);
+        rpgp_test(KeyAlgo::P384);
     } else {
-        virt::with_vsc(|| sequoia_test(KeyAlgo::P384));
+        virt::with_vsc(|| rpgp_test(KeyAlgo::P384));
     }
 }
