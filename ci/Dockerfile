@@ -3,7 +3,7 @@
 
 FROM docker.io/archlinux
 
-RUN pacman --noconfirm -Syu gnupg clang llvm python pkgconf nettle pcsclite reuse rustup cargo-tarpaulin cargo-fuzz base-devel git
+RUN pacman --noconfirm -Syu gnupg clang llvm python pkgconf pcsclite reuse rustup cargo-tarpaulin cargo-fuzz base-devel git
 
 RUN rustup default stable && rustup component add clippy rustfmt && rustup toolchain install nightly
 COPY vsmartcard-0.9-1-x86_64.pkg.tar.zst vsmartcard-0.9-1-x86_64.pkg.tar.zst
