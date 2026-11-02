@@ -318,7 +318,7 @@ pub fn gpg_status(key: KeyType, sign_count: usize) -> Vec<String> {
         ")|(",
         if option_env!("DANGEROUS_TEST_RUN_REAL_CARD") == Some("true") {
             // ID for the pcscd driver
-            r"(Nitrokey ){1,2}3 \[CCID/ICCD Interface\] \d\d \d\d"
+            r"(Nitrokey ){1,2}3 \[CCID/ICCD Interface\] (\([a-f0-9]*\) )?\d\d \d\d"
         } else {
             // ID for the pcscd driver
             r"Virtual PCD \d\d \d\d"
