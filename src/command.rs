@@ -16,8 +16,8 @@ use crate::state::{
     KeyRef, LifeCycle, State, MAX_GENERIC_LENGTH, MAX_PIN_LENGTH, MIN_LENGTH_ADMIN_PIN,
     MIN_LENGTH_RESET_CODE, MIN_LENGTH_USER_PIN,
 };
-use crate::tlv;
 use crate::types::*;
+use iso7816::tlv::{self, Tag};
 use trussed_core::config::MAX_MESSAGE_LENGTH;
 use trussed_core::types::{Location, PathBuf};
 use trussed_core::{syscall, try_syscall};
@@ -141,11 +141,23 @@ impl TryFrom<iso7816::command::CommandView<'_>> for Command {
                 require(command.p2, 0x04)?;
                 Ok(Self::SelectData(occurrence))
             }
-            0xCA => Ok(Self::GetData(GetDataMode::Even, Tag::from(command))),
-            0xCB => Ok(Self::GetData(GetDataMode::Odd, Tag::from(command))),
-            0xCC => Ok(Self::GetNextData(Tag::from(command))),
-            0xDA => Ok(Self::PutData(PutDataMode::Even, Tag::from(command))),
-            0xDB => Ok(Self::PutData(PutDataMode::Odd, Tag::from(command))),
+            0xCA => Ok(Self::GetData(
+                GetDataMode::Even,
+                Tag::from([command.p1, command.p2]),
+            )),
+            0xCB => Ok(Self::GetData(
+                GetDataMode::Odd,
+                Tag::from([command.p1, command.p2]),
+            )),
+            0xCC => Ok(Self::GetNextData(Tag::from([command.p1, command.p2]))),
+            0xDA => Ok(Self::PutData(
+                PutDataMode::Even,
+                Tag::from([command.p1, command.p2]),
+            )),
+            0xDB => Ok(Self::PutData(
+                PutDataMode::Odd,
+                Tag::from([command.p1, command.p2]),
+            )),
             0xC0 => {
                 require_p1_p2(command, 0x00, 0x00)?;
                 Ok(Self::GetResponse)
@@ -623,8 +635,8 @@ fn select_data<T: crate::card::Client>(
     ctx: Context<'_, T>,
     occurrence: Occurrence,
 ) -> Result<(), Status> {
-    let tag: Tag = match tlv::get_do(&[0x60, 0x5C], ctx.data) {
-        Some([b1, b2]) => (*b1, *b2).into(),
+    let tag: Tag = match tlv::get_data_object(&[0x60, 0x5C].map(Tag::from_u16), ctx.data) {
+        Some([b1, b2]) => [*b1, *b2].into(),
         Some([b1]) => (*b1).into(),
         _ => {
             warn!("Select Data with incorrect data path");

@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 use hex_literal::hex;
-use iso7816::Status;
+use iso7816::{
+    tlv::{get_data_object, Tag},
+    Status,
+};
 use littlefs2_core::Path;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use trussed_core::types::Mechanism;
 
 use crate::card::AllowedAlgorithms;
 use crate::error::Error;
-use crate::tlv::get_do;
 
 /// Creates an enum with an `iter_all` associated function giving an iterator over all variants
 macro_rules! iterable_enum {
@@ -477,19 +479,19 @@ impl KeyType {
         const SIGN: &[u8] = &hex!("84 01 01");
         const DEC: &[u8] = &hex!("84 01 02");
         const AUT: &[u8] = &hex!("84 01 03");
-        if let Some(d) = get_do(&[0xB6], data) {
+        if let Some(d) = get_data_object(&[0xB6].map(Tag::from_u16), data) {
             if !matches!(d, [] | SIGN) {
                 warn!("Incorrect CRT for Sign key");
                 return Err(Status::IncorrectDataParameter);
             }
             Ok(KeyType::Sign)
-        } else if let Some(d) = get_do(&[0xB8], data) {
+        } else if let Some(d) = get_data_object(&[0xB8].map(Tag::from_u16), data) {
             if !matches!(d, [] | DEC) {
                 warn!("Incorrect CRT for DEC key");
                 return Err(Status::IncorrectDataParameter);
             }
             Ok(KeyType::Dec)
-        } else if let Some(d) = get_do(&[0xA4], data) {
+        } else if let Some(d) = get_data_object(&[0xA4].map(Tag::from_u16), data) {
             if !matches!(d, [] | AUT) {
                 warn!("Incorrect CRT for AUT key");
                 return Err(Status::IncorrectDataParameter);
@@ -558,27 +560,6 @@ impl TryFrom<u8> for Occurrence {
             2 => Ok(Occurrence::Third),
             _ => Err(Status::IncorrectP1OrP2Parameter),
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Tag(pub u16);
-
-impl From<(u8, u8)> for Tag {
-    fn from((p1, p2): (u8, u8)) -> Self {
-        Self(u16::from_be_bytes([p1, p2]))
-    }
-}
-
-impl From<u8> for Tag {
-    fn from(p1: u8) -> Self {
-        Self(p1.into())
-    }
-}
-
-impl From<iso7816::command::CommandView<'_>> for Tag {
-    fn from(command: iso7816::command::CommandView<'_>) -> Self {
-        Self::from((command.p1, command.p2))
     }
 }
 
