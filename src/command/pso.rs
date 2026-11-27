@@ -1,7 +1,10 @@
 // Copyright (C) 2022 Nitrokey GmbH
 // SPDX-License-Identifier: LGPL-3.0-only
 
-use iso7816::Status;
+use iso7816::{
+    tlv::{get_data_object, Tag},
+    Status,
+};
 
 use trussed_core::config::MAX_MESSAGE_LENGTH;
 use trussed_core::types::*;
@@ -9,7 +12,6 @@ use trussed_core::{syscall, try_syscall};
 
 use crate::card::LoadedContext;
 use crate::state::KeyRef;
-use crate::tlv::get_do;
 use crate::types::*;
 
 fn check_uif<T: crate::card::Client>(
@@ -380,11 +382,11 @@ fn decrypt_ec<T: crate::card::Client>(
     mechanism: Mechanism,
 ) -> Result<(), Status> {
     // Cipher DO - Public key DO - External public key
-    const DATA_PATH: &[u16] = &[0xA6, 0x7F49, 0x86];
-    let data = get_do(DATA_PATH, ctx.data).ok_or_else(|| {
-        warn!("Failed to parse serialized key DOs");
-        Status::IncorrectDataParameter
-    })?;
+    let data =
+        get_data_object(&[0xA6, 0x7F49, 0x86].map(Tag::from_u16), ctx.data).ok_or_else(|| {
+            warn!("Failed to parse serialized key DOs");
+            Status::IncorrectDataParameter
+        })?;
     if data.is_empty() {
         warn!("Seriliazed key is not long enough");
         return Err(Status::IncorrectDataParameter);

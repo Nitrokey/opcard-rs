@@ -377,6 +377,9 @@ enum IoCmd {
         #[serde(default)]
         expected_status: Status,
     },
+    ClearVerify {
+        pin: Pin,
+    },
     Verify {
         pin: Pin,
         /// None means default value
@@ -511,6 +514,7 @@ const MATCH_EMPTY: OutputMatcher = OutputMatcher::Len(0);
 impl IoCmd {
     fn run<T: opcard::Client>(&self, card: &mut opcard::Card<T>) {
         match self {
+            Self::ClearVerify { pin } => Self::run_clear_verify(*pin, card),
             Self::FactoryReset { already_failed } => Self::run_factory_reset(*already_failed, card),
             Self::Select => Self::run_select(card),
             Self::IoData {
@@ -663,7 +667,6 @@ impl IoCmd {
             card,
         )
     }
-
     fn run_factory_reset<T: opcard::Client>(already_failed: u8, card: &mut opcard::Card<T>) {
         for i in 0..(3 - already_failed) {
             Self::run_verify(
@@ -802,6 +805,15 @@ impl IoCmd {
             0,
         );
         Self::run_bytes(&input, &OutputMatcher::Len(0), Status::Success, card)
+    }
+
+    fn run_clear_verify<T: opcard::Client>(pin: Pin, card: &mut opcard::Card<T>) {
+        Self::run_bytes(
+            &build_command(0x00, 0x20, 0xFF, pin as u8, &[], 0),
+            &OutputMatcher::Len(0),
+            Status::Success,
+            card,
+        );
     }
 
     fn run_verify<T: opcard::Client>(

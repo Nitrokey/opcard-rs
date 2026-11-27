@@ -51,9 +51,16 @@ macro_rules! enum_u16 {
         impl TryFrom<Tag> for $name {
             type Error = Status;
             fn try_from(val: Tag) -> ::core::result::Result<Self, Status> {
-                match val.0 {
+                mod try_from_tags {
+                    use iso7816::tlv::Tag;
                     $(
-                        $num => Ok($name::$var),
+                        #[expect(non_upper_case_globals)]
+                        pub const $var: Tag = Tag::from_u16($num);
+                    )*
+                }
+                match val {
+                    $(
+                        try_from_tags::$var => Ok($name::$var),
                     )*
                     _ => Err(Status::KeyReferenceNotFound)
                 }
@@ -62,17 +69,10 @@ macro_rules! enum_u16 {
 
         #[allow(unused)]
         impl $name {
-            $vis fn tag(&self) -> &'static [u8] {
+            $vis const fn tag(&self) -> Tag {
                 match self{
                     $(
-                         $name::$var => {
-                            const BYTES: [u8; 2] = ($name::$var as u16).to_be_bytes();
-                            if BYTES[0] == 0 {
-                                &BYTES[1..]
-                            } else {
-                                &BYTES
-                            }
-                         }
+                         $name::$var => Tag::from_u16($name::$var as u16),
                     )*
                 }
             }
@@ -157,7 +157,7 @@ macro_rules! enum_subset {
 
         #[allow(unused)]
         impl $name {
-            $vis fn tag(self) -> &'static [u8] {
+            $vis fn tag(self) -> Tag {
                 let raw: $sup = self.into();
                 raw.tag()
             }
@@ -511,13 +511,13 @@ fn get_constructed_data<T: crate::card::Client>(
     objects: &'static [GetDataObject],
 ) -> Result<(), Status> {
     for obj in filtered_objects(ctx.options, objects) {
-        ctx.reply.expand(obj.tag())?;
+        ctx.reply.expand(obj.tag().as_slice())?;
         let offset = ctx.reply.len();
         match obj.simple_or_constructed() {
             GetDataDoType::Simple(simple) => simple.reply(ctx.lend())?,
             GetDataDoType::Constructed(children) => {
                 for inner_obj in filtered_objects(ctx.options, children) {
-                    ctx.reply.expand(inner_obj.tag())?;
+                    ctx.reply.expand(inner_obj.tag().as_slice())?;
                     let inner_offset = ctx.reply.len();
                     // We only accept two levels of nesting to avoid recursion
                     inner_obj.into_simple()?.reply(ctx.lend())?;
@@ -540,7 +540,7 @@ pub fn historical_bytes<T: crate::card::Client>(mut ctx: Context<'_, T>) -> Resu
 
 fn cardholder_cert<T: crate::card::Client>(ctx: Context<'_, T>) -> Result<(), Status> {
     let occ = match ctx.state.volatile.cur_do {
-        Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
+        Some((t, occ)) if t == DataObject::CardHolderCertificate.tag() => occ,
         _ => Occurrence::First,
     };
     let to_load = match occ {
@@ -940,7 +940,7 @@ impl PutDataObject {
 
 fn put_cardholder_cert<T: crate::card::Client>(ctx: Context<'_, T>) -> Result<(), Status> {
     let occ = match ctx.state.volatile.cur_do {
-        Some((t, occ)) if t.0 == DataObject::CardHolderCertificate as u16 => occ,
+        Some((t, occ)) if t == DataObject::CardHolderCertificate.tag() => occ,
         _ => Occurrence::First,
     };
     let to_write = match occ {
@@ -1275,39 +1275,79 @@ mod tests {
 
     #[test]
     fn tags() {
-        assert_eq!(GetDataObject::Url.tag(), &[0x5F, 0x50]);
-        assert_eq!(GetDataObject::HistoricalBytes.tag(), &[0x5F, 0x52]);
-        assert_eq!(GetDataObject::CardHolderName.tag(), &[0x5B]);
-        assert_eq!(GetDataObject::LanguagePreferences.tag(), &[0x5F, 0x2D]);
-        assert_eq!(GetDataObject::CardHolderSex.tag(), &[0x5F, 0x35]);
-        assert_eq!(GetDataObject::GeneralFeatureManagement.tag(), &[0x7f, 0x74]);
-        assert_eq!(GetDataObject::CardHolderCertificate.tag(), &[0x7f, 0x21]);
+        assert_eq!(GetDataObject::Url.tag().as_slice(), &[0x5F, 0x50]);
         assert_eq!(
-            GetDataObject::ExtendedLengthInformation.tag(),
+            GetDataObject::HistoricalBytes.tag().as_slice(),
+            &[0x5F, 0x52]
+        );
+        assert_eq!(GetDataObject::CardHolderName.tag().as_slice(), &[0x5B]);
+        assert_eq!(
+            GetDataObject::LanguagePreferences.tag().as_slice(),
+            &[0x5F, 0x2D]
+        );
+        assert_eq!(GetDataObject::CardHolderSex.tag().as_slice(), &[0x5F, 0x35]);
+        assert_eq!(
+            GetDataObject::GeneralFeatureManagement.tag().as_slice(),
+            &[0x7f, 0x74]
+        );
+        assert_eq!(
+            GetDataObject::CardHolderCertificate.tag().as_slice(),
+            &[0x7f, 0x21]
+        );
+        assert_eq!(
+            GetDataObject::ExtendedLengthInformation.tag().as_slice(),
             &[0x7f, 0x66]
         );
-        assert_eq!(GetDataObject::DiscretionaryDataObjects.tag(), &[0x73]);
-        assert_eq!(GetDataObject::ExtendedCapabilities.tag(), &[0xC0]);
-        assert_eq!(GetDataObject::AlgorithmAttributesSignature.tag(), &[0xC1]);
-        assert_eq!(GetDataObject::AlgorithmAttributesDecryption.tag(), &[0xC2]);
         assert_eq!(
-            GetDataObject::AlgorithmAttributesAuthentication.tag(),
+            GetDataObject::DiscretionaryDataObjects.tag().as_slice(),
+            &[0x73]
+        );
+        assert_eq!(
+            GetDataObject::ExtendedCapabilities.tag().as_slice(),
+            &[0xC0]
+        );
+        assert_eq!(
+            GetDataObject::AlgorithmAttributesSignature.tag().as_slice(),
+            &[0xC1]
+        );
+        assert_eq!(
+            GetDataObject::AlgorithmAttributesDecryption
+                .tag()
+                .as_slice(),
+            &[0xC2]
+        );
+        assert_eq!(
+            GetDataObject::AlgorithmAttributesAuthentication
+                .tag()
+                .as_slice(),
             &[0xC3]
         );
-        assert_eq!(GetDataObject::PwStatusBytes.tag(), &[0xC4]);
-        assert_eq!(GetDataObject::Fingerprints.tag(), &[0xC5]);
-        assert_eq!(GetDataObject::CAFingerprints.tag(), &[0xC6]);
-        assert_eq!(GetDataObject::KeyGenerationDates.tag(), &[0xCD]);
-        assert_eq!(GetDataObject::KeyInformation.tag(), &[0xDE]);
-        assert_eq!(GetDataObject::UifCds.tag(), &[0xD6]);
-        assert_eq!(GetDataObject::UifDec.tag(), &[0xD7]);
-        assert_eq!(GetDataObject::UifAut.tag(), &[0xD8]);
-        assert_eq!(GetDataObject::DigitalSignatureCounter.tag(), &[0x93]);
-        assert_eq!(GetDataObject::KdfDo.tag(), &[0xF9]);
-        assert_eq!(GetDataObject::AlgorithmInformation.tag(), &[0xFA]);
-        assert_eq!(GetDataObject::SecureMessagingCertificate.tag(), &[0xFB]);
-        assert_eq!(GetDataObject::ApplicationIdentifier.tag(), &[0x4F]);
-        assert_eq!(GetDataObject::LoginData.tag(), &[0x5E]);
+        assert_eq!(GetDataObject::PwStatusBytes.tag().as_slice(), &[0xC4]);
+        assert_eq!(GetDataObject::Fingerprints.tag().as_slice(), &[0xC5]);
+        assert_eq!(GetDataObject::CAFingerprints.tag().as_slice(), &[0xC6]);
+        assert_eq!(GetDataObject::KeyGenerationDates.tag().as_slice(), &[0xCD]);
+        assert_eq!(GetDataObject::KeyInformation.tag().as_slice(), &[0xDE]);
+        assert_eq!(GetDataObject::UifCds.tag().as_slice(), &[0xD6]);
+        assert_eq!(GetDataObject::UifDec.tag().as_slice(), &[0xD7]);
+        assert_eq!(GetDataObject::UifAut.tag().as_slice(), &[0xD8]);
+        assert_eq!(
+            GetDataObject::DigitalSignatureCounter.tag().as_slice(),
+            &[0x93]
+        );
+        assert_eq!(GetDataObject::KdfDo.tag().as_slice(), &[0xF9]);
+        assert_eq!(
+            GetDataObject::AlgorithmInformation.tag().as_slice(),
+            &[0xFA]
+        );
+        assert_eq!(
+            GetDataObject::SecureMessagingCertificate.tag().as_slice(),
+            &[0xFB]
+        );
+        assert_eq!(
+            GetDataObject::ApplicationIdentifier.tag().as_slice(),
+            &[0x4F]
+        );
+        assert_eq!(GetDataObject::LoginData.tag().as_slice(), &[0x5E]);
     }
 
     // See https://www.emvco.com/wp-content/uploads/2017/05/EMV_v4.3_Book_3_Application_Specification_20120607062110791.pdf
@@ -1323,13 +1363,18 @@ mod tests {
             GetDataObject::KdfDo,
             GetDataObject::AlgorithmInformation,
             GetDataObject::SecureMessagingCertificate,
+            GetDataObject::PrivateUse1,
+            GetDataObject::PrivateUse2,
+            GetDataObject::PrivateUse3,
+            GetDataObject::PrivateUse4,
         ];
         for o in GetDataObject::iter_all() {
             if filter.contains(&o) {
                 continue;
             }
 
-            let constructed_byte = (o.tag()[0] & 0b00100000) == 0b00100000;
+            println!("{o:?}");
+            let constructed_byte = (o.tag().as_slice()[0] & 0b00100000) == 0b00100000;
             let contructed_manual = o.into_simple().is_err();
             assert_eq!(
                 constructed_byte,
@@ -1367,7 +1412,7 @@ mod tests {
     fn constructed_dos_tlv() {
         dev_vpicc::virt::with_ram_client("constructed_dos_tlv", |client| {
             use crate::state::State;
-            use crate::tlv::*;
+            use iso7816::tlv::*;
             let mut backend = crate::backend::Backend::new(client);
             let mut reply: heapless::Vec<u8, 1024> = Default::default();
             let mut state = State::default();
@@ -1390,7 +1435,7 @@ mod tests {
             get_data(
                 context,
                 GetDataMode::Even,
-                Tag(DataObject::ApplicationRelatedData as u16),
+                Tag::from_u16(DataObject::ApplicationRelatedData as u16),
             )
             .unwrap();
             let top: &[(DataObject, &[u8])] = &[
@@ -1402,7 +1447,7 @@ mod tests {
             ];
 
             for (tag, data) in top {
-                let res = get_do(&[*tag as u16], &reply).unwrap();
+                let res = get_data_object(&[tag.tag()], &reply).unwrap();
                 assert_eq!(res, *data, "got {res:x?}, expected {data:x?}")
             }
 
@@ -1441,8 +1486,8 @@ mod tests {
                 (DataObject::UifAut, &hex!("00 20")),
             ];
             for (tag, data) in nested {
-                let res = get_do(
-                    &[DataObject::DiscretionaryDataObjects as u16, *tag as u16],
+                let res = get_data_object(
+                    &[DataObject::DiscretionaryDataObjects.tag(), tag.tag()],
                     &reply,
                 )
                 .unwrap();

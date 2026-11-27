@@ -7,12 +7,12 @@ use trussed_core::types::{KeyId, KeySerialization, Location, Mechanism, StorageA
 
 use crate::card::LoadedContext;
 use crate::state::KeyOrigin;
-use crate::tlv::get_do;
 use crate::types::*;
+use iso7816::tlv::{get_data_object, take_len, Tag};
 
-const PRIVATE_KEY_TEMPLATE_DO: u16 = 0x4D;
-const CARDHOLDER_PRIVATE_KEY_TEMPLATE_DO: u16 = 0x7F48;
-const CONCATENATION_KEY_DATA_DO: u16 = 0x5F48;
+const PRIVATE_KEY_TEMPLATE_DO: Tag = Tag::from_u16(0x4D);
+const CARDHOLDER_PRIVATE_KEY_TEMPLATE_DO: Tag = Tag::from_u16(0x7F48);
+const CONCATENATION_KEY_DATA_DO: Tag = Tag::from_u16(0x5F48);
 
 #[cfg(feature = "rsa")]
 use trussed_rsa_types::RsaImportFormat;
@@ -21,7 +21,7 @@ use trussed_rsa_types::RsaImportFormat;
 pub fn put_private_key_template<T: crate::card::Client>(
     ctx: LoadedContext<'_, T>,
 ) -> Result<(), Status> {
-    let data = get_do(&[PRIVATE_KEY_TEMPLATE_DO], ctx.data).ok_or_else(|| {
+    let data = get_data_object(&[PRIVATE_KEY_TEMPLATE_DO], ctx.data).ok_or_else(|| {
         warn!("Got put private key template without 4D DO");
         Status::IncorrectDataParameter
     })?;
@@ -161,10 +161,9 @@ fn put_ec<T: crate::card::Client>(
     ctx: LoadedContext<'_, T>,
     curve: CurveAlgo,
 ) -> Result<Option<(KeyId, KeyId)>, Status> {
-    use crate::tlv::take_len;
     debug!("Importing key for algo {curve:?}");
 
-    let cardholder_do = get_do(
+    let cardholder_do = get_data_object(
         &[PRIVATE_KEY_TEMPLATE_DO, CARDHOLDER_PRIVATE_KEY_TEMPLATE_DO],
         ctx.data,
     )
@@ -193,7 +192,7 @@ fn put_ec<T: crate::card::Client>(
         return Err(Status::IncorrectDataParameter);
     };
 
-    let key_data = get_do(
+    let key_data = get_data_object(
         &[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO],
         ctx.data,
     )
@@ -259,10 +258,9 @@ fn put_ec<T: crate::card::Client>(
 
 #[cfg(feature = "rsa")]
 fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat<'_>> {
-    use crate::tlv::take_len;
-    const TEMPLATE_DO: u16 = 0x7F48;
+    const TEMPLATE_DO: Tag = Tag::from_u16(0x7F48);
 
-    let mut template = get_do(&[PRIVATE_KEY_TEMPLATE_DO, TEMPLATE_DO], data)?;
+    let mut template = get_data_object(&[PRIVATE_KEY_TEMPLATE_DO, TEMPLATE_DO], data)?;
     let mut res = [(0, 0); 6];
     let mut acc = 0;
     for i in 0..3 {
@@ -279,7 +277,7 @@ fn parse_rsa_template(data: &[u8]) -> Option<RsaImportFormat<'_>> {
         acc += size;
         template = d;
     }
-    let key_data = get_do(&[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO], data)?;
+    let key_data = get_data_object(&[PRIVATE_KEY_TEMPLATE_DO, CONCATENATION_KEY_DATA_DO], data)?;
     Some(RsaImportFormat {
         e: key_data.get(res[0].0..res[0].1)?,
         p: key_data.get(res[1].0..res[1].1)?,

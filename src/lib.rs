@@ -51,7 +51,6 @@ mod card;
 mod command;
 mod error;
 mod state;
-mod tlv;
 mod types;
 mod utils;
 
